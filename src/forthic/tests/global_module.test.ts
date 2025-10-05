@@ -2,7 +2,7 @@ import { Interpreter } from "../interpreter";
 import {
   InvalidVariableNameError,
   UnknownWordError,
-  UnknownScreenError,
+  // Phase 5: UnknownScreenError removed (screens removed in Phase 0)
   UnknownModuleError,
   StackUnderflowError,
   MissingSemicolonError,
@@ -2049,16 +2049,7 @@ test("ADD-DAYS", async () => {
 });
 
 
-test("Unknown screen", async () => {
-  try {
-    await interp.run("'garbage' LOAD-SCREEN");
-  } catch (e) {
-    expect(e).toBeInstanceOf(WordExecutionError);
-    const root_error = e.getError();
-    expect(root_error).toBeInstanceOf(UnknownScreenError);
-    expect(root_error.getScreenName()).toEqual("garbage");
-  }
-})
+// Phase 5: "Unknown screen" test removed (screens infrastructure removed in Phase 0)
 
 test("Unknown word", async () => {
   try {
