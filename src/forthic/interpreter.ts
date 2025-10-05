@@ -1,18 +1,26 @@
 import { TokenType, Token, Tokenizer, CodeLocation } from "./tokenizer";
 import { Module, Word, PushValueWord, DefinitionWord } from "./module";
 import { PositionedString } from "./tokenizer";
-// Phase 7: Verified error imports - all are used in this file
 import {
-  UnknownWordError,        // Used in handle_word_token (line ~640)
-  UnknownModuleError,      // Used in find_module (line ~353)
-  StackUnderflowError,     // Used in stack_pop (line ~373)
-  UnknownTokenError,       // Used in handle_token (line ~553)
-  MissingSemicolonError,   // Used in handle_start_definition_token & handle_start_memo_token (lines ~599, 611)
-  ExtraSemicolonError,     // Used in handle_end_definition_token (line ~622)
-  ModuleError,             // Used in run_module_code (line ~460)
-  TooManyAttemptsError,    // Used in execute_with_recovery (line ~307)
+  UnknownWordError,
+  UnknownModuleError,
+  StackUnderflowError,
+  UnknownTokenError,
+  MissingSemicolonError,
+  ExtraSemicolonError,
+  ModuleError,
+  TooManyAttemptsError,
 } from "./errors";
 import { Temporal } from "temporal-polyfill";
+import { LiteralHandler, to_bool, to_float, to_int, to_time, to_literal_date, to_zoned_datetime } from "./literals";
+import { CoreModule } from "./modules/core_module";
+import { ArrayModule } from "./modules/array_module";
+import { RecordModule } from "./modules/record_module";
+import { StringModule } from "./modules/string_module";
+import { MathModule } from "./modules/math_module";
+import { BooleanModule } from "./modules/boolean_module";
+import { JsonModule } from "./modules/json_module";
+import { DateTimeModule } from "./modules/datetime_module";
 
 type Timestamp = {
   label: string;
@@ -83,6 +91,34 @@ export class Stack {
 
   constructor(items: any[] = []) {
     this.items = items;
+
+    // Return a Proxy to support array indexing
+    return new Proxy(this, {
+      get(target, prop) {
+        // If it's a number or string that looks like a number, treat as array index
+        if (typeof prop === 'string' && /^\d+$/.test(prop)) {
+          const index = parseInt(prop, 10);
+          return target.items[index];
+        }
+        // Otherwise return the property from the target object
+        return target[prop as keyof Stack];
+      },
+      set(target, prop, value) {
+        // If it's a number or string that looks like a number, set array index
+        if (typeof prop === 'string' && /^\d+$/.test(prop)) {
+          const index = parseInt(prop, 10);
+          target.items[index] = value;
+          return true;
+        }
+        // Don't allow setting readonly properties like 'length'
+        if (prop === 'length') {
+          return false;
+        }
+        // Otherwise set the property on the target object (using any to bypass type checking)
+        (target as any)[prop] = value;
+        return true;
+      }
+    });
   }
 
   get_items(): any[] {
@@ -119,17 +155,15 @@ export class Stack {
     return this.items.length;
   }
 
-  // Phase 3: Duplicate stack with a shallow copy of items
+  // Duplicate stack with a shallow copy of items
   dup(): Stack {
     return new Stack(this.items.slice());
   }
 }
 
 export class Interpreter {
-  // Phase 0 & 1: Clean field declarations
-  // EXCLUDED: timestamp_id, should_stop, screens, global_module
   private timezone: Temporal.TimeZoneLike;
-  private stack: Stack; // Use Stack class directly instead of any[]
+  private stack: Stack;
   private app_module: Module;
   private module_stack: Module[];
   private registered_modules: { [key: string]: Module };
@@ -150,11 +184,9 @@ export class Interpreter {
   private streaming_token_index: number = 0;
   private stream: boolean = false;
   private previous_delta_length: number = 0;
-  private validation_mode: boolean = false;
+  private literal_handlers: LiteralHandler[];
 
   constructor(modules: Module[] = [], timezone: Temporal.TimeZoneLike = "UTC") {
-    // Phase 0: No timestamp_id, no screens
-    // Phase 1: Use Stack class directly
     this.timezone = timezone;
     this.stack = new Stack(); // Use Stack class instead of []
 
@@ -162,15 +194,13 @@ export class Interpreter {
     this.maxAttempts = 3;
     this.handleError = undefined;
 
-    // Phase 0: No global_module hardcoded here
-    this.app_module = new Module("", this);
+    this.app_module = new Module("");
+    this.app_module.set_interp(this);
     this.module_stack = [this.app_module];
     this.registered_modules = {};
     this.is_compiling = false;
-    // Phase 0: No should_stop
     this.is_memo_definition = false;
     this.cur_definition = null;
-    // Phase 0: No screens = {}
 
     // Module flags
     this.default_module_flags = {};
@@ -185,16 +215,12 @@ export class Interpreter {
     this.start_profile_time = null;
     this.timestamps = [];
 
+    // Literal handlers
+    this.literal_handlers = [];
+    this.register_standard_literals();
+
     // If modules are provided, import them unprefixed as a convenience
     this.import_modules(modules);
-  }
-
-  set_validation_mode(validation_mode: boolean) {
-    this.validation_mode = validation_mode;
-  }
-
-  get_validation_mode(): boolean {
-    return this.validation_mode;
   }
 
   get_timezone(): Temporal.TimeZoneLike {
@@ -281,7 +307,6 @@ export class Interpreter {
     this.string_location = undefined;
   }
 
-  // Phase 0: No get_screen_forthic() method (screens removed)
 
   async run(
     string: string,
@@ -336,8 +361,6 @@ export class Interpreter {
       if (token.type === TokenType.EOS) {
         break;
       }
-      // Phase 0: Removed should_stop check and debug skip logic
-
       // eslint-disable-next-line no-constant-condition
     } while (true);
     return true; // Done executing
@@ -393,7 +416,6 @@ export class Interpreter {
     return result;
   }
 
-  // Phase 3: Accessor methods for Stack (tests use these)
   get_stack(): Stack {
     return this.stack;
   }
@@ -443,7 +465,6 @@ export class Interpreter {
     }
   }
 
-  // Phase 2: Support for IMPORT-MODULES word (unprefixed by default)
   // Transforms simple module names to unprefixed imports: "math" -> ["math", ""]
   // Preserves explicit prefix specifications: ["math", "m"] -> ["math", "m"]
   use_modules_unprefixed(names: any[]) {
@@ -470,15 +491,82 @@ export class Interpreter {
     this.module_stack_pop();
   }
 
+  // ======================
+  // Literal Handlers
+
+  /**
+   * Register standard literal handlers
+   * Order matters: more specific handlers first
+   */
+  private register_standard_literals(): void {
+    this.literal_handlers = [
+      to_bool,                              // TRUE, FALSE
+      to_float,                             // 3.14
+      to_zoned_datetime(this.timezone),     // 2020-06-05T10:15:00Z
+      to_literal_date(this.timezone),       // 2020-06-05, YYYY-MM-DD
+      to_time,                              // 9:00, 11:30 PM
+      to_int,                               // 42
+    ];
+  }
+
+  /**
+   * Register a custom literal handler
+   * Handlers are checked in registration order
+   */
+  register_literal_handler(handler: LiteralHandler): void {
+    this.literal_handlers.push(handler);
+  }
+
+  /**
+   * Unregister a literal handler
+   */
+  unregister_literal_handler(handler: LiteralHandler): void {
+    const index = this.literal_handlers.indexOf(handler);
+    if (index > -1) {
+      this.literal_handlers.splice(index, 1);
+    }
+  }
+
+  /**
+   * Try to parse string as a literal value
+   * Returns PushValueWord if successful, null otherwise
+   */
+  find_literal_word(name: string): Word | null {
+    for (const handler of this.literal_handlers) {
+      const value = handler(name);
+      if (value !== null) {
+        return new PushValueWord(name, value);
+      }
+    }
+    return null;
+  }
+
+  // ======================
+  // Find Word
+
   find_word(name: string): Word {
+    // 1. Check module stack (dictionary words + variables)
     let result = null;
     for (let i = this.module_stack.length - 1; i >= 0; i--) {
       const m = this.module_stack[i];
       result = m.find_word(name);
       if (result) break;
     }
-    // Phase 0: No special global_module fallback
-    // Words must be in module stack
+
+    // 2. Check literal handlers as fallback
+    if (!result) {
+      result = this.find_literal_word(name);
+    }
+
+    // 3. Throw error if still not found
+    if (!result) {
+      throw new UnknownWordError(
+        this.get_top_input_string(),
+        name,
+        this.get_string_location(),
+      );
+    }
+
     return result;
   }
 
@@ -549,6 +637,12 @@ export class Interpreter {
     else if (token.type == TokenType.DOT_SYMBOL) await this.handle_dot_symbol_token(token);
     else if (token.type == TokenType.WORD) await this.handle_word_token(token);
     else if (token.type == TokenType.EOS) {
+      if (this.is_compiling) {
+        throw new MissingSemicolonError(
+          this.get_top_input_string(),
+          this.previous_token?.location,
+        );
+      }
       return;
     } else {
       throw new UnknownTokenError(
@@ -641,16 +735,8 @@ export class Interpreter {
   }
 
   async handle_word_token(token: Token) {
-    const word = this.find_word(token.string);
-    if (!word) {
-      throw new UnknownWordError(
-        this.get_top_input_string(),
-        token.string,
-        token.location,
-      );
-    }
+    const word = this.find_word(token.string); // Throws UnknownWordError if not found
     await this.handle_word(word, token.location);
-    return;
   }
 
   async handle_word(word: Word, location: CodeLocation | null = null) {
@@ -658,7 +744,6 @@ export class Interpreter {
       word.set_location(location);
       this.cur_definition.add_word(word);
     } else {
-      if (this.validation_mode) return;
       this.count_word(word);
       await word.execute(this);
     }
@@ -771,7 +856,6 @@ function findLastWordOrEOS(tokens: Token[]): number {
   );
 }
 
-// Phase 8: Type-safe internal interface for dup_interpreter
 // This interface exposes private fields needed for duplication
 interface InterpreterInternal {
   app_module: Module;
@@ -781,11 +865,11 @@ interface InterpreterInternal {
   handleError?: HandleErrorFunction;
 }
 
-// Phase 4: Improved dup_interpreter - use Module.copy() to preserve module_prefixes
-// Phase 8: Uses typed interface instead of 'any' for better type safety
 export function dup_interpreter(interp: Interpreter): Interpreter {
   const source = interp as unknown as InterpreterInternal;
-  const result_interp = new Interpreter([], interp.get_timezone());
+  // Create new interpreter of the same type as the source
+  const constructor = Object.getPrototypeOf(interp).constructor;
+  const result_interp = new constructor([], interp.get_timezone());
   const target = result_interp as unknown as InterpreterInternal;
 
   // Use copy() instead of dup() to preserve module_prefixes
@@ -803,8 +887,48 @@ export function dup_interpreter(interp: Interpreter): Interpreter {
     target.handleError = source.handleError;
   }
 
-  // Phase 0: No screens copy
-  // Phase 0: No parent_interp reference
-
   return result_interp;
+}
+
+/**
+ * Interpreter - Full-featured interpreter with standard library
+ *
+ * Extends BareInterpreter and automatically imports standard modules:
+ * - CoreModule: Stack operations, variables, module system, control flow
+ * - ArrayModule: Array/collection operations
+ *
+ * For most use cases, use this class. Use BareInterpreter if you need
+ * full control over which modules are loaded.
+ */
+export class StandardInterpreter extends Interpreter {
+  constructor(modules: Module[] = [], timezone: Temporal.TimeZoneLike = "UTC") {
+    // Don't pass modules to super - we'll import them after stdlib
+    super([], timezone);
+
+    // Import standard library modules FIRST (checked last during lookup)
+    // This allows user modules to shadow stdlib words
+    this.import_standard_library();
+
+    // Import user modules AFTER stdlib (checked first during lookup)
+    this.import_modules(modules);
+  }
+
+  private import_standard_library() {
+    const stdlib = [
+      new CoreModule(),
+      new ArrayModule(),
+      new RecordModule(),
+      new StringModule(),
+      new MathModule(),
+      new BooleanModule(),
+      new JsonModule(),
+      new DateTimeModule(),
+    ];
+
+    // Import unprefixed at the BOTTOM of module stack
+    // This ensures they're checked LAST during find_word()
+    for (const module of stdlib) {
+      this.import_module(module, "");
+    }
+  }
 }

@@ -1,4 +1,4 @@
-import { Interpreter } from "../interpreter";
+import { StandardInterpreter } from "../interpreter";
 import { Module } from "../module";
 import { ForthicError, UnknownWordError, WordExecutionError, MissingSemicolonError, ExtraSemicolonError, get_error_description, StackUnderflowError } from "../errors";
 
@@ -16,7 +16,7 @@ function printError(e: Error) {
 }
 
 test("Unknown word error", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   const forthic = "1 2 3 GARBAGE +"
   try {
 
@@ -32,7 +32,7 @@ test("Unknown word error", async () => {
 });
 
 test("Stack underflow error", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   const forthic = "1 + 3 2 *"
   try {
     await interp.run(forthic);
@@ -47,7 +47,7 @@ test("Stack underflow error", async () => {
 });
 
 test("Word execution error", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   const forthic = `: ADD   +;
   1 ADD 2 *`
   try {
@@ -63,7 +63,7 @@ test("Word execution error", async () => {
 });
 
 test("Missing semicolon error", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   const forthic = `: ADD   +
   : MUL   *;`
   try {
@@ -79,7 +79,7 @@ test("Missing semicolon error", async () => {
 });
 
 test("Extra semicolon error", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   const forthic = `: ADD   +;
 [1 2 3];`
   try {
@@ -96,7 +96,7 @@ test("Extra semicolon error", async () => {
 
 
 test("Errors in MAP", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   const forthic = `: ADD   +;
   [1 2 3] "ADD" MAP`
   try {
@@ -114,7 +114,7 @@ test("Errors in MAP", async () => {
 // TODO: See if we can wrap the execution of a word in a ForthicError
 
 test("Module error", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   interp.register_module(new TestModule(interp));
   await interp.run(`[ "test" ] USE-MODULES`)
   const forthic = `
@@ -136,14 +136,14 @@ test("Module error", async () => {
 
 // Module that throws an error
 class TestModule extends Module {
-  constructor(interp: Interpreter) {
+  constructor(interp: StandardInterpreter) {
     super("test", interp);
 
     this.add_module_word("TEST", this.word_TEST.bind(this));
   }
 
   // ( -- )
-  async word_TEST(_interp: Interpreter) {
+  async word_TEST(_interp: StandardInterpreter) {
     throw new Error("Something horrible happened");
   }
 }

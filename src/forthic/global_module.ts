@@ -1,8 +1,8 @@
 import { Module } from "./module";
-import { Interpreter } from "./interpreter";
+import { StandardInterpreter } from "./interpreter";
 
 export class GlobalModule extends Module {
-  constructor(interp: Interpreter) {
+  constructor(interp: StandardInterpreter) {
     super("global", interp);
   }
 }

@@ -6,6 +6,8 @@
     "lib": ["ES2023", "DOM"],
     "moduleResolution": "node",
     "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
       "@forthix/utils": ["node_modules/@forthix/utils"]

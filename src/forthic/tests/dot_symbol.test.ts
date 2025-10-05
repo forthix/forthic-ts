@@ -1,7 +1,7 @@
-import { Interpreter } from "../interpreter";
+import { StandardInterpreter } from "../interpreter";
 
 test("Dot symbols work as strings in interpreter", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
 
   // Test that dot symbols are pushed as strings onto the stack
   await interp.run(".symbol .test-123");
@@ -11,7 +11,7 @@ test("Dot symbols work as strings in interpreter", async () => {
 });
 
 test("Short dot symbols (.s, .S) still work as existing words", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
 
   // These should trigger the debugging words, not be treated as symbols
   let error1: Error | null = null;
@@ -35,7 +35,7 @@ test("Short dot symbols (.s, .S) still work as existing words", async () => {
 });
 
 test("Dot symbols mixed with regular tokens", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
 
   await interp.run('[ .key1 "value1" .key2 "value2" ]');
 
@@ -44,7 +44,7 @@ test("Dot symbols mixed with regular tokens", async () => {
 });
 
 test("Minimum length boundary cases", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
 
   // .ab should be a dot symbol (minimum length)
   await interp.run(".ab");

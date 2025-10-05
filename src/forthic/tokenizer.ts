@@ -159,7 +159,7 @@ export class Tokenizer {
   }
 
   advance_position(num_chars: number): number {
-    let i;
+    let i: number;
     if (num_chars >= 0) {
       for (i = 0; i < num_chars; i++) {
         if (this.input_string[this.input_pos] === "\n") {
@@ -281,8 +281,9 @@ export class Tokenizer {
       if (this.is_whitespace(char)) continue;
       else if (this.is_quote(char)) {
         throw new InvalidWordNameError(
-          "Definition names can't have quotes in them",
+          this.input_string,
           this.get_token_location(),
+          "Definition names can't have quotes in them",
         );
       } else {
         this.advance_position(-1);
@@ -291,8 +292,9 @@ export class Tokenizer {
     }
 
     throw new InvalidWordNameError(
-      "Got EOS in START_DEFINITION",
+      this.input_string,
       this.get_token_location(),
+      "Got EOS in START_DEFINITION",
     );
   }
 
@@ -304,8 +306,9 @@ export class Tokenizer {
       if (this.is_whitespace(char)) continue;
       else if (this.is_quote(char))
         throw new InvalidWordNameError(
-          "Memo names can't have quotes in them",
+          this.input_string,
           this.get_token_location(),
+          "Memo names can't have quotes in them",
         );
       else {
         this.advance_position(-1);
@@ -314,8 +317,9 @@ export class Tokenizer {
     }
 
     throw new InvalidWordNameError(
-      "Got EOS in START_MEMO",
+      this.input_string,
       this.get_token_location(),
+      "Got EOS in START_MEMO",
     );
   }
 
@@ -326,14 +330,16 @@ export class Tokenizer {
       if (this.is_whitespace(char)) break;
       if (this.is_quote(char)) {
         throw new InvalidWordNameError(
-          "Definition names can't have quotes in them",
+          this.input_string,
           this.get_token_location(),
+          "Definition names can't have quotes in them",
         );
       }
       if (["[", "]", "{", "}"].indexOf(char) >= 0) {
         throw new InvalidWordNameError(
-          `Definition names can't have '${char}' in them`,
+          this.input_string,
           this.get_token_location(),
+          `Definition names can't have '${char}' in them`,
         );
       }
       this.token_string += char;

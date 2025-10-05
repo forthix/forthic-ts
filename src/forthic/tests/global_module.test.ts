@@ -1,4 +1,4 @@
-import { Interpreter } from "../interpreter";
+import { StandardInterpreter } from "../interpreter";
 import {
   InvalidVariableNameError,
   UnknownWordError,
@@ -11,11 +11,11 @@ import {
 } from "../errors";
 import { Temporal } from "temporal-polyfill";
 
-let interp: Interpreter;
+let interp: StandardInterpreter;
 let interp_any: any;
 
 beforeEach(async () => {
-  interp = new Interpreter([], "America/Los_Angeles");
+  interp = new StandardInterpreter([], "America/Los_Angeles");
   interp_any = interp as any;
 });
 
@@ -26,10 +26,10 @@ test("Literal values", async () => {
   expect(interp_any.stack[2]).toBe(2);
   expect(interp_any.stack[3]).toBe(3.14);
   expect(interp_any.stack[4]).toEqual(Temporal.PlainDate.from({
-      year: 2020,
-      month: 6,
-      day: 5,
-    }),
+    year: 2020,
+    month: 6,
+    day: 5,
+  }),
   );
 });
 
@@ -144,30 +144,30 @@ test("Auto-create variables with string names", async () => {
   await interp.run('"hello" "autovar1" !');
   await interp.run('autovar1 @');
   expect(interp.stack_pop()).toBe("hello");
-  
+
   // Verify variable was created in app module
   const autovar1 = (interp as any).app_module.variables["autovar1"];
   expect(autovar1).toBeDefined();
   expect(autovar1.get_value()).toBe("hello");
-  
+
   // Test @ with string variable name (auto-creates with null)
   await interp.run('"autovar2" @');
   expect(interp.stack_pop()).toBe(null);
-  
+
   // Verify variable was created
   const autovar2 = (interp as any).app_module.variables["autovar2"];
   expect(autovar2).toBeDefined();
   expect(autovar2.get_value()).toBe(null);
-  
+
   // Test !@ with string variable name (auto-creates and returns value)
   await interp.run('"world" "autovar3" !@');
   expect(interp.stack_pop()).toBe("world");
-  
+
   // Verify variable was created with correct value
   const autovar3 = (interp as any).app_module.variables["autovar3"];
   expect(autovar3).toBeDefined();
   expect(autovar3.get_value()).toBe("world");
-  
+
   // Test that existing variables still work with strings
   await interp.run('"updated" "autovar1" !');
   await interp.run('"autovar1" @');
@@ -179,12 +179,12 @@ test("Auto-create variables validation", async () => {
   expect(async () => {
     await interp.run('"value" "__invalid" !');
   }).rejects.toThrow();
-  
+
   // Test that validation works for @ as well
   expect(async () => {
     await interp.run('"__invalid2" @');
   }).rejects.toThrow();
-  
+
   // Test that validation works for !@ as well
   expect(async () => {
     await interp.run('"value" "__invalid3" !@');
@@ -219,7 +219,7 @@ test("DATE>STR", async () => {
 });
 
 test("REC", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   await interp.run(`
     [ ["alpha" 2] ["beta" 3] ["gamma" 4] ] REC
   `);
@@ -232,7 +232,7 @@ test("REC", async () => {
 });
 
 test("REC@", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   await interp.run(`
     [ ["alpha" 2] ["beta" 3] ["gamma" 4] ] REC
     'beta' REC@
@@ -247,7 +247,7 @@ test("REC@", async () => {
 });
 
 test("Nested REC@", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   await interp.run(`
     [ ["alpha" [["alpha1" 20]] REC]
       ["beta" [["beta1"  30]] REC]
@@ -273,7 +273,7 @@ test("Nested REC@", async () => {
 
 test("REC!", async () => {
   // Case: Set value on a record
-  let interp = new Interpreter();
+  let interp = new StandardInterpreter();
   await interp.run(`
     [["alpha" 2] ["beta" 3] ["gamma" 4]] REC
     700 'beta' <REC! 'beta' REC@
@@ -282,7 +282,7 @@ test("REC!", async () => {
   expect(interp.stack_pop()).toBe(700);
 
   // Case: Set a nested value
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     [] REC "Green" ["2021-03-22" "TEST-1234"] <REC! ["2021-03-22" "TEST-1234"] REC@
   `);
@@ -290,7 +290,7 @@ test("REC!", async () => {
   expect(interp.stack_pop()).toBe("Green");
 
   // Case: Set value on a NULL
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     NULL 700 'beta' <REC! 'beta' REC@
   `);
@@ -356,7 +356,7 @@ test("Delete", async () => {
 });
 
 test("Relabel", async () => {
-  let interp = new Interpreter();
+  let interp = new StandardInterpreter();
   await interp.run(`
     [ "a" "b" "c" ] [0 2] [25 23] RELABEL
   `);
@@ -365,7 +365,7 @@ test("Relabel", async () => {
   const array = interp.stack_pop();
   expect(array).toEqual(["c", "a"]);
 
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     [["a" 1] ["b" 2] ["c" 3]] REC  ["a" "c"] ["alpha" "gamma"] RELABEL
   `);
@@ -410,7 +410,7 @@ test("Group by field", async () => {
   expect(grouped["user2"].length).toBe(3);
 
   // Test grouping a record
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
 
   // First, set up the record
   const records = makeRecords();
@@ -451,7 +451,7 @@ test("Group by", async () => {
   expect(grouped["user2"].length).toBe(3);
 
   // Test grouping a record
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
 
   // First, set up the record
   const records = makeRecords();
@@ -485,7 +485,7 @@ test("Group by with key", async () => {
   expect(grouped[2].length).toBe(2);
 
   // Test grouping a record
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
 
   // First, set up the record
   const records = makeRecords();
@@ -544,7 +544,7 @@ test("Groups of record", async () => {
 
 test("Groups of using record", async () => {
   // Test grouping a record
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
 
   // First, set up the record
   const records = makeRecords();
@@ -618,7 +618,7 @@ test("MAP", async () => {
 });
 
 test("MAP depth", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   await interp.run(`
     : k1-REC   [
       ["l1"  [["m"  2]] REC]
@@ -645,7 +645,7 @@ test("MAP depth", async () => {
 });
 
 test("MAP depth over array", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   await interp.run(`
     : DEEP-LIST [ [ [[["m"  2]] REC [["m"  3]] REC] ] [ [[["m"  3]] REC [["m"  4]] REC] ] ];
 
@@ -656,7 +656,7 @@ test("MAP depth over array", async () => {
 });
 
 test("MAP depth over array of maps", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   await interp.run(`
     : DEEP-LIST [ [ [2 3] ] [ [3 4] ] ];
 
@@ -667,7 +667,7 @@ test("MAP depth over array of maps", async () => {
 });
 
 test("MAP depth with error", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   await interp.run(`
     : k1-REC   [
       ["l1"  [["m"  2]] REC]
@@ -896,7 +896,7 @@ test("LENGTH", async () => {
   expect(interp.stack_pop()).toBe(3);
 
   // Test record
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     [['a' 1] ['b' 2]] REC LENGTH
   `);
@@ -933,7 +933,7 @@ test("SLICE", async () => {
   expect(stack[5]).toEqual(["f", "g", null, null]);
 
   // Slice records
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     ['x'] VARIABLES
     [['a' 1] ['b' 2] ['c' 3]] REC x !
@@ -960,7 +960,7 @@ test("DIFFERENCE", async () => {
   expect(stack[1]).toEqual(["d"]);
 
   // Records
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     ['x' 'y'] VARIABLES
     [['a' 1] ['b' 2] ['c' 3]] REC x !
@@ -986,7 +986,7 @@ test("INTERSECTION", async () => {
   expect(stack[0].sort()).toEqual(["a", "c"]);
 
   // Records
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     ['x' 'y'] VARIABLES
     [['a' 1] ['b' 2] ['f' 3]] REC x !
@@ -1009,7 +1009,7 @@ test("UNION", async () => {
   expect(stack[0].sort()).toEqual(["a", "b", "c", "d"]);
 
   // Records
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     ['x' 'y'] VARIABLES
     [['a' 1] ['b' 2] ['f' 3]] REC x !
@@ -1031,7 +1031,7 @@ test("SELECT", async () => {
   expect(stack[0]).toEqual([1, 3, 5]);
 
   // Slice records
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     [['a' 1] ['b' 2] ['c' 3]] REC  "2 MOD 0 ==" SELECT
   `);
@@ -1048,7 +1048,7 @@ test("SELECT with key", async () => {
   expect(stack[0]).toEqual([2, 5]);
 
   // Slice records
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     [['a' 1] ['b' 2] ['c' 3]] REC  "CONCAT 'c3' ==" !WITH-KEY SELECT
   `);
@@ -1065,7 +1065,7 @@ test("TAKE", async () => {
   expect(stack[0]).toEqual([0, 1, 2]);
 
   // Take records
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     [['a' 1] ['b' 2] ['c' 3]] REC  2 TAKE
   `);
@@ -1082,7 +1082,7 @@ test("TAKE with rest", async () => {
   expect(stack[1]).toEqual([3, 4, 5, 6]);
 
   // Take records
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     [['a' 1] ['b' 2] ['c' 3]] REC  2 !PUSH-REST TAKE
   `);
@@ -1099,7 +1099,7 @@ test("DROP", async () => {
   expect(stack[0]).toEqual([4, 5, 6]);
 
   // Drop records
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     [['a' 1] ['b' 2] ['c' 3]] REC  2 DROP
   `);
@@ -1210,7 +1210,7 @@ test("UNPACK", async () => {
   expect(stack[2]).toBe(2);
 
   // For record
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     [['a' 1] ['b' 2] ['c' 3]] REC UNPACK
   `);
@@ -1228,7 +1228,7 @@ test("FLATTEN", async () => {
   expect(stack[0]).toEqual([0, 1, 2, 3, 4]);
 
   // For record
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     ['uno' 'alpha'] VARIABLES
     [['uno' 4] ['duo' 8]] REC uno !
@@ -1246,7 +1246,7 @@ test("FLATTEN", async () => {
 });
 
 test("FLATTEN depth", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   await interp.run(`
     [ [ [0 1] [2 3] ]
       [ [4 5]       ] ] 1 !DEPTH FLATTEN
@@ -1302,7 +1302,7 @@ test("KEY-OF", async () => {
   expect(stack[1]).toBeNull();
 
   // For record
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   await interp.run(`
     [['a' 1] ['b' 2] ['c' 3]] REC  2 KEY-OF
   `);
@@ -2071,7 +2071,7 @@ test("Unknown module", async () => {
   }
 })
 
-test ("Stack underflow", async () => {
+test("Stack underflow", async () => {
   try {
     await interp.run("POP");
   } catch (e) {
@@ -2081,7 +2081,7 @@ test ("Stack underflow", async () => {
   }
 })
 
-test ("Missing semicolon", async () => {
+test("Missing semicolon", async () => {
   try {
     await interp.run(": UNFINISHED   1 2 3  : NEW-WORD 'howdy' ;");
   } catch (e) {
@@ -2096,7 +2096,7 @@ test ("Missing semicolon", async () => {
 
 })
 
-test ("Extra semicolon error", async () => {
+test("Extra semicolon error", async () => {
   try {
     await interp.run("1 2 3 ;");
   } catch (e) {

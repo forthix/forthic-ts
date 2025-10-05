@@ -1,11 +1,11 @@
 import { UnterminatedStringError } from "../tokenizer";
-import { Interpreter } from "../interpreter";
+import { StandardInterpreter } from "../interpreter";
 import { Module } from "../module";
 describe("Interpreter.streamingRun", () => {
-  let interp: Interpreter;
+  let interp: StandardInterpreter;
 
   beforeEach(() => {
-    interp = new Interpreter();
+    interp = new StandardInterpreter();
   });
 
   test("general streaming test", async () => {
@@ -63,7 +63,7 @@ describe("Interpreter.streamingRun", () => {
   });
 
   test("multi-line stream ending with word execution using incremental streaming", async () => {
-    const interp = new Interpreter();
+    const interp = new StandardInterpreter();
 
     // Define the EMAIL word
     await interp.run(': EMAIL   "email called";');
@@ -174,7 +174,7 @@ Night brings peaceful rest""" EMAIL`;
   });
 
   test("streaming MAP with module", async () => {
-    const myInterp = new Interpreter([new SampleModule()]);
+    const myInterp = new StandardInterpreter([new SampleModule()]);
     const gen = myInterp.streamingRun(`[1 2 3] "SEND-EMAIL"`, false);
     await gen.next();
     expect(myInterp.stack_peek()).toEqual([1, 2, 3]);
@@ -343,7 +343,7 @@ Night brings peaceful rest""" EMAIL`;
 });
 
 test("Unterminated string", async () => {
-  const interp = new Interpreter();
+  const interp = new StandardInterpreter();
   const gen = interp.streamingRun(`''''`, false);
   await gen.next();
 
@@ -354,12 +354,12 @@ test("Unterminated string", async () => {
 
 test("Nested string issue", async () => {
   // Won't throw an error because we're not done yet
-  let interp = new Interpreter();
+  let interp = new StandardInterpreter();
   const gen = interp.streamingRun(`"""Reply saying "Thanks`, false);
   await gen.next();
 
   // Should now handle nested quotes correctly (no longer throws error)
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   const gen2 = interp.streamingRun(`"""Reply saying "Thanks""""`, true);
   const result = await gen2.next();
   expect(result.done).toBe(true);
@@ -372,7 +372,7 @@ class SampleModule extends Module {
   }
 
   // ( email -- )
-  async word_SEND_EMAIL(interp: Interpreter) {
+  async word_SEND_EMAIL(interp: StandardInterpreter) {
     const email = interp.stack_pop();
     interp.stack_push(`sent ${email}`);
   }

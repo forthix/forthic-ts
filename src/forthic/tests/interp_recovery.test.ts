@@ -1,4 +1,4 @@
-import { Interpreter } from "../interpreter";
+import { StandardInterpreter } from "../interpreter";
 import { IntentionalStopError } from "../errors";
 import { UnknownWordError, WordExecutionError } from "../errors";
 import { Module } from "../module";
@@ -7,13 +7,13 @@ let interp = null;
 
 // Setup
 beforeEach(async () => {
-  interp = new Interpreter();
+  interp = new StandardInterpreter();
   interp.register_module(new SampleModule(interp));
   await interp.run(`[ ["sample" ""] ] USE-MODULES`);
 });
 
 test("Continue from `.s`", async () => {
-  async function handleError(e: Error, _interp: Interpreter) {
+  async function handleError(e: Error, _interp: StandardInterpreter) {
     if (e instanceof IntentionalStopError) {
       // Simulate recovery. In this case, we're just continuing from the `.s` word
     } else {
@@ -27,7 +27,7 @@ test("Continue from `.s`", async () => {
 });
 
 test("Continue from `.s` with intervening call", async () => {
-  async function handleError(e: Error, _interp: Interpreter) {
+  async function handleError(e: Error, _interp: StandardInterpreter) {
     if (e instanceof IntentionalStopError) {
       // Simulate recovery. In this case, we're just continuing from the `.s` word
       await interp.run("");
@@ -42,7 +42,7 @@ test("Continue from `.s` with intervening call", async () => {
 });
 
 test("Simulate recovery", async () => {
-  async function handleError(e: Error, interp: Interpreter) {
+  async function handleError(e: Error, interp: StandardInterpreter) {
     if (e instanceof UnknownWordError) {
       // Simulate recovery
       interp.stack_push(2);
@@ -59,7 +59,7 @@ test("Simulate recovery", async () => {
 
 test("Simulate multiple recoveries", async () => {
   // Define error handler
-  async function handleError(e: Error, interp: Interpreter) {
+  async function handleError(e: Error, interp: StandardInterpreter) {
     if (e instanceof UnknownWordError) {
       // Simulate recovery
       interp.stack_push(2);
@@ -76,7 +76,7 @@ test("Simulate multiple recoveries", async () => {
 });
 
 test("Simulate correction", async () => {
-  async function handleError(e: Error, interp: Interpreter) {
+  async function handleError(e: Error, interp: StandardInterpreter) {
     if (e instanceof WordExecutionError) {
       if (e.getRootError() instanceof UnresolvedRecipientsError) {
         const unresolved_recipients_error =
@@ -123,7 +123,7 @@ class UnresolvedRecipientsError extends Error {
 }
 
 class SampleModule extends Module {
-  constructor(interp: Interpreter) {
+  constructor(interp: StandardInterpreter) {
     super("sample", interp);
     this.add_module_word("VALIDATE-EMAIL", this.word_VALIDATE_EMAIL.bind(this));
     this.add_module_word("SEND-EMAIL", this.word_SEND_EMAIL.bind(this));
