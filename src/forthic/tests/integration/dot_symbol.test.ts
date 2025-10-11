@@ -1,4 +1,4 @@
-import { StandardInterpreter } from "../interpreter";
+import { StandardInterpreter } from "../../interpreter";
 
 test("Dot symbols work as strings in interpreter", async () => {
   const interp = new StandardInterpreter();

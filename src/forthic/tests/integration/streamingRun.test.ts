@@ -1,6 +1,6 @@
-import { UnterminatedStringError } from "../tokenizer";
-import { StandardInterpreter } from "../interpreter";
-import { Module } from "../module";
+import { UnterminatedStringError } from "../../tokenizer";
+import { StandardInterpreter } from "../../interpreter";
+import { Module } from "../../module";
 describe("Interpreter.streamingRun", () => {
   let interp: StandardInterpreter;
 

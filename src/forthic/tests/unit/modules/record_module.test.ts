@@ -1,4 +1,4 @@
-import { StandardInterpreter } from "../interpreter";
+import { StandardInterpreter } from "../../../interpreter";
 
 let interp: StandardInterpreter;
 
@@ -157,7 +157,7 @@ test("VALUES from record", async () => {
 // Advanced Operations
 // ========================================
 
-test.skip("|REC@ - needs MAP to work", async () => {
+test("|REC@ - needs MAP to work", async () => {
   await interp.run(`
     [
       [["key" 101] ["value" "alpha"]] REC

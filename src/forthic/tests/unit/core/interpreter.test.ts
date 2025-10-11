@@ -1,9 +1,9 @@
-import { StandardInterpreter, Stack } from "../interpreter";
-import { Module } from "../module";
-import { PositionedString } from "../tokenizer";
+import { StandardInterpreter, Stack } from "../../../interpreter";
+import { Module } from "../../../module";
+import { PositionedString } from "../../../tokenizer";
 test("Initial state", () => {
   const interp = new StandardInterpreter();
-  expect((interp as any).stack).toEqual([]);
+  expect((interp as any).stack.length).toBe(0);
   expect(interp.cur_module().name).toEqual("");
 });
 
@@ -218,7 +218,7 @@ test("Stack", async () => {
 });
 
 test("Stack raw items", async () => {
-  const value = new PositionedString("Hello", { line: 1, column: 1, screen_name: "test", start_pos: 0, end_pos: 5 });
+  const value = new PositionedString("Hello", { line: 1, column: 1, source: "test", start_pos: 0, end_pos: 5 });
   const stack = new Stack([value]);
   expect(stack.get_raw_items()).toEqual([value]);
   expect(stack.get_items()).toEqual(["Hello"]);

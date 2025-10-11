@@ -1,5 +1,6 @@
 import { Module } from "../module";
 import { Interpreter } from "../interpreter";
+import { WordOptions } from "../options";
 
 // Metadata storage (per class)
 const wordMetadata = new WeakMap<any, Map<string, WordMetadata>>();
@@ -13,13 +14,14 @@ interface WordMetadata {
 }
 
 /**
- * Parse Forthic stack notation to extract input count
+ * Parse Forthic stack notation to extract input count and optional WordOptions
  * Examples:
- *   "( a:any b:any -- sum:number )" → inputCount: 2
- *   "( -- value:any )" → inputCount: 0
- *   "( items:any[] -- first:any )" → inputCount: 1
+ *   "( a:any b:any -- sum:number )" → { inputCount: 2, hasOptions: false }
+ *   "( -- value:any )" → { inputCount: 0, hasOptions: false }
+ *   "( items:any[] -- first:any )" → { inputCount: 1, hasOptions: false }
+ *   "( array:any[] [options:WordOptions] -- flat:any[] )" → { inputCount: 1, hasOptions: true }
  */
-function parseStackNotation(stackEffect: string): { inputCount: number } {
+function parseStackNotation(stackEffect: string): { inputCount: number; hasOptions: boolean } {
   // Remove parentheses and trim
   const trimmed = stackEffect.trim();
   if (!trimmed.startsWith("(") || !trimmed.endsWith(")")) {
@@ -34,12 +36,22 @@ function parseStackNotation(stackEffect: string): { inputCount: number } {
 
   const inputPart = parts[0];
   if (inputPart === "") {
-    return { inputCount: 0 };
+    return { inputCount: 0, hasOptions: false };
   }
 
+  // Check for optional [options:WordOptions] parameter
+  const hasOptions = /\[options:WordOptions\]/.test(inputPart);
+
+  // Remove optional parameter from counting
+  const withoutOptional = inputPart.replace(/\[options:WordOptions\]/g, '').trim();
+
   // Split by whitespace, count non-empty tokens
-  const inputs = inputPart.split(/\s+/).filter(s => s.length > 0);
-  return { inputCount: inputs.length };
+  const inputs = withoutOptional.split(/\s+/).filter(s => s.length > 0);
+
+  return {
+    inputCount: inputs.length,
+    hasOptions: hasOptions
+  };
 }
 
 /**
@@ -85,13 +97,29 @@ export function Word(stackEffect: string, description: string = "", customWordNa
 
     // Replace method with wrapper that handles stack marshalling
     descriptor.value = async function(this: Module, interp: Interpreter) {
-      // Pop inputs in reverse order (stack is LIFO)
       const inputs: any[] = [];
+
+      // Check for optional WordOptions FIRST (before popping regular args)
+      let options: Record<string, any> | null = null;
+      if (parsed.hasOptions && interp.get_stack().length > 0) {
+        const top = interp.stack_peek();
+        if (top instanceof WordOptions) {
+          const opts = interp.stack_pop() as WordOptions;
+          options = opts.toRecord();
+        }
+      }
+
+      // Pop required inputs in reverse order (stack is LIFO)
       for (let i = 0; i < parsed.inputCount; i++) {
         inputs.unshift(interp.stack_pop());
       }
 
-      // Call original method with popped inputs
+      // Add options as last parameter if method expects it
+      if (parsed.hasOptions) {
+        inputs.push(options || {});
+      }
+
+      // Call original method with popped inputs (+ options if present)
       const result = await originalMethod.apply(this, inputs);
 
       // Push result if not undefined (user requirement)

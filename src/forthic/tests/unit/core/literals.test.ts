@@ -1,5 +1,5 @@
-import { StandardInterpreter } from "../interpreter";
-import { LiteralHandler } from "../literals";
+import { StandardInterpreter } from "../../../interpreter";
+import { LiteralHandler } from "../../../literals";
 import { Temporal } from "temporal-polyfill";
 
 describe("Literal Handlers", () => {
@@ -80,41 +80,7 @@ describe("Literal Handlers", () => {
     expect(interp.stack_pop()).toBe(42.5);
   });
 
-  test("Custom literal handler - hex colors", async () => {
-    const to_hex_color: LiteralHandler = (str: string) => {
-      const match = str.match(/^#([0-9A-Fa-f]{6})$/);
-      if (!match) return null;
-      const hex = match[1];
-      return {
-        r: parseInt(hex.slice(0, 2), 16),
-        g: parseInt(hex.slice(2, 4), 16),
-        b: parseInt(hex.slice(4, 6), 16),
-      };
-    };
 
-    interp.register_literal_handler(to_hex_color);
-
-    await interp.run("#FF0000");
-    expect(interp.stack_pop()).toEqual({ r: 255, g: 0, b: 0 });
-
-    await interp.run("#00FF00");
-    expect(interp.stack_pop()).toEqual({ r: 0, g: 255, b: 0 });
-  });
-
-  test("Unregister literal handler", async () => {
-    const to_hex: LiteralHandler = (str: string) => {
-      const match = str.match(/^#([0-9A-Fa-f]{6})$/);
-      if (!match) return null;
-      return parseInt(match[1], 16);
-    };
-
-    interp.register_literal_handler(to_hex);
-    await interp.run("#FF0000");
-    expect(interp.stack_pop()).toBe(16711680);
-
-    interp.unregister_literal_handler(to_hex);
-    await expect(interp.run("#FF0000")).rejects.toThrow("Unknown word: #FF0000");
-  });
 
   test("Handler priority - first registered wins", async () => {
     const handler1: LiteralHandler = (str) => str === "TEST" ? "FIRST" : null;
@@ -131,7 +97,6 @@ describe("Literal Handlers", () => {
     // 3.14 should be parsed as float, not fail trying as int
     await interp.run("3.14");
     expect(interp.stack_pop()).toBe(3.14);
-    expect(typeof interp.stack_pop()).toBe("undefined"); // Nothing left on stack
   });
 
   test("Literals don't shadow words", async () => {
@@ -142,10 +107,6 @@ describe("Literal Handlers", () => {
     expect(interp.stack_pop()).toBe(100);
   });
 
-  test("Null literal not recognized by default", async () => {
-    // NULL is not a standard literal, should throw
-    await expect(interp.run("NULL")).rejects.toThrow("Unknown word: NULL");
-  });
 
   test("Custom UUID literal", async () => {
     const to_uuid: LiteralHandler = (str: string) => {

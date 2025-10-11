@@ -1,9 +1,10 @@
-import { StandardInterpreter } from "../interpreter";
+import { StandardInterpreter } from "../../../interpreter";
 import {
   InvalidVariableNameError,
   WordExecutionError
-} from "../errors";
-import { CoreModule } from "../modules/core_module";
+} from "../../../errors";
+import { CoreModule } from "../../../modules/core_module";
+import { WordOptions } from "../../../options";
 
 let interp: StandardInterpreter;
 let interp_any: any;
@@ -219,4 +220,39 @@ test("CONSOLE.LOG", async () => {
   expect(interp.stack_pop()).toBe(42);
 
   consoleSpy.mockRestore();
+});
+
+// ========================================
+// Options
+// ========================================
+
+test("~> creates WordOptions from array", async () => {
+  await interp.run(`[.depth 2 .with_key TRUE] ~>`);
+  const opts = interp.stack_pop();
+  expect(opts).toBeInstanceOf(WordOptions);
+  expect(opts.get("depth")).toBe(2);
+  expect(opts.get("with_key")).toBe(true);
+});
+
+test("~> validates even number of elements", async () => {
+  await expect(interp.run(`[.depth 2 .with_key] ~>`)).rejects.toThrow("even length");
+});
+
+test("~> validates string keys", async () => {
+  await expect(interp.run(`[123 2] ~>`)).rejects.toThrow("must be a string");
+});
+
+test("~> handles empty array", async () => {
+  await interp.run(`[] ~>`);
+  const opts = interp.stack_pop();
+  expect(opts).toBeInstanceOf(WordOptions);
+  expect(opts.keys()).toEqual([]);
+});
+
+test("~> handles multiple options", async () => {
+  await interp.run(`[.depth 3 .with_key TRUE .push_error FALSE] ~>`);
+  const opts = interp.stack_pop();
+  expect(opts.get("depth")).toBe(3);
+  expect(opts.get("with_key")).toBe(true);
+  expect(opts.get("push_error")).toBe(false);
 });

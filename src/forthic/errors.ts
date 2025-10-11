@@ -1,7 +1,7 @@
 // Error classes for Forthic interpreter
 
 export interface CodeLocationData {
-  screen_name: string;
+  source?: string;  // Source of the code (e.g., module name, file path)
   line: number;
   column: number;
   start_pos: number;
@@ -59,14 +59,25 @@ export class UnknownWordError extends ForthicError {
 
 export class WordExecutionError extends ForthicError {
   private innerError: Error;
+  private definition_location?: CodeLocationData;
 
-  constructor(message: string, error: Error, location?: CodeLocationData) {
-    super("", message, location);
+  constructor(
+    message: string,
+    error: Error,
+    call_location?: CodeLocationData,
+    definition_location?: CodeLocationData
+  ) {
+    super("", message, call_location);
     this.innerError = error;
+    this.definition_location = definition_location;
   }
 
   getError(): Error {
     return this.innerError;
+  }
+
+  getDefinitionLocation(): CodeLocationData | undefined {
+    return this.definition_location;
   }
 }
 
@@ -109,7 +120,6 @@ export class InvalidVariableNameError extends ForthicError {
   }
 }
 
-// Phase 5: UnknownScreenError removed (screens infrastructure removed in Phase 0)
 export class UnknownModuleError extends ForthicError {
   private module_name: string;
 
@@ -148,7 +158,6 @@ export class UnterminatedStringError extends ForthicError {
   }
 }
 
-// Phase 6: Additional error classes needed by Interpreter
 export class UnknownTokenError extends ForthicError {
   private token: string;
 
@@ -213,6 +222,54 @@ export class IntentionalStopError extends Error {
   }
 }
 
-export function get_error_description(code: string, error: Error): string {
-  throw new Error("Not implemented");
+export function get_error_description(forthic: string, forthicError: ForthicError): string {
+  // If don't have any extra info, just return the note
+  if (!forthic || forthic === "" || forthicError.location === undefined) {
+    return forthicError.getNote();
+  }
+
+  // Otherwise, return the note and indicate where the error occurred
+  const location = forthicError.location;
+
+  // For WordExecutionError, show both definition and call locations
+  if (forthicError instanceof WordExecutionError) {
+    const def_loc = forthicError.getDefinitionLocation();
+    if (def_loc) {
+      // Show definition location with highlighting
+      const def_line_num = def_loc.line;
+      const def_lines = forthic.split("\n").slice(0, def_line_num);
+      const def_error_line = " ".repeat(def_loc.column - 1) + "^".repeat((def_loc.end_pos || def_loc.start_pos + 1) - def_loc.start_pos);
+
+      let def_location_info = `at line ${def_line_num}`;
+      if (def_loc.source) {
+        def_location_info += ` in ${def_loc.source}`;
+      }
+
+      // Show call location with highlighting
+      const call_line_num = location.line;
+      const call_lines = forthic.split("\n").slice(0, call_line_num);
+      const call_error_line = " ".repeat(location.column - 1) + "^".repeat((location.end_pos || location.start_pos + 1) - location.start_pos);
+
+      let call_location_info = `line ${call_line_num}`;
+      if (location.source) {
+        call_location_info += ` in ${location.source}`;
+      }
+
+      return `${forthicError.getNote()} ${def_location_info}:\n\`\`\`\n${def_lines.map((line) => `${line}`).join("\n")}\n${def_error_line}\n\`\`\`\nCalled from ${call_location_info}:\n\`\`\`\n${call_lines.map((line) => `${line}`).join("\n")}\n${call_error_line}\n\`\`\``;
+    }
+  }
+
+  // Standard error format for other errors
+  const line_num = location.line;
+  const lines = forthic.split("\n").slice(0, line_num);
+  const error_line = " ".repeat(location.column - 1) + "^".repeat((location.end_pos || location.start_pos + 1) - location.start_pos);
+
+  let location_info = `at line ${line_num}`;
+  if (location.source) {
+    location_info += ` in ${location.source}`;
+  }
+
+  const error_message = `${forthicError.getNote()} ${location_info}:\n\`\`\`\n${lines.map((line) => `${line}`).join("\n")}\n${error_line}\n\`\`\``;
+  return error_message;
 }
+

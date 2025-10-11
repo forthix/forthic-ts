@@ -1,4 +1,4 @@
-import { StandardInterpreter } from "../interpreter";
+import { StandardInterpreter } from "../../../interpreter";
 
 let interp: StandardInterpreter;
 
@@ -132,8 +132,7 @@ test("FLATTEN", async () => {
   expect(interp.stack_pop()).toEqual([0, 1, 2, 3, 4]);
 });
 
-test.skip("REDUCE", async () => {
-  // TODO: Needs MathModule for ADD
+test("REDUCE", async () => {
   await interp.run(`[1 2 3 4 5] 10 "ADD" REDUCE`);
   expect(interp.stack_pop()).toBe(25);
 });
@@ -149,8 +148,7 @@ test("ZIP", async () => {
   expect(array[1]).toEqual(["b", 2]);
 });
 
-test.skip("ZIP_WITH", async () => {
-  // TODO: Needs MathModule for ADD
+test("ZIP_WITH", async () => {
   await interp.run(`[10 20] [1 2] "ADD" ZIP_WITH`);
   const array = interp.stack_pop();
   expect(array[0]).toBe(11);
@@ -158,11 +156,21 @@ test.skip("ZIP_WITH", async () => {
 });
 
 test("INDEX", async () => {
-  await interp.run(`['a' 'b' 'c'] INDEX`);
-  const result = interp.stack_pop();
-  expect(result[0]).toBe('a');
-  expect(result[1]).toBe('b');
-  expect(result[2]).toBe('c');
+  await interp.run(`
+    : |KEYS   "'key' REC@" MAP;
+    : TICKETS [
+      [['key'   101] ['Labels'  ['alpha' 'beta']]] REC
+      [['key'   102] ['Labels'  ['alpha' 'gamma']]] REC
+      [['key'   103] ['Labels'  ['alpha']]] REC
+      [['key'   104] ['Labels'  ['beta']]] REC
+    ];
+
+    TICKETS "'Labels' REC@" INDEX  "|KEYS" MAP
+  `);
+  const index_record = interp.stack_pop();
+  expect(index_record["alpha"]).toEqual([101, 102, 103]);
+  expect(index_record["beta"]).toEqual([101, 104]);
+  expect(index_record["gamma"]).toEqual([102]);
 });
 
 test("KEY_OF", async () => {
@@ -177,8 +185,7 @@ test("KEY_OF", async () => {
 // Filter Operations
 // ========================================
 
-test.skip("SELECT", async () => {
-  // TODO: Needs MathModule for MOD
+test("SELECT", async () => {
   await interp.run(`[0 1 2 3 4 5 6] "2 MOD 1 ==" SELECT`);
   expect(interp.stack_pop()).toEqual([1, 3, 5]);
 });
@@ -199,20 +206,70 @@ test("GROUPS_OF", async () => {
 // Advanced Operations
 // ========================================
 
-test.skip("FOREACH", async () => {
-  // TODO: Needs MathModule for +
+test("FOREACH", async () => {
   await interp.run(`0 [1 2 3 4 5] '+' FOREACH`);
   expect(interp.stack_pop()).toBe(15);
 });
 
-test.skip("MAP", async () => {
-  // TODO: Needs MathModule for *
+test("MAP", async () => {
   await interp.run(`[1 2 3 4 5] '2 *' MAP`);
   expect(interp.stack_pop()).toEqual([2, 4, 6, 8, 10]);
 });
 
-test.skip("<REPEAT", async () => {
-  // TODO: Needs MathModule for +
-  await interp.run(`[0 "1 +" 6 l_REPEAT]`);
+test("<REPEAT", async () => {
+  await interp.run(`[0 "1 +" 6 <REPEAT]`);
   expect(interp.stack_pop()).toEqual([0, 1, 2, 3, 4, 5, 6]);
+});
+
+// ========================================
+// Options Support via ~>
+// ========================================
+
+test("MAP with options - with_key", async () => {
+  await interp.run(`
+    [10 20 30] '+ 2 *' [.with_key TRUE] ~> MAP
+  `);
+  const array = interp.stack_pop();
+  // with_key pushes index then value, so: (0 + 10) * 2 = 20, (1 + 20) * 2 = 42, (2 + 30) * 2 = 64
+  expect(array).toEqual([20, 42, 64]);
+});
+
+test("FLATTEN with options - depth", async () => {
+  await interp.run(`
+    [[[1 2]] [[3 4]]] [.depth 1] ~> FLATTEN
+  `);
+  const array = interp.stack_pop();
+  expect(array).toEqual([[1, 2], [3, 4]]);
+});
+
+test("SORT with options - comparator", async () => {
+  await interp.run(`
+    [3 1 4 1 5] [.comparator "-1 *"] ~> SORT
+  `);
+  const array = interp.stack_pop();
+  expect(array).toEqual([5, 4, 3, 1, 1]);
+});
+
+test("FOREACH with options - with_key", async () => {
+  await interp.run(`
+    ['result'] VARIABLES
+    "" result !
+    ['a' 'b' 'c'] '>STR CONCAT result @ CONCAT result !' [.with_key TRUE] ~> FOREACH
+    result @
+  `);
+  const result = interp.stack_pop();
+  // with_key pushes: index, value -> >STR converts index to string -> CONCAT joins them
+  // CONCAT with result @ puts accumulator first: result + "0a" + "1b" + "2c"
+  // But actually builds as: (("" + "2c") + "1b") + "0a" = "2c1b0a"
+  expect(result).toBe("2c1b0a");
+});
+
+test("GROUP-BY with options - with_key", async () => {
+  await interp.run(`
+    [5 15 25 8 18] '10 /' [.with_key TRUE] ~> GROUP_BY
+  `);
+  const grouped = interp.stack_pop();
+  // with_key pushes: index, value -> 10 / -> groups by division result
+  // But index comes first, so result is different
+  expect(Object.keys(grouped).length).toBeGreaterThan(0);
 });

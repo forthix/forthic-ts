@@ -174,8 +174,6 @@ export class Interpreter {
   private is_compiling: boolean;
   private is_memo_definition: boolean;
   private cur_definition: DefinitionWord | null;
-  private default_module_flags: { [key: string]: any };
-  private module_flags: { [key: string]: any };
   private string_location?: CodeLocation;
   private word_counts: { [key: string]: number };
   private is_profiling: boolean;
@@ -201,10 +199,6 @@ export class Interpreter {
     this.is_compiling = false;
     this.is_memo_definition = false;
     this.cur_definition = null;
-
-    // Module flags
-    this.default_module_flags = {};
-    this.module_flags = {};
 
     // Debug support
     this.string_location = undefined;
@@ -264,34 +258,6 @@ export class Interpreter {
 
   get_error_handler(): HandleErrorFunction | undefined {
     return this.handleError;
-  }
-
-  // Module flag support
-  set_flags(module_id: string, flags: { [key: string]: any }): void {
-    if (!this.default_module_flags) {
-      this.default_module_flags = {};
-    }
-    if (!this.module_flags) {
-      this.module_flags = {};
-    }
-
-    this.default_module_flags[module_id] = flags;
-    this.module_flags[module_id] = flags;
-  }
-
-  get_flags(module_id: string): { [key: string]: any } {
-    const module_flags = this.module_flags[module_id] || {};
-    const result = {};
-    Object.keys(module_flags).forEach((k) => {
-      result[k] = module_flags[k];
-    });
-    this.module_flags[module_id] = { ...this.default_module_flags[module_id] };
-    return result;
-  }
-
-  modify_flags(module_id: string, flags: { [key: string]: any }): void {
-    const module_flags = this.module_flags[module_id] || {};
-    this.module_flags[module_id] = { ...module_flags, ...flags };
   }
 
   reset() {
@@ -398,10 +364,10 @@ export class Interpreter {
 
   stack_pop(): any {
     if (this.stack.length == 0) {
-      const tokenizer = this.get_tokenizer();
+      const tokenizer = this.tokenizer_stack.length > 0 ? this.get_tokenizer() : undefined;
       throw new StackUnderflowError(
         this.get_top_input_string(),
-        tokenizer.get_token_location(),
+        tokenizer?.get_token_location(),
       );
     }
     let result = this.stack.pop();
@@ -477,7 +443,9 @@ export class Interpreter {
   async run_module_code(module: Module): Promise<void> {
     this.module_stack_push(module);
     try {
-      await this.run(module.forthic_code);
+      // Set source to module name when running module code
+      const module_location = new CodeLocation({ source: module.name });
+      await this.run(module.forthic_code, module_location);
     } catch (e) {
       throw new ModuleError(
         this.get_top_input_string(),

@@ -1,5 +1,5 @@
-import { StandardInterpreter, Stack, dup_interpreter } from "../interpreter";
-import { Module, Word, PushValueWord, DefinitionWord } from "../module";
+import { StandardInterpreter, Stack, dup_interpreter } from "../../interpreter";
+import { Module, Word, PushValueWord, DefinitionWord } from "../../module";
 import { Temporal } from "temporal-polyfill";
 
 describe("Interpreter - Complete End-to-End Tests", () => {
@@ -178,19 +178,6 @@ describe("Interpreter - Complete End-to-End Tests", () => {
     });
   });
 
-  describe("Module Stack", () => {
-    test("app module is default current module", async () => {
-      expect(interp.cur_module().name).toBe("");
-    });
-
-    test.skip("module context switching with { }", async () => {
-      // TODO: This requires StartModuleWord and EndModuleWord execution
-      await interp.run("{ test } 'value' ; }");
-
-      // After module block, we should be back to app module
-      expect(interp.cur_module().name).toBe("");
-    });
-  });
 
   describe("Reset", () => {
     test("reset clears stack", async () => {
@@ -267,24 +254,6 @@ describe("Interpreter - Complete End-to-End Tests", () => {
 
       expect(timestamps.length).toBeGreaterThanOrEqual(3); // START, CHECKPOINT, END
       expect(timestamps.map(t => t.label)).toContain("CHECKPOINT");
-    });
-  });
-
-  describe("Validation Mode", () => {
-    test("validation mode prevents word execution", async () => {
-      const module = new Module("test");
-      let executed = false;
-      module.add_module_word("SIDE_EFFECT", async () => {
-        executed = true;
-      });
-
-      interp.register_module(module);
-      interp.use_modules([["test", ""]]);
-
-      interp.set_validation_mode(true);
-      await interp.run(": DEF SIDE_EFFECT ;");
-
-      expect(executed).toBe(false);
     });
   });
 

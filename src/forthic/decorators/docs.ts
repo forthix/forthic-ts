@@ -49,7 +49,7 @@ export function generateStdlibDocs(interp: StandardInterpreter): string {
   let md = "# Forthic Standard Library\n\n";
 
   for (const moduleName of moduleNames) {
-    const module = interp.app_module.find_module(moduleName);
+    const module = interp.get_app_module().find_module(moduleName);
     if (module && module instanceof DecoratedModule) {
       md += generateModuleDocs(module);
       md += "\n---\n\n";

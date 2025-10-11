@@ -1,4 +1,4 @@
-import { Tokenizer, CodeLocation, InvalidWordNameError, UnterminatedStringError, TokenType } from "../tokenizer";
+import { Tokenizer, CodeLocation, InvalidWordNameError, UnterminatedStringError, TokenType } from "../../../tokenizer";
 
 test("Knows token positions", () => {
   const main_forthic = `
@@ -10,7 +10,7 @@ test("Knows token positions", () => {
     `;
 
   const reference_location = new CodeLocation({
-    screen_name: "main",
+    source: "main",
     line: 1,
     column: 1,
     start_pos: 0,
@@ -23,7 +23,7 @@ test("Knows token positions", () => {
   expect(begin_def.location).toEqual({
     line: 2,
     column: 7,
-    screen_name: "main",
+    source: "main",
     start_pos: 7,
     end_pos: 14,
   });
@@ -33,7 +33,7 @@ test("Knows token positions", () => {
   expect(one_token.location).toEqual({
     line: 2,
     column: 17,
-    screen_name: "main",
+    source: "main",
     start_pos: 17,
     end_pos: 18,
   });
@@ -43,7 +43,7 @@ test("Knows token positions", () => {
   expect(token_23.location).toEqual({
     line: 2,
     column: 19,
-    screen_name: "main",
+    source: "main",
     start_pos: 19,
     end_pos: 21,
   });
@@ -53,7 +53,7 @@ test("Knows token positions", () => {
   expect(plus_token.location).toEqual({
     line: 2,
     column: 22,
-    screen_name: "main",
+    source: "main",
     start_pos: 22,
     end_pos: 23,
   });
@@ -63,7 +63,7 @@ test("Knows token positions", () => {
   expect(end_def_token.location).toEqual({
     line: 2,
     column: 23,
-    screen_name: "main",
+    source: "main",
     start_pos: 23,
     end_pos: 24,
   });
@@ -73,7 +73,7 @@ test("Knows token positions", () => {
   expect(module_start_token.location).toEqual({
     line: 3,
     column: 6,
-    screen_name: "main",
+    source: "main",
     start_pos: 30,
     end_pos: 36,
   });
@@ -83,7 +83,7 @@ test("Knows token positions", () => {
   expect(comment_token.location).toEqual({
     line: 4,
     column: 10,
-    screen_name: "main",
+    source: "main",
     start_pos: 46,
     end_pos: 57,
   });
@@ -93,7 +93,7 @@ test("Knows token positions", () => {
   expect(end_module_token.location).toEqual({
     line: 5,
     column: 5,
-    screen_name: "main",
+    source: "main",
     start_pos: 61,
     end_pos: 62,
   });
@@ -103,7 +103,7 @@ test("Knows token positions", () => {
   expect(start_memo_token.location).toEqual({
     line: 6,
     column: 8,
-    screen_name: "main",
+    source: "main",
     start_pos: 70,
     end_pos: 77,
   });
@@ -113,7 +113,7 @@ test("Knows token positions", () => {
   expect(start_array_token.location).toEqual({
     line: 6,
     column: 18,
-    screen_name: "main",
+    source: "main",
     start_pos: 80,
     end_pos: 81,
   });
@@ -123,7 +123,7 @@ test("Knows token positions", () => {
   expect(start_string_token.location).toEqual({
     line: 6,
     column: 21,
-    screen_name: "main",
+    source: "main",
     start_pos: 83,
     end_pos: 88,
   });
@@ -133,7 +133,7 @@ test("Knows token positions", () => {
   expect(start_triple_string_token.location).toEqual({
     line: 6,
     column: 31,
-    screen_name: "main",
+    source: "main",
     start_pos: 93,
     end_pos: 120,
   });
@@ -143,7 +143,7 @@ test("Knows token positions", () => {
   expect(end_array_token.location).toEqual({
     line: 6,
     column: 61,
-    screen_name: "main",
+    source: "main",
     start_pos: 123,
     end_pos: 124,
   });
@@ -151,7 +151,7 @@ test("Knows token positions", () => {
 
 test("Knows token location in ad hoc string given reference", () => {
   const reference_location = new CodeLocation({
-    screen_name: "main",
+    source: "main",
     line: 21,
     column: 15,
     start_pos: 67,
@@ -168,7 +168,7 @@ test("Knows token location in ad hoc string given reference", () => {
   expect(token.location).toEqual({
     line: 21,
     column: 16,
-    screen_name: "main",
+    source: "main",
     start_pos: 68,
     end_pos: 71,
   });
@@ -179,7 +179,7 @@ test("Knows token location in ad hoc string given reference", () => {
   expect(token.location).toEqual({
     line: 21,
     column: 21,
-    screen_name: "main",
+    source: "main",
     start_pos: 73,
     end_pos: 77,
   });
@@ -190,7 +190,7 @@ test("Knows token location in ad hoc string given reference", () => {
   expect(token.location).toEqual({
     line: 21,
     column: 26,
-    screen_name: "main",
+    source: "main",
     start_pos: 78,
     end_pos: 87,
   });
@@ -199,7 +199,7 @@ test("Knows token location in ad hoc string given reference", () => {
 
 test("Invalid word name", () => {
   const reference_location = new CodeLocation({
-    screen_name: "main",
+    source: "main",
     line: 1,
     column: 1,
     start_pos: 0,
@@ -219,7 +219,7 @@ test("Invalid word name", () => {
 
 test("Unterminated string", () => {
   const reference_location = new CodeLocation({
-    screen_name: "main",
+    source: "main",
     line: 1,
     column: 1,
     start_pos: 0,
@@ -233,13 +233,12 @@ test("Unterminated string", () => {
   }
   catch (e) {
     expect(e).toBeInstanceOf(UnterminatedStringError);
-    console.log(e.message);
   }
 })
 
 describe("Triple quote string with nested quotes", () => {
   const reference_location = new CodeLocation({
-    screen_name: "test",
+    source: "test",
     line: 1,
     column: 1,
     start_pos: 0,
@@ -249,7 +248,7 @@ describe("Triple quote string with nested quotes", () => {
     const input = "'''I said 'Hello''''";
     const tokenizer = new Tokenizer(input, reference_location);
     const token = tokenizer.next_token();
-    
+
     expect(token.string).toEqual("I said 'Hello'");
   });
 
@@ -257,7 +256,7 @@ describe("Triple quote string with nested quotes", () => {
     const input = "'''Hello'''";
     const tokenizer = new Tokenizer(input, reference_location);
     const token = tokenizer.next_token();
-    
+
     expect(token.string).toEqual("Hello");
   });
 
@@ -265,7 +264,7 @@ describe("Triple quote string with nested quotes", () => {
     const input = '"""I said "Hello""""';
     const tokenizer = new Tokenizer(input, reference_location);
     const token = tokenizer.next_token();
-    
+
     expect(token.string).toEqual('I said "Hello"');
   });
 
@@ -273,7 +272,7 @@ describe("Triple quote string with nested quotes", () => {
     const input = "''''''";
     const tokenizer = new Tokenizer(input, reference_location);
     const token = tokenizer.next_token();
-    
+
     expect(token.string).toEqual("");
   });
 
@@ -281,7 +280,7 @@ describe("Triple quote string with nested quotes", () => {
     const input = "''''''''";
     const tokenizer = new Tokenizer(input, reference_location);
     const token = tokenizer.next_token();
-    
+
     expect(token.string).toEqual("''");
   });
 
@@ -289,7 +288,7 @@ describe("Triple quote string with nested quotes", () => {
     const input = `"""He said "I said 'Hello' to you""""`;
     const tokenizer = new Tokenizer(input, reference_location);
     const token = tokenizer.next_token();
-    
+
     expect(token.string).toEqual(`He said "I said 'Hello' to you"`);
   });
 
@@ -297,7 +296,7 @@ describe("Triple quote string with nested quotes", () => {
     const input = "'''Hello''' world'''";
     const tokenizer = new Tokenizer(input, reference_location);
     const token = tokenizer.next_token();
-    
+
     // Should close at first ''' since it's not followed by another quote
     expect(token.string).toEqual("Hello");
   });
@@ -306,14 +305,14 @@ describe("Triple quote string with nested quotes", () => {
     const input = "'''It's a beautiful day, isn't it?''''";
     const tokenizer = new Tokenizer(input, reference_location);
     const token = tokenizer.next_token();
-    
+
     expect(token.string).toEqual("It's a beautiful day, isn't it?'");
   });
 
   test("Mixed quote types don't trigger greedy mode", () => {
     const input = "'''Hello\"\"\"";
     const tokenizer = new Tokenizer(input, reference_location);
-    
+
     try {
       tokenizer.next_token();
     } catch (e) {
@@ -328,14 +327,14 @@ describe("Triple quote string with nested quotes", () => {
       "'''string with \"double quotes\"'''",
       "'''string with 'single quotes'''''"
     ];
-    
+
     const expected = [
       "simple",
-      "multi\nline\nstring", 
+      "multi\nline\nstring",
       'string with "double quotes"',
       "string with 'single quotes''"
     ];
-    
+
     inputs.forEach((input, i) => {
       const tokenizer = new Tokenizer(input, reference_location);
       const token = tokenizer.next_token();
@@ -346,7 +345,7 @@ describe("Triple quote string with nested quotes", () => {
 
 describe("Dot symbol tokenization", () => {
   const reference_location = new CodeLocation({
-    screen_name: "test",
+    source: "test",
     line: 1,
     column: 1,
     start_pos: 0,
@@ -356,7 +355,7 @@ describe("Dot symbol tokenization", () => {
     const input = ".symbol";
     const tokenizer = new Tokenizer(input, reference_location);
     const token = tokenizer.next_token();
-    
+
     expect(token.type).toEqual(TokenType.DOT_SYMBOL);
     expect(token.string).toEqual("symbol");
   });
@@ -365,7 +364,7 @@ describe("Dot symbol tokenization", () => {
     const input = ".symbol-123";
     const tokenizer = new Tokenizer(input, reference_location);
     const token = tokenizer.next_token();
-    
+
     expect(token.type).toEqual(TokenType.DOT_SYMBOL);
     expect(token.string).toEqual("symbol-123");
   });
@@ -374,7 +373,7 @@ describe("Dot symbol tokenization", () => {
     const input = ".my_symbol_123";
     const tokenizer = new Tokenizer(input, reference_location);
     const token = tokenizer.next_token();
-    
+
     expect(token.type).toEqual(TokenType.DOT_SYMBOL);
     expect(token.string).toEqual("my_symbol_123");
   });
@@ -382,11 +381,11 @@ describe("Dot symbol tokenization", () => {
   test("Dot symbol terminated by whitespace", () => {
     const input = ".symbol NEXT";
     const tokenizer = new Tokenizer(input, reference_location);
-    
+
     const token1 = tokenizer.next_token();
     expect(token1.type).toEqual(TokenType.DOT_SYMBOL);
     expect(token1.string).toEqual("symbol");
-    
+
     const token2 = tokenizer.next_token();
     expect(token2.type).toEqual(TokenType.WORD);
     expect(token2.string).toEqual("NEXT");
@@ -395,11 +394,11 @@ describe("Dot symbol tokenization", () => {
   test("Dot symbol terminated by array bracket", () => {
     const input = ".symbol]";
     const tokenizer = new Tokenizer(input, reference_location);
-    
+
     const token1 = tokenizer.next_token();
     expect(token1.type).toEqual(TokenType.DOT_SYMBOL);
     expect(token1.string).toEqual("symbol");
-    
+
     const token2 = tokenizer.next_token();
     expect(token2.type).toEqual(TokenType.END_ARRAY);
     expect(token2.string).toEqual("]");
@@ -408,11 +407,11 @@ describe("Dot symbol tokenization", () => {
   test("Dot symbol terminated by semicolon", () => {
     const input = ".symbol;";
     const tokenizer = new Tokenizer(input, reference_location);
-    
+
     const token1 = tokenizer.next_token();
     expect(token1.type).toEqual(TokenType.DOT_SYMBOL);
     expect(token1.string).toEqual("symbol");
-    
+
     const token2 = tokenizer.next_token();
     expect(token2.type).toEqual(TokenType.END_DEF);
     expect(token2.string).toEqual(";");
@@ -421,14 +420,14 @@ describe("Dot symbol tokenization", () => {
   test("Dot symbol in array: [.symbol1 .symbol2]", () => {
     const input = "[.symbol1 .symbol2]";
     const tokenizer = new Tokenizer(input, reference_location);
-    
+
     const tokens = [];
     let token = tokenizer.next_token();
     while (token.type !== TokenType.EOS) {
       tokens.push(token);
       token = tokenizer.next_token();
     }
-    
+
     expect(tokens.length).toEqual(4);
     expect(tokens[0].type).toEqual(TokenType.START_ARRAY);
     expect(tokens[1].type).toEqual(TokenType.DOT_SYMBOL);
@@ -442,7 +441,7 @@ describe("Dot symbol tokenization", () => {
     const input = ".test@domain.com";
     const tokenizer = new Tokenizer(input, reference_location);
     const token = tokenizer.next_token();
-    
+
     expect(token.type).toEqual(TokenType.DOT_SYMBOL);
     expect(token.string).toEqual("test@domain.com");
   });
@@ -450,11 +449,11 @@ describe("Dot symbol tokenization", () => {
   test("Just a dot by itself should be treated as a word", () => {
     const input = ". NEXT";
     const tokenizer = new Tokenizer(input, reference_location);
-    
+
     const token1 = tokenizer.next_token();
     expect(token1.type).toEqual(TokenType.WORD);
     expect(token1.string).toEqual(".");
-    
+
     const token2 = tokenizer.next_token();
     expect(token2.type).toEqual(TokenType.WORD);
     expect(token2.string).toEqual("NEXT");
@@ -463,15 +462,15 @@ describe("Dot symbol tokenization", () => {
   test("Short dot symbols (.s, .S) should be treated as words", () => {
     const input = ".s .S .x";
     const tokenizer = new Tokenizer(input, reference_location);
-    
+
     const token1 = tokenizer.next_token();
     expect(token1.type).toEqual(TokenType.WORD);
     expect(token1.string).toEqual(".s");
-    
+
     const token2 = tokenizer.next_token();
     expect(token2.type).toEqual(TokenType.WORD);
     expect(token2.string).toEqual(".S");
-    
+
     const token3 = tokenizer.next_token();
     expect(token3.type).toEqual(TokenType.WORD);
     expect(token3.string).toEqual(".x");
@@ -480,11 +479,11 @@ describe("Dot symbol tokenization", () => {
   test("Minimum length dot symbol (.ab) should be treated as DOT_SYMBOL", () => {
     const input = ".ab NEXT";
     const tokenizer = new Tokenizer(input, reference_location);
-    
+
     const token1 = tokenizer.next_token();
     expect(token1.type).toEqual(TokenType.DOT_SYMBOL);
     expect(token1.string).toEqual("ab");
-    
+
     const token2 = tokenizer.next_token();
     expect(token2.type).toEqual(TokenType.WORD);
     expect(token2.string).toEqual("NEXT");
@@ -493,15 +492,15 @@ describe("Dot symbol tokenization", () => {
   test("Multiple dot symbols in sequence", () => {
     const input = ".first .second .third";
     const tokenizer = new Tokenizer(input, reference_location);
-    
+
     const token1 = tokenizer.next_token();
     expect(token1.type).toEqual(TokenType.DOT_SYMBOL);
     expect(token1.string).toEqual("first");
-    
+
     const token2 = tokenizer.next_token();
     expect(token2.type).toEqual(TokenType.DOT_SYMBOL);
     expect(token2.string).toEqual("second");
-    
+
     const token3 = tokenizer.next_token();
     expect(token3.type).toEqual(TokenType.DOT_SYMBOL);
     expect(token3.string).toEqual("third");
@@ -510,14 +509,14 @@ describe("Dot symbol tokenization", () => {
   test("Dot symbol mixed with other tokens", () => {
     const input = ": TEST-DEF   .symbol 42 + ;";
     const tokenizer = new Tokenizer(input, reference_location);
-    
+
     const tokens = [];
     let token = tokenizer.next_token();
     while (token.type !== TokenType.EOS) {
       tokens.push(token);
       token = tokenizer.next_token();
     }
-    
+
     expect(tokens.length).toEqual(5);
     expect(tokens[0].type).toEqual(TokenType.START_DEF);
     expect(tokens[0].string).toEqual("TEST-DEF");

@@ -96,10 +96,62 @@ export class DefinitionWord extends Word {
         throw new WordExecutionError(
           `Error executing ${this.name}`,
           e as Error,
-          tokenizer.get_token_location(),
+          tokenizer.get_token_location(),  // Where the word was called
+          word.get_location() || undefined,  // Where the word was defined
         );
       }
     }
+  }
+}
+
+export class ModuleMemoWord extends Word {
+  word: Word;
+  has_value: boolean;
+  value: any;
+
+  constructor(word: Word) {
+    super(word.name);
+    this.word = word;
+    this.has_value = false;
+    this.value = null;
+  }
+
+  async refresh(interp: Interpreter): Promise<void> {
+    await this.word.execute(interp);
+    this.value = interp.stack_pop();
+    this.has_value = true;
+  }
+
+  async execute(interp: Interpreter): Promise<void> {
+    if (!this.has_value) await this.refresh(interp);
+    interp.stack_push(this.value);
+  }
+}
+
+export class ModuleMemoBangWord extends Word {
+  memo_word: ModuleMemoWord;
+
+  constructor(memo_word: ModuleMemoWord) {
+    super(`${memo_word.name}!`);
+    this.memo_word = memo_word;
+  }
+
+  async execute(interp: Interpreter): Promise<void> {
+    await this.memo_word.refresh(interp);
+  }
+}
+
+export class ModuleMemoBangAtWord extends Word {
+  memo_word: ModuleMemoWord;
+
+  constructor(memo_word: ModuleMemoWord) {
+    super(`${memo_word.name}!@`);
+    this.memo_word = memo_word;
+  }
+
+  async execute(interp: Interpreter): Promise<void> {
+    await this.memo_word.refresh(interp);
+    interp.stack_push(this.memo_word.value);
   }
 }
 
@@ -229,9 +281,12 @@ export class Module {
     this.words.push(word);
   }
 
-  add_memo_words(word: Word): void {
-    // Simplified: just add the word (memoization can be added later)
-    this.add_word(word);
+  add_memo_words(word: Word): ModuleMemoWord {
+    const memo_word = new ModuleMemoWord(word);
+    this.words.push(memo_word);
+    this.words.push(new ModuleMemoBangWord(memo_word));
+    this.words.push(new ModuleMemoBangAtWord(memo_word));
+    return memo_word;
   }
 
   add_exportable(names: string[]): void {

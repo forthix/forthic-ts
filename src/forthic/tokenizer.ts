@@ -21,20 +21,20 @@ interface StringDelta {
 }
 
 export class CodeLocation {
-  screen_name: string;
+  source?: string;
   line: number;
   column: number;
   start_pos: number;
   end_pos: number;
 
   constructor({
-    screen_name = "<ad-hoc>",
+    source,
     line = 1,
     column = 1,
     start_pos = 0,
     end_pos = 0,
   }: Partial<CodeLocationData> = {}) {
-    this.screen_name = screen_name;
+    this.source = source;
     this.line = line;
     this.column = column;
     this.start_pos = start_pos;
@@ -90,7 +90,7 @@ export class Tokenizer {
     streaming: boolean = false,
   ) {
     if (!reference_location) {
-      reference_location = new CodeLocation({ screen_name: "<string>" });
+      reference_location = new CodeLocation();  // No default source
     }
     this.reference_location = reference_location;
     this.line = reference_location.line;
@@ -190,7 +190,7 @@ export class Tokenizer {
 
   get_token_location(): CodeLocation {
     return new CodeLocation({
-      screen_name: this.reference_location.screen_name,
+      source: this.reference_location.source,
       line: this.token_line,
       column: this.token_column,
       start_pos: this.token_start_pos,

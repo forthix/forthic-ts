@@ -1,5 +1,5 @@
-import { StandardInterpreter } from "../interpreter";
-import { DecoratedModule, Word } from "../decorators/word";
+import { StandardInterpreter } from "../../../interpreter";
+import { DecoratedModule, Word } from "../../../decorators/word";
 
 class TestModule extends DecoratedModule {
   constructor() {

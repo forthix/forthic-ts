@@ -2,6 +2,7 @@ import { Variable } from "../module";
 import { Interpreter } from "../interpreter";
 import { InvalidVariableNameError, IntentionalStopError } from "../errors";
 import { DecoratedModule, Word } from "../decorators/word";
+import { WordOptions } from "../options";
 
 /**
  * CoreModule - Essential interpreter operations
@@ -11,6 +12,7 @@ import { DecoratedModule, Word } from "../decorators/word";
  * - Variables: VARIABLES, !, @, !@
  * - Module system: INTERPRET, EXPORT, USE-MODULES
  * - Control: IDENTITY, NOP, DEFAULT, *DEFAULT, NULL
+ * - Options: ~> (converts array to WordOptions)
  * - Profiling: PROFILE-START, PROFILE-TIMESTAMP, PROFILE-END, PROFILE-DATA
  * - Logging: START_LOG, END_LOG, CONSOLE.LOG
  */
@@ -179,6 +181,11 @@ export class CoreModule extends DecoratedModule {
     return null;
   }
 
+  @Word("( value:any -- boolean:boolean )", "Returns true if value is an array")
+  async ["ARRAY?"](value: any) {
+    return value instanceof Array;
+  }
+
   @Word("( value:any default_value:any -- result:any )", "Returns value or default if value is null/undefined/empty string")
   async DEFAULT(value: any, default_value: any) {
     if (value === undefined || value === null || value === "") {
@@ -195,6 +202,15 @@ export class CoreModule extends DecoratedModule {
       return this.interp.stack_pop();
     }
     return value;
+  }
+
+  // ========================================
+  // Options
+  // ========================================
+
+  @Word("( array:any[] -- options:WordOptions )", "Convert options array to WordOptions. Format: [.key1 val1 .key2 val2]")
+  async ["~>"](array: any[]) {
+    return new WordOptions(array);
   }
 
   // ========================================
