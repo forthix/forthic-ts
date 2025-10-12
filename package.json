@@ -13,7 +13,8 @@
     "build:esm": "tsc --project tsconfig.esm.json",
     "build": "npm run build:cjs && npm run build:esm",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "docs:build": "npx ts-node scripts/generate-docs.ts"
   },
   "repository": {
     "type": "git",

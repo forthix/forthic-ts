@@ -1,40 +1,37 @@
 import { Interpreter, dup_interpreter } from "../interpreter";
-import { DecoratedModule, Word, DirectWord } from "../decorators/word";
+import { DecoratedModule, Word, DirectWord, registerModuleDoc } from "../decorators/word";
 
-/**
- * ArrayModule - Array and collection operations
- *
- * Categories:
- * - Access: NTH, LAST, SLICE, TAKE, DROP, LENGTH, INDEX, KEY-OF
- * - Transform: MAP, REVERSE
- * - Combine: APPEND, ZIP, ZIP-WITH, CONCAT
- * - Filter: SELECT, UNIQUE, DIFFERENCE, INTERSECTION, UNION
- * - Sort: SORT, SHUFFLE
- * - Group: BY-FIELD, GROUP-BY-FIELD, GROUP-BY, GROUPS-OF
- * - Utility: <REPEAT, FOREACH, REDUCE, UNPACK, FLATTEN
- *
- * Options System:
- * Several words support options via the ~> operator:
- *
- * Syntax:
- *   [.option_name value ...] ~> WORD
- *
- * Examples:
- *   [10 20 30] '+ 2 *' [.with_key TRUE] ~> MAP
- *   [[[1 2]] [[3 4]]] [.depth 1] ~> FLATTEN
- *   [3 1 4 1 5] [.comparator "SWAP -"] ~> SORT
- *
- * Available Options:
- * - with_key: Push index/key before value (MAP, FOREACH, GROUP-BY)
- * - push_error: Push error array after execution (MAP, FOREACH)
- * - depth: Recursion depth for nested operations (MAP, FLATTEN)
- * - push_rest: Push remaining items after mapping (MAP)
- * - comparator: Custom comparison function (SORT)
- *
- * Multiple options:
- *   [.with_key TRUE .push_error TRUE] ~> MAP
- */
 export class ArrayModule extends DecoratedModule {
+  static {
+    registerModuleDoc(ArrayModule, `
+Array and collection operations for manipulating arrays and records.
+
+## Categories
+- Access: NTH, LAST, SLICE, TAKE, DROP, LENGTH, INDEX, KEY-OF
+- Transform: MAP, REVERSE
+- Combine: APPEND, ZIP, ZIP-WITH, CONCAT
+- Filter: SELECT, UNIQUE, DIFFERENCE, INTERSECTION, UNION
+- Sort: SORT, SHUFFLE, ROTATE
+- Group: BY-FIELD, GROUP-BY-FIELD, GROUP-BY, GROUPS-OF
+- Utility: <REPEAT, FOREACH, REDUCE, UNPACK, FLATTEN
+
+## Options
+Several words support options via the ~> operator using syntax: [.option_name value ...] ~> WORD
+- with_key: Push index/key before value (MAP, FOREACH, GROUP-BY, SELECT)
+- push_error: Push error array after execution (MAP, FOREACH)
+- depth: Recursion depth for nested operations (MAP, FLATTEN)
+- push_rest: Push remaining items after operation (MAP, TAKE)
+- comparator: Custom comparison function as Forthic string (SORT)
+
+## Examples
+[10 20 30] '2 *' MAP
+[10 20 30] '+ 2 *' [.with_key TRUE] ~> MAP
+[[[1 2]] [[3 4]]] [.depth 1] ~> FLATTEN
+[3 1 4 1 5] [.comparator "SWAP -"] ~> SORT
+[.with_key TRUE .push_error TRUE] ~> MAP
+`);
+  }
+
   constructor() {
     super("array");
   }

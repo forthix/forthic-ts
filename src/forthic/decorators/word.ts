@@ -5,6 +5,7 @@ import { WordOptions } from "../word_options";
 // Metadata storage (per class)
 const wordMetadata = new WeakMap<any, Map<string, WordMetadata>>();
 const directWordMetadata = new WeakMap<any, Map<string, DirectWordMetadata>>();
+const moduleMetadata = new WeakMap<any, ModuleMetadata>();
 
 interface WordMetadata {
   stackEffect: string;
@@ -19,6 +20,89 @@ interface DirectWordMetadata {
   description: string;
   wordName: string;
   methodName: string;
+}
+
+export interface ModuleMetadata {
+  description: string;
+  categories: Array<{ name: string; words: string }>;
+  optionsInfo?: string;
+  examples: string[];
+}
+
+/**
+ * Parse markdown-formatted module documentation string
+ *
+ * Expected format:
+ * ```
+ * Brief description
+ *
+ * ## Categories
+ * - Category Name: WORD1, WORD2, WORD3
+ * - Another Category: WORD4, WORD5
+ *
+ * ## Options
+ * Multi-line text describing the options system
+ *
+ * ## Examples
+ * example code line 1
+ * example code line 2
+ * ```
+ */
+function parseModuleDocString(docString: string): ModuleMetadata {
+  const lines = docString.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+  const result: ModuleMetadata = {
+    description: '',
+    categories: [],
+    optionsInfo: undefined,
+    examples: []
+  };
+
+  let currentSection: 'description' | 'categories' | 'options' | 'examples' = 'description';
+  let optionsLines: string[] = [];
+
+  for (const line of lines) {
+    // Check for section headers
+    if (line.startsWith('## Categories')) {
+      currentSection = 'categories';
+      continue;
+    } else if (line.startsWith('## Options')) {
+      currentSection = 'options';
+      continue;
+    } else if (line.startsWith('## Examples')) {
+      currentSection = 'examples';
+      continue;
+    }
+
+    // Process content based on current section
+    if (currentSection === 'description') {
+      if (result.description) {
+        result.description += ' ' + line;
+      } else {
+        result.description = line;
+      }
+    } else if (currentSection === 'categories') {
+      // Parse "- Category Name: WORD1, WORD2, WORD3"
+      const match = line.match(/^-\s*([^:]+):\s*(.+)$/);
+      if (match) {
+        result.categories.push({
+          name: match[1].trim(),
+          words: match[2].trim()
+        });
+      }
+    } else if (currentSection === 'options') {
+      optionsLines.push(line);
+    } else if (currentSection === 'examples') {
+      result.examples.push(line);
+    }
+  }
+
+  // Join options lines into a single string
+  if (optionsLines.length > 0) {
+    result.optionsInfo = optionsLines.join('\n');
+  }
+
+  return result;
 }
 
 /**
@@ -181,6 +265,27 @@ export function Word(stackEffect: string, description: string = "", customWordNa
 }
 
 /**
+ * Helper function to register module documentation
+ *
+ * Call this in your module class as a static initializer:
+ * ```typescript
+ * export class ArrayModule extends DecoratedModule {
+ *   static {
+ *     registerModuleDoc(ArrayModule, `
+ *       Array and collection operations
+ *       ## Categories
+ *       - Access: NTH, LAST, SLICE
+ *     `);
+ *   }
+ * }
+ * ```
+ */
+export function registerModuleDoc(constructor: any, docString: string): void {
+  const parsed = parseModuleDocString(docString);
+  moduleMetadata.set(constructor, parsed);
+}
+
+/**
  * DecoratedModule - Base class for modules using @Word decorator
  *
  * Automatically registers all @Word decorated methods when interpreter is set.
@@ -250,5 +355,23 @@ export class DecoratedModule extends Module {
     }
 
     return docs;
+  }
+
+  /**
+   * Get module-level documentation from @Module decorator
+   *
+   * @returns ModuleMetadata with name, description, categories, options, and examples
+   */
+  getModuleMetadata(): (ModuleMetadata & { name: string }) | null {
+    const parsed = moduleMetadata.get(this.constructor);
+    if (!parsed) {
+      return null;
+    }
+
+    // Combine parsed metadata with the module name from the instance
+    return {
+      name: this.get_name(),
+      ...parsed
+    };
   }
 }

@@ -1,19 +1,30 @@
 import { Interpreter } from "../interpreter";
-import { DecoratedModule, Word, DirectWord } from "../decorators/word";
+import { DecoratedModule, Word, DirectWord, registerModuleDoc } from "../decorators/word";
 import { Temporal } from "temporal-polyfill";
 
-/**
- * DateTimeModule - Date and time operations using Temporal API
- *
- * Categories:
- * - Current: TODAY, NOW
- * - Time adjustment: AM, PM
- * - Conversion to: >TIME, >DATE, >DATETIME, AT
- * - Conversion from: TIME>STR, DATE>STR, DATE>INT
- * - Timestamps: >TIMESTAMP, TIMESTAMP>DATETIME
- * - Date math: ADD-DAYS, SUBTRACT-DATES
- */
 export class DateTimeModule extends DecoratedModule {
+  static {
+    registerModuleDoc(DateTimeModule, `
+Date and time operations using the Temporal API for timezone-aware datetime manipulation.
+
+## Categories
+- Current: TODAY, NOW
+- Time adjustment: AM, PM
+- Conversion to: >TIME, >DATE, >DATETIME, AT
+- Conversion from: TIME>STR, DATE>STR, DATE>INT
+- Timestamps: >TIMESTAMP, TIMESTAMP>DATETIME
+- Date math: ADD-DAYS, SUBTRACT-DATES
+
+## Examples
+TODAY
+NOW
+"14:30" >TIME
+"2024-01-15" >DATE
+TODAY "14:30" >TIME AT
+TODAY 7 ADD-DAYS
+`);
+  }
+
   constructor() {
     super("datetime");
   }

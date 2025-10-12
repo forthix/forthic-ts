@@ -1,31 +1,28 @@
 import { Interpreter } from "../interpreter";
-import { DecoratedModule, Word, DirectWord } from "../decorators/word";
+import { DecoratedModule, Word, DirectWord, registerModuleDoc } from "../decorators/word";
 
-/**
- * StringModule - String manipulation and processing operations
- *
- * Categories:
- * - Conversion: >STR, URL_ENCODE, URL_DECODE
- * - Transform: LOWERCASE, UPPERCASE, STRIP, ASCII
- * - Split/Join: SPLIT, JOIN, CONCAT
- * - Pattern: REPLACE, RE_MATCH, RE_MATCH_ALL, RE_MATCH_GROUP
- * - Constants: /N, /R, /T
- *
- * Special Features:
- * - CONCAT: Variable arity - accepts either two strings or an array of strings
- * - Pattern matching: Full regex support with capture groups
- * - URL encoding: Handles URI component encoding/decoding
- * - ASCII filtering: Removes non-ASCII characters (>= 256)
- *
- * Examples:
- *   "hello" "world" CONCAT           # => "helloworld"
- *   ["a" "b" "c"] CONCAT             # => "abc"
- *   "hello world" " " SPLIT          # => ["hello", "world"]
- *   ["hello" "world"] " " JOIN       # => "hello world"
- *   "Hello" LOWERCASE                # => "hello"
- *   "test@example.com" "(@.+)" RE-MATCH 1 RE-MATCH-GROUP  # => "@example.com"
- */
 export class StringModule extends DecoratedModule {
+  static {
+    registerModuleDoc(StringModule, `
+String manipulation and processing operations with regex and URL encoding support.
+
+## Categories
+- Conversion: >STR, URL_ENCODE, URL_DECODE
+- Transform: LOWERCASE, UPPERCASE, STRIP, ASCII
+- Split/Join: SPLIT, JOIN, CONCAT
+- Pattern: REPLACE, RE_MATCH, RE_MATCH_ALL, RE_MATCH_GROUP
+- Constants: /N, /R, /T
+
+## Examples
+"hello" "world" CONCAT
+["a" "b" "c"] CONCAT
+"hello world" " " SPLIT
+["hello" "world"] " " JOIN
+"Hello" LOWERCASE
+"test@example.com" "(@.+)" RE-MATCH 1 RE-MATCH-GROUP
+`);
+  }
+
   constructor() {
     super("string");
   }

@@ -1,14 +1,21 @@
-import { DecoratedModule, Word } from "../decorators/word";
+import { DecoratedModule, Word, registerModuleDoc } from "../decorators/word";
 
-/**
- * JsonModule - JSON serialization and parsing
- *
- * Words:
- * - >JSON: Convert object/array to JSON string
- * - JSON>: Parse JSON string to object/array
- * - JSON-PRETTIFY: Format JSON string with indentation
- */
 export class JsonModule extends DecoratedModule {
+  static {
+    registerModuleDoc(JsonModule, `
+JSON serialization, parsing, and formatting operations.
+
+## Categories
+- Conversion: >JSON, JSON>
+- Formatting: JSON-PRETTIFY
+
+## Examples
+{name: "Alice", age: 30} >JSON
+'{"name":"Alice"}' JSON>
+'{"a":1}' JSON-PRETTIFY
+`);
+  }
+
   constructor() {
     super("json");
   }

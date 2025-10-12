@@ -1,14 +1,23 @@
-import { DecoratedModule, Word } from "../decorators/word";
+import { DecoratedModule, Word, registerModuleDoc } from "../decorators/word";
 
-/**
- * RecordModule - Record/object operations
- *
- * Categories:
- * - Coer: REC, REC@, |REC@, <REC!
- * - Transform: RELABEL, INVERT-KEYS, REC-DEFAULTS, <DEL
- * - Access: KEYS, VALUES
- */
 export class RecordModule extends DecoratedModule {
+  static {
+    registerModuleDoc(RecordModule, `
+Record (object/dictionary) manipulation operations for working with key-value data structures.
+
+## Categories
+- Core: REC, REC@, |REC@, <REC!
+- Transform: RELABEL, INVERT-KEYS, REC-DEFAULTS, <DEL
+- Access: KEYS, VALUES
+
+## Examples
+[["name" "Alice"] ["age" 30]] REC
+{name: "Alice", age: 30} "name" REC@
+[{x: 1} {x: 2}] "x" |REC@
+{a: 1, b: 2} KEYS
+`);
+  }
+
   module_id: string;
 
   constructor() {

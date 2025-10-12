@@ -1,17 +1,27 @@
 import { Interpreter } from "../interpreter";
-import { DecoratedModule, Word, DirectWord } from "../decorators/word";
+import { DecoratedModule, Word, DirectWord, registerModuleDoc } from "../decorators/word";
 
-/**
- * MathModule - Mathematical operations and utilities
- *
- * Categories:
- * - Arithmetic: +, -, *, /, ADD, SUBTRACT, MULTIPLY, DIVIDE, MOD
- * - Aggregates: MEAN, MAX, MIN, SUM
- * - Type conversion: >INT, >FLOAT, >FIXED, ROUND
- * - Special values: INFINITY, UNIFORM-RANDOM
- * - Math functions: ABS, SQRT, FLOOR, CEIL, CLAMP
- */
 export class MathModule extends DecoratedModule {
+  static {
+    registerModuleDoc(MathModule, `
+Mathematical operations and utilities including arithmetic, aggregation, and conversions.
+
+## Categories
+- Arithmetic: +, -, *, /, ADD, SUBTRACT, MULTIPLY, DIVIDE, MOD
+- Aggregates: MEAN, MAX, MIN, SUM
+- Type conversion: >INT, >FLOAT, >FIXED, ROUND
+- Special values: INFINITY, UNIFORM-RANDOM
+- Math functions: ABS, SQRT, FLOOR, CEIL, CLAMP
+
+## Examples
+5 3 +
+[1 2 3 4] SUM
+[10 20 30] MEAN
+3.7 ROUND
+0 100 UNIFORM-RANDOM
+`);
+  }
+
   constructor() {
     super("math");
   }

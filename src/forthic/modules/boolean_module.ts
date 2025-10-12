@@ -1,16 +1,25 @@
 import { Interpreter } from "../interpreter";
-import { DecoratedModule, Word, DirectWord } from "../decorators/word";
+import { DecoratedModule, Word, DirectWord, registerModuleDoc } from "../decorators/word";
 
-/**
- * BooleanModule - Comparison, logic, and membership operations
- *
- * Categories:
- * - Comparison: ==, !=, <, <=, >, >=
- * - Logic: OR, AND, NOT, XOR, NAND
- * - Membership: IN, ANY, ALL
- * - Conversion: >BOOL
- */
 export class BooleanModule extends DecoratedModule {
+  static {
+    registerModuleDoc(BooleanModule, `
+Comparison, logic, and membership operations for boolean values and conditions.
+
+## Categories
+- Comparison: ==, !=, <, <=, >, >=
+- Logic: OR, AND, NOT, XOR, NAND
+- Membership: IN, ANY, ALL
+- Conversion: >BOOL
+
+## Examples
+5 3 >
+"hello" "hello" ==
+[1 2 3] [4 5 6] OR
+2 [1 2 3] IN
+`);
+  }
+
   constructor() {
     super("boolean");
   }
