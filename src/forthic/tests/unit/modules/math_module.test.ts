@@ -39,9 +39,6 @@ test("DIVIDE", async () => {
   expect(interp.stack_pop()).toEqual(5);
 });
 
-// ========================================
-// Aggregate Functions
-// ========================================
 
 test("MEAN", async () => {
   await interp.run("[1 2 3 4 5] MEAN");
@@ -137,9 +134,6 @@ test("MEAN of an array of objects with some numbers and some strings", async () 
   });
 });
 
-// ========================================
-// Type Conversion
-// ========================================
 
 test("MATH CONVERTERS", async () => {
   await interp.run(`
@@ -165,9 +159,6 @@ test("TO-FIXED", async () => {
   expect(stack[0]).toBe("3.14");
 });
 
-// ========================================
-// Special Values
-// ========================================
 
 test("INFINITY", async () => {
   await interp.run("INFINITY");
@@ -177,9 +168,6 @@ test("INFINITY", async () => {
 // RANGE-INDEX is not a math function - it's in the global/core module
 // This test has been moved to the appropriate module test file
 
-// ========================================
-// New Math Functions
-// ========================================
 
 test("ABS", async () => {
   await interp.run("5 ABS");

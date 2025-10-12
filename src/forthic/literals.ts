@@ -1,3 +1,21 @@
+/**
+ * Literal Handlers for Forthic Interpreters
+ *
+ * This module provides literal parsing functions that convert string tokens into typed values.
+ * These handlers are used by the Forthic interpreter to recognize and parse different literal types.
+ *
+ * You can use these built-in handlers or create custom literal handlers for your own Forthic
+ * interpreters. Each handler should implement the LiteralHandler type: a function that takes
+ * a string and returns the parsed value or null if the string doesn't match the expected format.
+ *
+ * Built-in literal types:
+ * - Boolean: TRUE, FALSE
+ * - Integer: 42, -10, 0
+ * - Float: 3.14, -2.5, 0.0
+ * - Time: 9:00, 11:30 PM, 22:15
+ * - Date: 2020-06-05, YYYY-MM-DD (with wildcards)
+ * - ZonedDateTime: ISO 8601 timestamps with timezone support
+ */
 import { Temporal } from "temporal-polyfill";
 
 /**

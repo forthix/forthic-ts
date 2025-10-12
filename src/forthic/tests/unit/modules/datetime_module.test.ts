@@ -38,7 +38,7 @@ test("NOW returns current datetime", async () => {
 // ========================================
 
 test("AM converts afternoon to morning", async () => {
-  await interp.run("'14:30' >TIME AM");
+  await interp.run("14:30 AM");
   const result = interp.stack_pop();
   expect(result.hour).toBe(2);
   expect(result.minute).toBe(30);
@@ -52,14 +52,14 @@ test("AM keeps morning times unchanged", async () => {
 });
 
 test("PM converts morning to afternoon", async () => {
-  await interp.run("'09:15' >TIME PM");
+  await interp.run("09:15 PM");
   const result = interp.stack_pop();
   expect(result.hour).toBe(21);
   expect(result.minute).toBe(15);
 });
 
 test("PM keeps afternoon times unchanged", async () => {
-  await interp.run("'14:30' >TIME PM");
+  await interp.run("14:30 PM");
   const result = interp.stack_pop();
   expect(result.hour).toBe(14);
   expect(result.minute).toBe(30);

@@ -29,6 +29,12 @@ type Timestamp = {
 
 type HandleErrorFunction = (e: Error, interp: Interpreter) => Promise<void>;
 
+/**
+ * StartModuleWord - Handles module creation and switching
+ *
+ * Pushes a module onto the module stack, creating it if necessary.
+ * An empty name refers to the app module.
+ */
 class StartModuleWord extends Word {
   async execute(interp: Interpreter): Promise<void> {
     const self = this;
@@ -55,6 +61,11 @@ class StartModuleWord extends Word {
   }
 }
 
+/**
+ * EndModuleWord - Pops the current module from the module stack
+ *
+ * Completes module context and returns to the previous module.
+ */
 class EndModuleWord extends Word {
   constructor() {
     super("}");
@@ -65,6 +76,12 @@ class EndModuleWord extends Word {
   }
 }
 
+/**
+ * EndArrayWord - Collects items from stack into an array
+ *
+ * Pops items from the stack until a START_ARRAY token is found,
+ * then pushes them as a single array in the correct order.
+ */
 class EndArrayWord extends Word {
   constructor() {
     super("]");
@@ -85,7 +102,13 @@ class EndArrayWord extends Word {
   }
 }
 
-// A wrapper to allow us to set/get the stack
+/**
+ * Stack - Wrapper for the interpreter's data stack
+ *
+ * Provides stack operations with support for array indexing via Proxy.
+ * Handles PositionedString unwrapping and provides JSON serialization.
+ * Items can be accessed with bracket notation (e.g., stack[0]).
+ */
 export class Stack {
   private items: any[];
 
@@ -161,6 +184,23 @@ export class Stack {
   }
 }
 
+/**
+ * Interpreter - Base Forthic interpreter
+ *
+ * Core interpreter that tokenizes and executes Forthic code.
+ * Manages the data stack, module stack, and execution context.
+ *
+ * Features:
+ * - Stack-based execution model
+ * - Module system with imports and namespacing
+ * - Literal handlers for parsing values (numbers, dates, booleans, etc.)
+ * - Error handling with recovery attempts
+ * - Profiling and performance tracking
+ * - Streaming execution support
+ *
+ * Note: This is the base interpreter without standard library modules.
+ * Use StandardInterpreter for a full-featured interpreter with stdlib.
+ */
 export class Interpreter {
   private timezone: Temporal.TimeZoneLike;
   private stack: Stack;

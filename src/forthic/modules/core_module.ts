@@ -2,28 +2,27 @@ import { Variable } from "../module";
 import { Interpreter } from "../interpreter";
 import { InvalidVariableNameError, IntentionalStopError } from "../errors";
 import { DecoratedModule, Word } from "../decorators/word";
-import { WordOptions } from "../options";
+import { WordOptions } from "../word_options";
 
 /**
  * CoreModule - Essential interpreter operations
  *
  * Categories:
- * - Stack operations: POP, DUP, SWAP, .s, .S
+ * - Stack operations: POP, DUP, SWAP
  * - Variables: VARIABLES, !, @, !@
- * - Module system: INTERPRET, EXPORT, USE-MODULES
+ * - Module system: EXPORT, USE-MODULES
+ * - Execution: INTERPRET
  * - Control: IDENTITY, NOP, DEFAULT, *DEFAULT, NULL
  * - Options: ~> (converts array to WordOptions)
  * - Profiling: PROFILE-START, PROFILE-TIMESTAMP, PROFILE-END, PROFILE-DATA
  * - Logging: START_LOG, END_LOG, CONSOLE.LOG
+ * - Utility: .s, .S
  */
 export class CoreModule extends DecoratedModule {
   constructor() {
     super("core");
   }
 
-  // ========================================
-  // Helper Functions
-  // ========================================
 
   private static get_or_create_variable(interp: Interpreter, name: string): Variable {
     // Validate variable name - no __ prefix allowed
@@ -49,9 +48,6 @@ export class CoreModule extends DecoratedModule {
     return variable;
   }
 
-  // ========================================
-  // Stack Operations
-  // ========================================
 
   @Word("( a:any -- )", "Removes top item from stack")
   async POP(a: any) {
@@ -88,9 +84,6 @@ export class CoreModule extends DecoratedModule {
     throw new IntentionalStopError(".S");
   }
 
-  // ========================================
-  // Variables
-  // ========================================
 
   @Word("( varnames:string[] -- )", "Creates variables in current module")
   async VARIABLES(varnames: string[]) {
@@ -141,9 +134,6 @@ export class CoreModule extends DecoratedModule {
     return var_obj.get_value();
   }
 
-  // ========================================
-  // Module System
-  // ========================================
 
   @Word("( string:string -- )", "Interprets Forthic string in current context")
   async INTERPRET(string: string) {
@@ -162,9 +152,6 @@ export class CoreModule extends DecoratedModule {
     this.interp.use_modules(names);
   }
 
-  // ========================================
-  // Control
-  // ========================================
 
   @Word("( -- )", "Does nothing (identity operation)")
   async IDENTITY() {
@@ -204,18 +191,12 @@ export class CoreModule extends DecoratedModule {
     return value;
   }
 
-  // ========================================
-  // Options
-  // ========================================
 
   @Word("( array:any[] -- options:WordOptions )", "Convert options array to WordOptions. Format: [.key1 val1 .key2 val2]")
   async ["~>"](array: any[]) {
     return new WordOptions(array);
   }
 
-  // ========================================
-  // Profiling
-  // ========================================
 
   @Word("( -- )", "Starts profiling word execution")
   async ["PROFILE-START"]() {
@@ -261,9 +242,6 @@ export class CoreModule extends DecoratedModule {
     return result;
   }
 
-  // ========================================
-  // Logging
-  // ========================================
 
   @Word("( -- )", "Starts logging interpreter stream")
   async START_LOG() {

@@ -1,9 +1,10 @@
 import { Module } from "../module";
 import { Interpreter } from "../interpreter";
-import { WordOptions } from "../options";
+import { WordOptions } from "../word_options";
 
 // Metadata storage (per class)
 const wordMetadata = new WeakMap<any, Map<string, WordMetadata>>();
+const directWordMetadata = new WeakMap<any, Map<string, DirectWordMetadata>>();
 
 interface WordMetadata {
   stackEffect: string;
@@ -11,6 +12,13 @@ interface WordMetadata {
   wordName: string;
   methodName: string;
   inputCount: number;
+}
+
+interface DirectWordMetadata {
+  stackEffect: string;
+  description: string;
+  wordName: string;
+  methodName: string;
 }
 
 /**
@@ -51,6 +59,46 @@ function parseStackNotation(stackEffect: string): { inputCount: number; hasOptio
   return {
     inputCount: inputs.length,
     hasOptions: hasOptions
+  };
+}
+
+/**
+ * @DirectWord Decorator
+ *
+ * Auto-registers word but does NOT handle stack marshalling.
+ * Use this for words that need direct interpreter access to manually manipulate the stack.
+ * Word name defaults to method name, but can be overridden.
+ *
+ * @param stackEffect - Forthic stack notation (e.g., "( item:any forthic:string n:number -- )")
+ * @param description - Human-readable description for docs
+ * @param customWordName - Optional custom word name (defaults to method name)
+ *
+ * @example
+ * @DirectWord("( item:any forthic:string num:number -- )", "Repeat execution num_times", "<REPEAT")
+ * async l_REPEAT(interp: Interpreter) {
+ *   const num = interp.stack_pop();
+ *   const forthic = interp.stack_pop();
+ *   // ... manual stack manipulation
+ * }
+ */
+export function DirectWord(stackEffect: string, description: string = "", customWordName?: string) {
+  return function(target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+    const wordName = customWordName || propertyKey;
+
+    // Store metadata for registration and documentation
+    if (!directWordMetadata.has(target.constructor)) {
+      directWordMetadata.set(target.constructor, new Map());
+    }
+    const classMetadata = directWordMetadata.get(target.constructor)!;
+    classMetadata.set(propertyKey, {
+      stackEffect,
+      description,
+      wordName: wordName,
+      methodName: propertyKey,
+    });
+
+    // Method is NOT wrapped - it's used as-is
+    return descriptor;
   };
 }
 
@@ -148,15 +196,28 @@ export class DecoratedModule extends Module {
   }
 
   private registerDecoratedWords() {
+    // Register @Word decorated methods
     const classMetadata = wordMetadata.get(this.constructor);
-    if (!classMetadata) return;
+    if (classMetadata) {
+      for (const [methodName, metadata] of classMetadata.entries()) {
+        // Get the wrapped method (already modified by decorator)
+        const method = (this as any)[methodName];
 
-    for (const [methodName, metadata] of classMetadata.entries()) {
-      // Get the wrapped method (already modified by decorator)
-      const method = (this as any)[methodName];
+        // Register as exportable word
+        this.add_module_word(metadata.wordName, method.bind(this));
+      }
+    }
 
-      // Register as exportable word
-      this.add_module_word(metadata.wordName, method.bind(this));
+    // Register @DirectWord decorated methods
+    const directClassMetadata = directWordMetadata.get(this.constructor);
+    if (directClassMetadata) {
+      for (const [methodName, metadata] of directClassMetadata.entries()) {
+        // Get the original method (NOT wrapped by decorator)
+        const method = (this as any)[methodName];
+
+        // Register as exportable word
+        this.add_module_word(metadata.wordName, method.bind(this));
+      }
     }
   }
 
@@ -166,13 +227,28 @@ export class DecoratedModule extends Module {
    * @returns Array of {name, stackEffect, description} objects
    */
   getWordDocs(): Array<{ name: string, stackEffect: string, description: string }> {
-    const classMetadata = wordMetadata.get(this.constructor);
-    if (!classMetadata) return [];
+    const docs: Array<{ name: string, stackEffect: string, description: string }> = [];
 
-    return Array.from(classMetadata.values()).map(meta => ({
-      name: meta.wordName,
-      stackEffect: meta.stackEffect,
-      description: meta.description,
-    }));
+    // Get @Word decorated methods
+    const classMetadata = wordMetadata.get(this.constructor);
+    if (classMetadata) {
+      docs.push(...Array.from(classMetadata.values()).map(meta => ({
+        name: meta.wordName,
+        stackEffect: meta.stackEffect,
+        description: meta.description,
+      })));
+    }
+
+    // Get @DirectWord decorated methods
+    const directClassMetadata = directWordMetadata.get(this.constructor);
+    if (directClassMetadata) {
+      docs.push(...Array.from(directClassMetadata.values()).map(meta => ({
+        name: meta.wordName,
+        stackEffect: meta.stackEffect,
+        description: meta.description,
+      })));
+    }
+
+    return docs;
   }
 }

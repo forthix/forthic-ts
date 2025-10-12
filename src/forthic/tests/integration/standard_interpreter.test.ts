@@ -2,12 +2,10 @@ import { StandardInterpreter } from "../../interpreter";
 import {
   InvalidVariableNameError,
   UnknownWordError,
-  // Phase 5: UnknownScreenError removed (screens removed in Phase 0)
   UnknownModuleError,
   StackUnderflowError,
   MissingSemicolonError,
   ExtraSemicolonError,
-  WordExecutionError
 } from "../../errors";
 import { Temporal } from "temporal-polyfill";
 
@@ -1140,21 +1138,6 @@ test("SORT with forthic", async () => {
   expect(stack[0]).toEqual([8, 7, 4, 3, 2, 1]);
 });
 
-// Removed test - FIELD-KEY-FUNC not implemented
-// test("SORT with key func", async () => {
-//   interp.stack_push(makeRecords());
-//   await interp.run(`
-//     'status' FIELD-KEY-FUNC [.comparator] ~> SORT
-//   `);
-//   const stack = (interp as any).stack;
-//   expect(stack[0][0]["status"]).toBe("CLOSED");
-//   expect(stack[0][1]["status"]).toBe("CLOSED");
-//   expect(stack[0][2]["status"]).toBe("IN PROGRESS");
-//   expect(stack[0][3]["status"]).toBe("IN PROGRESS");
-//   expect(stack[0][4]["status"]).toBe("OPEN");
-//   expect(stack[0][5]["status"]).toBe("OPEN");
-//   expect(stack[0][6]["status"]).toBe("OPEN");
-// });
 
 test("NTH", async () => {
   await interp.run(`
@@ -1569,16 +1552,6 @@ test("Date literals", async () => {
   expect(10).toBe(date.month);
   expect(date.day).toBe(zonedDateTime.day);
 });
-
-// test("DAYS-OF-WEEK", async () => {
-//   await interp.run(`
-//         MONDAY TUESDAY WEDNESDAY THURSDAY FRIDAY SATURDAY SUNDAY
-//       `);
-//   const stack = (interp as any).stack;
-//   const today = new Date();
-//   expect(new Date(stack[0]).getTime()).toBeLessThanOrEqual(today.getTime());
-//   expect(new Date(stack[6]).getTime()).toBeGreaterThanOrEqual(today.getTime());
-// });
 
 test("ADD-DAYS to date", async () => {
   await interp.run(`

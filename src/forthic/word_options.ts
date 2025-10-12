@@ -1,10 +1,49 @@
 import type { Interpreter } from "./interpreter";
 
 /**
- * WordOptions - Type-safe options container
+ * WordOptions - Type-safe options container for module words
  *
+ * Overview:
+ * WordOptions provides a structured way for Forthic words to accept optional
+ * configuration parameters without requiring fixed parameter positions. This
+ * enables flexible, extensible APIs similar to keyword arguments in other languages.
+ *
+ * Usage in Forthic:
+ *   [.option_name value ...] ~> WORD
+ *
+ * The ~> operator takes an options array and a word, passing the options as
+ * an additional parameter to words that support them.
+ *
+ * Example in Forthic code:
+ *   [1 2 3] '2 *' [.with_key TRUE] ~> MAP
+ *   [10 20 30] [.comparator "-1 *"] ~> SORT
+ *   [[[1 2]]] [.depth 1] ~> FLATTEN
+ *
+ * Implementation in Module Words:
+ * Words declare options support by adding an options parameter with type Record<string, any>:
+ *
+ *   @Word("( items:any[] forthic:string [options:WordOptions] -- result:any )")
+ *   async MAP(items: any[], forthic: string, options: Record<string, any>) {
+ *     const with_key = options.with_key ?? null;
+ *     const push_error = options.push_error ?? null;
+ *     // ... use options to modify behavior
+ *   }
+ *
+ * The @Word decorator automatically:
+ * 1. Checks if the top stack item is a WordOptions instance
+ * 2. Converts it to a plain Record<string, any> if present
+ * 3. Passes an empty {} if no options provided
+ *
+ * Common Patterns:
+ * - Boolean flags: options.with_key ?? null
+ * - Numeric values: options.depth ?? null
+ * - String values: options.comparator ?? undefined
+ * - Multiple options: All accessed from same options object
+ *
+ * Internal Representation:
  * Created from flat array: [.key1 val1 .key2 val2]
- * Accessed by words that support options
+ * Stored as Map internally for efficient lookup
+ * Converted to Record<string, any> when passed to words
  *
  * Note: Dot-symbols in Forthic have the leading '.' already stripped,
  * so keys come in as "key1", "key2", etc.

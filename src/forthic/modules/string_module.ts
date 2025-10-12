@@ -1,15 +1,36 @@
 import { Interpreter } from "../interpreter";
-import { DecoratedModule, Word } from "../decorators/word";
+import { DecoratedModule, Word, DirectWord } from "../decorators/word";
 
+/**
+ * StringModule - String manipulation and processing operations
+ *
+ * Categories:
+ * - Conversion: >STR, URL_ENCODE, URL_DECODE
+ * - Transform: LOWERCASE, UPPERCASE, STRIP, ASCII
+ * - Split/Join: SPLIT, JOIN, CONCAT
+ * - Pattern: REPLACE, RE_MATCH, RE_MATCH_ALL, RE_MATCH_GROUP
+ * - Constants: /N, /R, /T
+ *
+ * Special Features:
+ * - CONCAT: Variable arity - accepts either two strings or an array of strings
+ * - Pattern matching: Full regex support with capture groups
+ * - URL encoding: Handles URI component encoding/decoding
+ * - ASCII filtering: Removes non-ASCII characters (>= 256)
+ *
+ * Examples:
+ *   "hello" "world" CONCAT           # => "helloworld"
+ *   ["a" "b" "c"] CONCAT             # => "abc"
+ *   "hello world" " " SPLIT          # => ["hello", "world"]
+ *   ["hello" "world"] " " JOIN       # => "hello world"
+ *   "Hello" LOWERCASE                # => "hello"
+ *   "test@example.com" "(@.+)" RE-MATCH 1 RE-MATCH-GROUP  # => "@example.com"
+ */
 export class StringModule extends DecoratedModule {
   constructor() {
     super("string");
-
-    // CONCAT needs manual registration due to variable arity
-    this.add_module_word("CONCAT", this.CONCAT.bind(this));
   }
 
-  // ( str1 str2 -- str ) OR ( array_of_str -- str )
+  @DirectWord("( str1:string str2:string -- result:string ) OR ( strings:string[] -- result:string )", "Concatenate two strings or array of strings", "CONCAT")
   async CONCAT(interp: Interpreter) {
     const str2 = interp.stack_pop();
     let array: string[];
@@ -23,45 +44,38 @@ export class StringModule extends DecoratedModule {
     interp.stack_push(result);
   }
 
-  // ( item -- string )
   @Word("( item:any -- string:string )", "Convert item to string", ">STR")
   async to_STR(item: any) {
     return item.toString();
   }
 
-  // ( string sep -- items )
   @Word("( string:string sep:string -- items:any[] )", "Split string by separator")
   async SPLIT(string: string, sep: string) {
     if (!string) string = "";
     return string.split(sep);
   }
 
-  // ( strings sep -- string )
   @Word("( strings:string[] sep:string -- result:string )", "Join strings with separator")
   async JOIN(strings: string[], sep: string) {
     if (!strings) strings = [];
     return strings.join(sep);
   }
 
-  // ( -- char )
   @Word("( -- char:string )", "Newline character", "/N")
   async slash_N() {
     return "\n";
   }
 
-  // ( -- char )
   @Word("( -- char:string )", "Carriage return character", "/R")
   async slash_R() {
     return "\r";
   }
 
-  // ( -- char )
   @Word("( -- char:string )", "Tab character", "/T")
   async slash_T() {
     return "\t";
   }
 
-  // ( A -- a )
   @Word("( string:string -- result:string )", "Convert string to lowercase")
   async LOWERCASE(string: string) {
     let result = "";
@@ -69,7 +83,6 @@ export class StringModule extends DecoratedModule {
     return result;
   }
 
-  // ( a -- A )
   @Word("( string:string -- result:string )", "Convert string to uppercase")
   async UPPERCASE(string: string) {
     let result = "";
@@ -77,7 +90,6 @@ export class StringModule extends DecoratedModule {
     return result;
   }
 
-  // ( string -- string )
   @Word("( string:string -- result:string )", "Keep only ASCII characters (< 256)")
   async ASCII(string: string) {
     if (!string) string = "";
@@ -90,7 +102,6 @@ export class StringModule extends DecoratedModule {
     return result;
   }
 
-  // ( str -- str )
   @Word("( string:string -- result:string )", "Trim whitespace from string")
   async STRIP(string: string) {
     let result = string;
@@ -98,7 +109,6 @@ export class StringModule extends DecoratedModule {
     return result;
   }
 
-  // ( string text replace -- string )
   @Word("( string:string text:string replace:string -- result:string )", "Replace all occurrences of text with replace")
   async REPLACE(string: string, text: string, replace: string) {
     let result = string;
@@ -109,7 +119,6 @@ export class StringModule extends DecoratedModule {
     return result;
   }
 
-  // ( string pattern -- match )
   @Word("( string:string pattern:string -- match:any )", "Match string against regex pattern")
   async RE_MATCH(string: string, pattern: string) {
     const re_pattern = new RegExp(pattern);
@@ -118,7 +127,6 @@ export class StringModule extends DecoratedModule {
     return result;
   }
 
-  // ( string pattern -- matches )
   @Word("( string:string pattern:string -- matches:any[] )", "Find all regex matches in string")
   async RE_MATCH_ALL(string: string, pattern: string) {
     const re_pattern = new RegExp(pattern, "g");
@@ -128,7 +136,6 @@ export class StringModule extends DecoratedModule {
     return result;
   }
 
-  // ( match num -- string )
   @Word("( match:any num:number -- result:any )", "Get capture group from regex match")
   async RE_MATCH_GROUP(match: any, num: number) {
     let result = null;
@@ -136,7 +143,6 @@ export class StringModule extends DecoratedModule {
     return result;
   }
 
-  // ( str -- urlencoded )
   @Word("( str:string -- encoded:string )", "URL encode string")
   async URL_ENCODE(str: string) {
     let result = "";
@@ -144,7 +150,6 @@ export class StringModule extends DecoratedModule {
     return result;
   }
 
-  // ( urlencoded -- decoded )
   @Word("( urlencoded:string -- decoded:string )", "URL decode string")
   async URL_DECODE(urlencoded: string) {
     let result = "";

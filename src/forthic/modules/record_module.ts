@@ -1,11 +1,10 @@
-import { Interpreter } from "../interpreter";
 import { DecoratedModule, Word } from "../decorators/word";
 
 /**
  * RecordModule - Record/object operations
  *
  * Categories:
- * - Create: REC, REC@, |REC@, <REC!
+ * - Coer: REC, REC@, |REC@, <REC!
  * - Transform: RELABEL, INVERT-KEYS, REC-DEFAULTS, <DEL
  * - Access: KEYS, VALUES
  */
@@ -32,9 +31,6 @@ export class RecordModule extends DecoratedModule {
     return result === undefined ? null : result;
   }
 
-  // ========================================
-  // Create Operations
-  // ========================================
 
   @Word("( key_vals:any[] -- rec:any )", "Create record from [[key, val], ...] pairs")
   async REC(key_vals: any[]) {
@@ -104,9 +100,6 @@ export class RecordModule extends DecoratedModule {
     return _rec;
   }
 
-  // ========================================
-  // Transform Operations
-  // ========================================
 
   @Word("( container:any old_keys:any[] new_keys:any[] -- container:any )", "Rename record keys")
   async RELABEL(container: any, old_keys: any[], new_keys: any[]) {
@@ -176,9 +169,6 @@ export class RecordModule extends DecoratedModule {
     return container;
   }
 
-  // ========================================
-  // Access Operations
-  // ========================================
 
   @Word("( container:any -- keys:any[] )", "Get keys from record or indices from array")
   async KEYS(container: any) {

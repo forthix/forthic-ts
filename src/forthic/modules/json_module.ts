@@ -13,7 +13,6 @@ export class JsonModule extends DecoratedModule {
     super("json");
   }
 
-  // ( object -- json_string )
   @Word("( object:any -- json:string )", "Convert object to JSON string", ">JSON")
   async to_JSON(object: any) {
     if (object === null || object === undefined) {
@@ -22,7 +21,6 @@ export class JsonModule extends DecoratedModule {
     return JSON.stringify(object);
   }
 
-  // ( json_string -- object )
   @Word("( json:string -- object:any )", "Parse JSON string to object", "JSON>")
   async from_JSON(json: string) {
     if (!json || json.trim() === "") {
@@ -31,7 +29,6 @@ export class JsonModule extends DecoratedModule {
     return JSON.parse(json);
   }
 
-  // ( json_string -- pretty_json )
   @Word("( json:string -- pretty:string )", "Format JSON with 2-space indentation", "JSON-PRETTIFY")
   async JSON_PRETTIFY(json: string) {
     if (!json || json.trim() === "") {

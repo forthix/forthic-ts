@@ -4,7 +4,7 @@ import {
   WordExecutionError
 } from "../../../errors";
 import { CoreModule } from "../../../modules/core_module";
-import { WordOptions } from "../../../options";
+import { WordOptions } from "../../../word_options";
 
 let interp: StandardInterpreter;
 let interp_any: any;

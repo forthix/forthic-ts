@@ -1,4 +1,4 @@
-import { WordOptions } from "../../../options";
+import { WordOptions } from "../../../word_options";
 
 describe("WordOptions", () => {
   test("creates from flat array", () => {

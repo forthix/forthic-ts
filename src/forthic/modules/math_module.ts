@@ -1,5 +1,5 @@
 import { Interpreter } from "../interpreter";
-import { DecoratedModule, Word } from "../decorators/word";
+import { DecoratedModule, Word, DirectWord } from "../decorators/word";
 
 /**
  * MathModule - Mathematical operations and utilities
@@ -14,25 +14,13 @@ import { DecoratedModule, Word } from "../decorators/word";
 export class MathModule extends DecoratedModule {
   constructor() {
     super("math");
-
-    // Manual registrations for aliases
-    this.add_module_word("ADD", this.plus.bind(this));
-    this.add_module_word("SUBTRACT", this.minus.bind(this));
-    this.add_module_word("MULTIPLY", this.times.bind(this));
-    this.add_module_word("DIVIDE", this.divide_by.bind(this));
-
-    // Manual registrations for variable arity words
-    this.add_module_word("+", this.plus.bind(this));
-    this.add_module_word("*", this.times.bind(this));
-    this.add_module_word("MAX", this.MAX.bind(this));
-    this.add_module_word("MIN", this.MIN.bind(this));
   }
 
   // ========================================
   // Arithmetic Operations
   // ========================================
 
-  // ( a b -- sum ) OR ( [numbers] -- sum )
+  @DirectWord("( a:number b:number -- sum:number ) OR ( numbers:number[] -- sum:number )", "Add two numbers or sum array", "+")
   async plus(interp: Interpreter) {
     const b = interp.stack_pop();
 
@@ -55,7 +43,11 @@ export class MathModule extends DecoratedModule {
     interp.stack_push(num_a + num_b);
   }
 
-  // ( a b -- difference )
+  @DirectWord("( a:number b:number -- sum:number ) OR ( numbers:number[] -- sum:number )", "Add two numbers or sum array", "ADD")
+  async plus_ADD(interp: Interpreter) {
+    return this.plus(interp);
+  }
+
   @Word("( a:number b:number -- difference:number )", "Subtract b from a", "-")
   async minus(a: number, b: number) {
     if (a === null || a === undefined || b === null || b === undefined) {
@@ -64,7 +56,15 @@ export class MathModule extends DecoratedModule {
     return a - b;
   }
 
-  // ( a b -- product ) OR ( [numbers] -- product )
+  @Word("( a:number b:number -- difference:number )", "Subtract b from a", "SUBTRACT")
+  async minus_SUBTRACT(a: number, b: number) {
+    if (a === null || a === undefined || b === null || b === undefined) {
+      return null;
+    }
+    return a - b;
+  }
+
+  @DirectWord("( a:number b:number -- product:number ) OR ( numbers:number[] -- product:number )", "Multiply two numbers or product of array", "*")
   async times(interp: Interpreter) {
     const b = interp.stack_pop();
 
@@ -91,9 +91,24 @@ export class MathModule extends DecoratedModule {
     interp.stack_push(a * b);
   }
 
-  // ( a b -- quotient )
+  @DirectWord("( a:number b:number -- product:number ) OR ( numbers:number[] -- product:number )", "Multiply two numbers or product of array", "MULTIPLY")
+  async times_MULTIPLY(interp: Interpreter) {
+    return this.times(interp);
+  }
+
   @Word("( a:number b:number -- quotient:number )", "Divide a by b", "/")
   async divide_by(a: number, b: number) {
+    if (a === null || a === undefined || b === null || b === undefined) {
+      return null;
+    }
+    if (b === 0) {
+      return null;
+    }
+    return a / b;
+  }
+
+  @Word("( a:number b:number -- quotient:number )", "Divide a by b", "DIVIDE")
+  async divide_by_DIVIDE(a: number, b: number) {
     if (a === null || a === undefined || b === null || b === undefined) {
       return null;
     }
@@ -112,11 +127,7 @@ export class MathModule extends DecoratedModule {
     return m % n;
   }
 
-  // ========================================
-  // Aggregate Functions
-  // ========================================
 
-  // ( numbers -- mean )
   @Word("( items:any[] -- mean:any )", "Calculate mean of array (handles numbers, strings, objects)")
   async MEAN(items: any) {
     if (!items || (Array.isArray(items) && items.length === 0)) {
@@ -204,7 +215,7 @@ export class MathModule extends DecoratedModule {
     return 0;
   }
 
-  // ( a b -- max ) OR ( [items] -- max )
+  @DirectWord("( a:number b:number -- max:number ) OR ( items:number[] -- max:number )", "Maximum of two numbers or array", "MAX")
   async MAX(interp: Interpreter) {
     const b = interp.stack_pop();
 
@@ -223,7 +234,7 @@ export class MathModule extends DecoratedModule {
     interp.stack_push(Math.max(a, b));
   }
 
-  // ( a b -- min ) OR ( [items] -- min )
+  @DirectWord("( a:number b:number -- min:number ) OR ( items:number[] -- min:number )", "Minimum of two numbers or array", "MIN")
   async MIN(interp: Interpreter) {
     const b = interp.stack_pop();
 
@@ -242,7 +253,6 @@ export class MathModule extends DecoratedModule {
     interp.stack_push(Math.min(a, b));
   }
 
-  // ( array -- sum )
   @Word("( numbers:number[] -- sum:number )", "Sum of array (explicit)")
   async SUM(numbers: number[]) {
     if (!numbers || !Array.isArray(numbers)) {
@@ -258,11 +268,7 @@ export class MathModule extends DecoratedModule {
     return result;
   }
 
-  // ========================================
-  // Type Conversion
-  // ========================================
 
-  // ( a -- int )
   @Word("( a:any -- int:number )", "Convert to integer (returns length for arrays/objects, 0 for null)")
   async [">INT"](a: any) {
     if (a === null || a === undefined) {
@@ -280,7 +286,6 @@ export class MathModule extends DecoratedModule {
     }
   }
 
-  // ( a -- float )
   @Word("( a:any -- float:number )", "Convert to float")
   async [">FLOAT"](a: any) {
     if (a === null || a === undefined) {
@@ -294,7 +299,6 @@ export class MathModule extends DecoratedModule {
     }
   }
 
-  // ( num digits -- string )
   @Word("( num:number digits:number -- result:string )", "Format number with fixed decimal places")
   async [">FIXED"](num: number, digits: number) {
     if (num === null || num === undefined) {
@@ -304,7 +308,6 @@ export class MathModule extends DecoratedModule {
     return num.toFixed(digits);
   }
 
-  // ( num -- int )
   @Word("( num:number -- int:number )", "Round to nearest integer")
   async ROUND(num: number) {
     if (num === null || num === undefined) {
@@ -314,27 +317,18 @@ export class MathModule extends DecoratedModule {
     return Math.round(num);
   }
 
-  // ========================================
-  // Special Values
-  // ========================================
 
-  // ( -- infinity )
   @Word("( -- infinity:number )", "Push Infinity value")
   async INFINITY() {
     return Infinity;
   }
 
-  // ( low high -- random )
   @Word("( low:number high:number -- random:number )", "Generate random number in range [low, high)")
   async ["UNIFORM-RANDOM"](low: number, high: number) {
     return Math.random() * (high - low) + low;
   }
 
-  // ========================================
-  // Essential Math Functions (NEW)
-  // ========================================
 
-  // ( n -- |n| )
   @Word("( n:number -- abs:number )", "Absolute value")
   async ABS(n: number) {
     if (n === null || n === undefined) {
@@ -343,7 +337,6 @@ export class MathModule extends DecoratedModule {
     return Math.abs(n);
   }
 
-  // ( n -- sqrt )
   @Word("( n:number -- sqrt:number )", "Square root")
   async SQRT(n: number) {
     if (n === null || n === undefined) {
@@ -352,7 +345,6 @@ export class MathModule extends DecoratedModule {
     return Math.sqrt(n);
   }
 
-  // ( n -- floor )
   @Word("( n:number -- floor:number )", "Round down to integer")
   async FLOOR(n: number) {
     if (n === null || n === undefined) {
@@ -361,7 +353,6 @@ export class MathModule extends DecoratedModule {
     return Math.floor(n);
   }
 
-  // ( n -- ceil )
   @Word("( n:number -- ceil:number )", "Round up to integer")
   async CEIL(n: number) {
     if (n === null || n === undefined) {
@@ -370,7 +361,6 @@ export class MathModule extends DecoratedModule {
     return Math.ceil(n);
   }
 
-  // ( value min max -- clamped )
   @Word("( value:number min:number max:number -- clamped:number )", "Constrain value to range [min, max]")
   async CLAMP(value: number, min: number, max: number) {
     if (value === null || value === undefined || min === null || min === undefined || max === null || max === undefined) {

@@ -1,5 +1,5 @@
 import { Interpreter } from "../interpreter";
-import { DecoratedModule, Word } from "../decorators/word";
+import { DecoratedModule, Word, DirectWord } from "../decorators/word";
 import { Temporal } from "temporal-polyfill";
 
 /**
@@ -16,37 +16,22 @@ import { Temporal } from "temporal-polyfill";
 export class DateTimeModule extends DecoratedModule {
   constructor() {
     super("datetime");
-
-    // Manual registration for words that need interpreter access
-    this.add_module_word("TODAY", this.TODAY.bind(this));
-    this.add_module_word("NOW", this.NOW.bind(this));
-    this.add_module_word(">DATETIME", this.to_DATETIME.bind(this));
-    this.add_module_word("AT", this.AT.bind(this));
-    this.add_module_word(">TIMESTAMP", this.to_TIMESTAMP.bind(this));
-    this.add_module_word("TIMESTAMP>DATETIME", this.TIMESTAMP_to_DATETIME.bind(this));
   }
 
-  // ========================================
-  // Current Time/Date
-  // ========================================
 
-  // ( -- date )
+  @DirectWord("( -- date:Temporal.PlainDate )", "Get current date", "TODAY")
   async TODAY(interp: Interpreter) {
     const today = Temporal.Now.plainDateISO(interp.get_timezone());
     interp.stack_push(today);
   }
 
-  // ( -- datetime )
+  @DirectWord("( -- datetime:Temporal.ZonedDateTime )", "Get current datetime", "NOW")
   async NOW(interp: Interpreter) {
     const now = Temporal.Now.plainDateTimeISO(interp.get_timezone());
     interp.stack_push(now);
   }
 
-  // ========================================
-  // Time Adjustment
-  // ========================================
 
-  // ( time -- time )
   @Word("( time:Temporal.PlainTime -- time:Temporal.PlainTime )", "Convert time to AM (subtract 12 from hour if >= 12)")
   async AM(time: any) {
     if (!time || typeof time.hour !== "number") {
@@ -58,7 +43,6 @@ export class DateTimeModule extends DecoratedModule {
     return time;
   }
 
-  // ( time -- time )
   @Word("( time:Temporal.PlainTime -- time:Temporal.PlainTime )", "Convert time to PM (add 12 to hour if < 12)")
   async PM(time: any) {
     if (!time || typeof time.hour !== "number") {
@@ -70,11 +54,7 @@ export class DateTimeModule extends DecoratedModule {
     return time;
   }
 
-  // ========================================
-  // Conversion TO Time/Date/DateTime
-  // ========================================
 
-  // ( str/datetime -- time )
   @Word("( item:any -- time:Temporal.PlainTime )", "Convert string or datetime to PlainTime", ">TIME")
   async to_TIME(item: any) {
     if (!item) {
@@ -118,7 +98,6 @@ export class DateTimeModule extends DecoratedModule {
     }
   }
 
-  // ( str/datetime -- date )
   @Word("( item:any -- date:Temporal.PlainDate )", "Convert string or datetime to PlainDate", ">DATE")
   async to_DATE(item: any) {
     if (!item) {
@@ -160,7 +139,7 @@ export class DateTimeModule extends DecoratedModule {
     return null;
   }
 
-  // ( str/timestamp -- datetime )
+  @DirectWord("( str_or_timestamp:any -- datetime:Temporal.ZonedDateTime )", "Convert string or timestamp to ZonedDateTime", ">DATETIME")
   async to_DATETIME(interp: Interpreter) {
     const item = interp.stack_pop();
 
@@ -203,7 +182,7 @@ export class DateTimeModule extends DecoratedModule {
     }
   }
 
-  // ( date time -- datetime )
+  @DirectWord("( date:Temporal.PlainDate time:Temporal.PlainTime -- datetime:Temporal.ZonedDateTime )", "Combine date and time into datetime", "AT")
   async AT(interp: Interpreter) {
     const time = interp.stack_pop();
     const date = interp.stack_pop();
@@ -229,11 +208,7 @@ export class DateTimeModule extends DecoratedModule {
     interp.stack_push(zoned);
   }
 
-  // ========================================
-  // Conversion FROM Time/Date
-  // ========================================
 
-  // ( time -- str )
   @Word("( time:Temporal.PlainTime -- str:string )", "Convert time to HH:MM string", "TIME>STR")
   async TIME_to_STR(time: any) {
     if (!time || typeof time.hour !== "number") {
@@ -245,7 +220,6 @@ export class DateTimeModule extends DecoratedModule {
     return `${hour}:${minute}`;
   }
 
-  // ( date -- str )
   @Word("( date:Temporal.PlainDate -- str:string )", "Convert date to YYYY-MM-DD string", "DATE>STR")
   async DATE_to_STR(date: any) {
     if (!date || typeof date.year !== "number") {
@@ -255,7 +229,6 @@ export class DateTimeModule extends DecoratedModule {
     return date.toString();
   }
 
-  // ( date -- int )
   @Word("( date:Temporal.PlainDate -- int:number )", "Convert date to integer (YYYYMMDD)", "DATE>INT")
   async DATE_to_INT(date: any) {
     if (!date || typeof date.year !== "number") {
@@ -268,11 +241,8 @@ export class DateTimeModule extends DecoratedModule {
     return parseInt(`${year}${month}${day}`, 10);
   }
 
-  // ========================================
-  // Timestamp Operations
-  // ========================================
 
-  // ( datetime -- timestamp )
+  @DirectWord("( datetime:Temporal.ZonedDateTime -- timestamp:number )", "Convert datetime to Unix timestamp (seconds)", ">TIMESTAMP")
   async to_TIMESTAMP(interp: Interpreter) {
     const datetime = interp.stack_pop();
 
@@ -302,7 +272,7 @@ export class DateTimeModule extends DecoratedModule {
     interp.stack_push(Math.floor(timestamp / 1000)); // Return seconds for compatibility
   }
 
-  // ( timestamp -- datetime )
+  @DirectWord("( timestamp:number -- datetime:Temporal.ZonedDateTime )", "Convert Unix timestamp (seconds) to datetime", "TIMESTAMP>DATETIME")
   async TIMESTAMP_to_DATETIME(interp: Interpreter) {
     const timestamp = interp.stack_pop();
 
@@ -317,9 +287,6 @@ export class DateTimeModule extends DecoratedModule {
     interp.stack_push(zoned);
   }
 
-  // ========================================
-  // Date Math
-  // ========================================
 
   // ( date num_days -- date )
   @Word("( date:Temporal.PlainDate num_days:number -- date:Temporal.PlainDate )", "Add days to a date", "ADD-DAYS")

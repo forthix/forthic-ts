@@ -8,6 +8,12 @@ export type WordHandler =
 
 // -------------------------------------
 // Variable
+/**
+ * Variable - Named mutable value container
+ *
+ * Represents a variable that can store and retrieve values within a module scope.
+ * Variables are accessed by name and can be set to any value type.
+ */
 export class Variable {
   name: string;
   value: any;
@@ -37,6 +43,13 @@ export class Variable {
 // -------------------------------------
 // Words
 
+/**
+ * Word - Base class for all executable words in Forthic
+ *
+ * A word is the fundamental unit of execution in Forthic. When interpreted,
+ * it performs an action (typically manipulating the stack or control flow).
+ * All concrete word types must override the execute method.
+ */
 export class Word {
   name: string;
   string: string;
@@ -61,6 +74,12 @@ export class Word {
   }
 }
 
+/**
+ * PushValueWord - Word that pushes a value onto the stack
+ *
+ * Executes by pushing its stored value onto the interpreter's stack.
+ * Used for literals, variables, and constants.
+ */
 export class PushValueWord extends Word {
   value: any;
 
@@ -74,6 +93,13 @@ export class PushValueWord extends Word {
   }
 }
 
+/**
+ * DefinitionWord - User-defined word composed of other words
+ *
+ * Represents a word defined in Forthic code using `:`
+ * Contains a sequence of words that are executed in order.
+ * Provides error context by tracking both call site and definition location.
+ */
 export class DefinitionWord extends Word {
   words: Word[];
 
@@ -104,6 +130,13 @@ export class DefinitionWord extends Word {
   }
 }
 
+/**
+ * ModuleMemoWord - Memoized word that caches its result
+ *
+ * Executes the wrapped word once and caches the result on the stack.
+ * Subsequent calls return the cached value without re-executing.
+ * Defined in Forthic using `@:`. Can be refreshed using the `!` and `!@` variants.
+ */
 export class ModuleMemoWord extends Word {
   word: Word;
   has_value: boolean;
@@ -128,6 +161,13 @@ export class ModuleMemoWord extends Word {
   }
 }
 
+/**
+ * ModuleMemoBangWord - Forces refresh of a memoized word
+ *
+ * Re-executes the memoized word and updates its cached value.
+ * Named with a `!` suffix (e.g., `WORD!` for a memo word named `WORD`).
+ * Does not push the new value onto the stack.
+ */
 export class ModuleMemoBangWord extends Word {
   memo_word: ModuleMemoWord;
 
@@ -141,6 +181,13 @@ export class ModuleMemoBangWord extends Word {
   }
 }
 
+/**
+ * ModuleMemoBangAtWord - Refreshes a memoized word and returns its value
+ *
+ * Re-executes the memoized word, updates its cached value, and pushes the new value onto the stack.
+ * Named with a `!@` suffix (e.g., `WORD!@` for a memo word named `WORD`).
+ * Combines the refresh and retrieval operations.
+ */
 export class ModuleMemoBangAtWord extends Word {
   memo_word: ModuleMemoWord;
 
@@ -155,7 +202,12 @@ export class ModuleMemoBangAtWord extends Word {
   }
 }
 
-// ExecuteWord - executes another word (used for prefixed module imports)
+/**
+ * ExecuteWord - Wrapper word that executes another word
+ *
+ * Delegates execution to a target word. Used for prefixed module imports
+ * to create words like `prefix.word` that execute the original word from the imported module.
+ */
 export class ExecuteWord extends Word {
   target_word: Word;
 
@@ -172,6 +224,21 @@ export class ExecuteWord extends Word {
 // -------------------------------------
 // Module
 
+/**
+ * Module - Container for words, variables, and imported modules
+ *
+ * Modules provide namespacing and code organization in Forthic.
+ * Each module maintains its own dictionary of words, variables, and imported modules.
+ *
+ * Features:
+ * - Word and variable management
+ * - Module importing with optional prefixes
+ * - Exportable word lists for controlled visibility
+ * - Module duplication and copying for isolated execution contexts
+ *
+ * Modules can be defined inline with `{module_name ... }` syntax or
+ * loaded from external sources.
+ */
 export class Module {
   words: Word[];
   exportable: string[];
