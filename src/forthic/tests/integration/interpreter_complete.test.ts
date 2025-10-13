@@ -144,12 +144,12 @@ describe("Interpreter - Complete End-to-End Tests", () => {
       expect(interp.stack_pop()).toBe(42);
     });
 
-    test("use_modules_unprefixed imports without prefix", async () => {
+    test("use_modules default behavior (no prefix)", async () => {
       const testModule = new Module("test");
       testModule.add_exportable_word(new PushValueWord("ITEM", "value"));
 
       interp.register_module(testModule);
-      interp.use_modules_unprefixed(["test"]);
+      interp.use_modules(["test"]);  // Now defaults to no prefix
 
       await interp.run("ITEM");
 

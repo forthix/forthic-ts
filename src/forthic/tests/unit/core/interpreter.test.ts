@@ -168,17 +168,18 @@ test("Search global module", async () => {
 
 
 test("Use modules", async () => {
+  // Test default (no prefix)
   const interp = new StandardInterpreter();
   interp.register_module(new TestModule());
   interp.use_modules(["test"]);
-  await interp.run("test.TEST");
+  await interp.run("TEST");
   expect(interp.stack_pop()).toBe("TEST called");
 
-  // Test with prefix
+  // Test with explicit prefix
   const interp2 = new StandardInterpreter();
   interp2.register_module(new TestModule());
-  interp2.use_modules([["test", ""]]);
-  await interp2.run("TEST");
+  interp2.use_modules([["test", "t"]]);
+  await interp2.run("t.TEST");
   expect(interp2.stack_pop()).toBe("TEST called");
 });
 

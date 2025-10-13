@@ -1,24 +1,43 @@
 import { Variable } from "../module";
 import { Interpreter } from "../interpreter";
 import { InvalidVariableNameError, IntentionalStopError } from "../errors";
-import { DecoratedModule, Word } from "../decorators/word";
+import { DecoratedModule, Word, registerModuleDoc } from "../decorators/word";
 import { WordOptions } from "../word_options";
 
-/**
- * CoreModule - Essential interpreter operations
- *
- * Categories:
- * - Stack operations: POP, DUP, SWAP
- * - Variables: VARIABLES, !, @, !@
- * - Module system: EXPORT, USE-MODULES
- * - Execution: INTERPRET
- * - Control: IDENTITY, NOP, DEFAULT, *DEFAULT, NULL
- * - Options: ~> (converts array to WordOptions)
- * - Profiling: PROFILE-START, PROFILE-TIMESTAMP, PROFILE-END, PROFILE-DATA
- * - Logging: START_LOG, END_LOG, CONSOLE.LOG
- * - Utility: .s, .S
- */
 export class CoreModule extends DecoratedModule {
+  static {
+    registerModuleDoc(CoreModule, `
+Essential interpreter operations for stack manipulation, variables, control flow, and module system.
+
+## Categories
+- Stack: POP, DUP, SWAP
+- Variables: VARIABLES, !, @, !@
+- Module: EXPORT, USE-MODULES
+- Execution: INTERPRET
+- Control: IDENTITY, NOP, DEFAULT, *DEFAULT, NULL, ARRAY?
+- Options: ~> (converts array to WordOptions)
+- Profiling: PROFILE-START, PROFILE-TIMESTAMP, PROFILE-END, PROFILE-DATA
+- Logging: START_LOG, END_LOG
+- String: INTERPOLATE, PRINT
+- Debug: .s, .S
+
+## Options
+INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option_name value ...] ~> WORD
+- separator: String to use when joining array values (default: ", ")
+- null_text: Text to display for null/undefined values (default: "null")
+- json: Use JSON.stringify for all values (default: false)
+
+## Examples
+5 .count ! "Count: .count" PRINT
+"Items: .items" [.separator " | "] ~> PRINT
+[1 2 3] PRINT                           # Direct printing: 1, 2, 3
+[1 2 3] [.separator " | "] ~> PRINT    # With options: 1 | 2 | 3
+{"name" "Alice"} [.json TRUE] ~> PRINT  # JSON format: {"name":"Alice"}
+"Hello .name" INTERPOLATE .greeting !
+[1 2 3] DUP SWAP
+`);
+  }
+
   constructor() {
     super("core");
   }
@@ -253,9 +272,58 @@ export class CoreModule extends DecoratedModule {
     this.interp.endStream();
   }
 
-  @Word("( object:any -- object:any )", "Logs object to console and returns it")
-  async ["CONSOLE.LOG"](object: any) {
-    console.log(object);
-    return object;
+
+  @Word("( string:string [options:WordOptions] -- result:string )", "Interpolate variables (.name) and return result string. Use \\. to escape literal dots.")
+  async INTERPOLATE(string: string, options: Record<string, any>) {
+    const separator = options.separator ?? ", ";
+    const null_text = options.null_text ?? "null";
+    const use_json = options.json ?? false;
+
+    return this.interpolateString(string, separator, null_text, use_json);
+  }
+
+  @Word("( value:any [options:WordOptions] -- )", "Print value to stdout. Strings interpolate variables (.name). Non-strings formatted with options. Use \\. to escape literal dots in strings.")
+  async PRINT(value: any, options: Record<string, any>) {
+    const separator = options.separator ?? ", ";
+    const null_text = options.null_text ?? "null";
+    const use_json = options.json ?? false;
+
+    let result: string;
+    if (typeof value === 'string') {
+      // String: interpolate variables
+      result = this.interpolateString(value, separator, null_text, use_json);
+    } else {
+      // Non-string: format directly
+      result = this.valueToString(value, separator, null_text, use_json);
+    }
+    console.log(result);
+  }
+
+  private interpolateString(string: string, separator: string, null_text: string, use_json: boolean): string {
+    if (!string) string = "";
+
+    // First, handle escape sequences by replacing \. with a temporary placeholder
+    const escaped = string.replace(/\\\./g, '\x00ESCAPED_DOT\x00');
+
+    // Replace whitespace-preceded or start-of-string .variable patterns
+    const interpolated = escaped.replace(
+      /(?:^|(?<=\s))\.([a-zA-Z_][a-zA-Z0-9_-]*)/g,
+      (match, varName) => {
+        const variable = CoreModule.get_or_create_variable(this.interp, varName);
+        const value = variable.get_value();
+        return this.valueToString(value, separator, null_text, use_json);
+      }
+    );
+
+    // Restore escaped dots
+    return interpolated.replace(/\x00ESCAPED_DOT\x00/g, '.');
+  }
+
+  private valueToString(value: any, separator: string, null_text: string, use_json: boolean): string {
+    if (value === null || value === undefined) return null_text;
+    if (use_json) return JSON.stringify(value);
+    if (Array.isArray(value)) return value.join(separator);
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
   }
 }
