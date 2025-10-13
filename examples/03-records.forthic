@@ -1,0 +1,29 @@
+# Example 3: Record Operations
+# =============================
+# Demonstrates record (object) manipulation
+
+# Create a record and store in a variable
+[ [.name "Alice"]
+  [.age  30]
+  [.city "NYC"]] REC .alice !
+
+# Extract a field
+.alice @ .name REC@
+# Stack now has: record "Alice"
+
+# Update a field by merging
+.alice @ 31 .age <REC!
+# Stack now has: "Alice" {"name" "Alice" "age" 31 "city" "NYC"}
+
+# Duplicate and get all keys
+.alice @ KEYS
+# Stack now has: "Alice" record ["name", "age", "city"]
+
+# Swap back to record
+.alice @ VALUES
+# Stack now has: "Alice" ["name", "age", "city"] ["Alice", 31, "NYC"]
+
+# Expected stack at end:
+# [2]: ["Alice", 31, "NYC"]
+# [1]: ["name", "age", "city"]
+# [0]: "Alice"

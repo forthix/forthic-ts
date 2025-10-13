@@ -1,0 +1,35 @@
+# Example 4: Function Composition
+# =================================
+# Shows how to define and compose transformations
+
+# Define a word that squares a number
+: SQUARE   DUP * ;
+
+# Define a word that adds 10
+: ADD-10   10 + ;
+
+# Define a word that composes these operations
+: TRANSFORM   SQUARE ADD-10 ;
+
+# Use our composed transformation
+5 TRANSFORM
+# 5 squared = 25, plus 10 = 35
+
+# Define a word that processes an array of numbers
+: PROCESS-NUMBERS
+    'TRANSFORM' MAP
+;
+
+# Process an array
+[1 2 3 4 5] PROCESS-NUMBERS
+
+# Expected stack at end:
+# [1]: [11, 14, 19, 26, 35]
+# [0]: 35
+#
+# Explanation:
+# 1^2 + 10 = 11
+# 2^2 + 10 = 14
+# 3^2 + 10 = 19
+# 4^2 + 10 = 26
+# 5^2 + 10 = 35

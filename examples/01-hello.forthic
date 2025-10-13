@@ -1,0 +1,9 @@
+# Example 1: Hello World
+# ========================
+# Simple introduction to Forthic
+
+# Push a string onto the stack
+"Hello, World!"
+
+# The string is now on the stack and will be printed when the script ends
+# Expected output: "Hello, World!"

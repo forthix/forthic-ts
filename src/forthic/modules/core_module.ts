@@ -12,7 +12,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 ## Categories
 - Stack: POP, DUP, SWAP
 - Variables: VARIABLES, !, @, !@
-- Module: EXPORT, USE-MODULES
+- Module: EXPORT, USE_MODULES
 - Execution: INTERPRET
 - Control: IDENTITY, NOP, DEFAULT, *DEFAULT, NULL, ARRAY?
 - Options: ~> (converts array to WordOptions)
@@ -166,7 +166,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
   }
 
   @Word("( names:string[] -- )", "Imports modules by name")
-  async ["USE-MODULES"](names: string[]) {
+  async USE_MODULES(names: string[]) {
     if (!names) return;
     this.interp.use_modules(names);
   }

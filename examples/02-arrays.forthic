@@ -1,0 +1,32 @@
+# Example 2: Array Operations
+# ============================
+# Demonstrates array manipulation and transformations
+
+# Create an array
+[1 2 3 4 5]
+
+# Duplicate the array so we can perform multiple operations
+DUP
+
+# Double each element using MAP
+"2 *" MAP
+# Stack now has: [1 2 3 4 5] [2 4 6 8 10]
+
+# Swap the arrays
+SWAP
+
+# Keep only even numbers from original array
+'2 MOD 0 ==' SELECT
+# Stack now has: [2 4 6 8 10] [2 4]
+
+# Take first 2 elements from the filtered array
+2 TAKE
+# Stack now has: [2 4 6 8 10] [2 4]
+
+# Sum the elements
+0 '+' REDUCE
+# Stack now has: [2 4 6 8 10] 6
+
+# Expected stack at end:
+# [1]: 6
+# [0]: [2, 4, 6, 8, 10]
