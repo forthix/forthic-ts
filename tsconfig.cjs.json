@@ -6,8 +6,11 @@
     "lib": ["ES2023", "DOM"],
     "declaration": true,
     "sourceMap": true,
-    "moduleResolution": "nodenext"
-},
+    "moduleResolution": "nodenext",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true
+  },
   "include": ["src"],
   "exclude": ["src/**/__tests__", "src/**/__mocks__", "src/**/tests"]
 }

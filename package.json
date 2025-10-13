@@ -1,11 +1,21 @@
 {
-  "name": "@forthix/forthic-ts",
+  "name": "@forthix/forthic",
   "version": "0.1.0",
-  "description": "Forthic interpreter",
+  "description": "Stack-based, concatenative language for composable transformations - TypeScript/JavaScript runtime",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
+  "types": "dist/cjs/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/cjs/index.js",
+      "import": "./dist/esm/index.js",
+      "types": "./dist/cjs/index.d.ts"
+    }
+  },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "README.md"
   ],
   "scripts": {
     "forthic": "ts-node scripts/forthic.ts",
@@ -14,9 +24,25 @@
     "build:cjs": "tsc --project tsconfig.cjs.json",
     "build:esm": "tsc --project tsconfig.esm.json",
     "build": "npm run build:cjs && npm run build:esm",
+    "prepublishOnly": "npm run build && npm test",
     "test": "jest",
     "test:watch": "jest --watch",
     "docs:build": "npx ts-node scripts/generate-docs.ts"
+  },
+  "keywords": [
+    "forthic",
+    "forth",
+    "stack-based",
+    "concatenative",
+    "functional",
+    "interpreter",
+    "language",
+    "dsl",
+    "category-theory",
+    "composable"
+  ],
+  "engines": {
+    "node": ">=16.0.0"
   },
   "repository": {
     "type": "git",

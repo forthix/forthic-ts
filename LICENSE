@@ -1,6 +1,7 @@
 BSD 2-CLAUSE LICENSE
 
-Copyright 2024 LinkedIn Corporation.
+Copyright 2024 LinkedIn Corporation (original Forthic implementation).
+Copyright 2025 Forthix LLC (TypeScript overhaul + current development)
 All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without

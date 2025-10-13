@@ -1,0 +1,40 @@
+# Source files
+src/
+scripts/
+
+# Tests
+**/*.test.ts
+**/*.test.js
+**/__tests__/
+coverage/
+
+# Development files
+.claude/
+examples/
+docs/
+
+# Config files
+tsconfig*.json
+jest.config.js
+eslint.config.mjs
+.prettierrc
+.prettierignore
+.gitignore
+
+# Build artifacts (keep dist/)
+node_modules/
+*.log
+*.tgz
+
+# Git
+.git/
+.github/
+
+# Documentation (except README)
+CONTRIBUTING.md
+
+# Misc
+.DS_Store
+*.swp
+*.swo
+*~

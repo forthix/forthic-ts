@@ -10,10 +10,10 @@ Array and collection operations for manipulating arrays and records.
 
 - **Access**: NTH, LAST, SLICE, TAKE, DROP, LENGTH, INDEX, KEY-OF
 - **Transform**: MAP, REVERSE
-- **Combine**: APPEND, ZIP, ZIP-WITH, CONCAT
+- **Combine**: APPEND, ZIP, ZIP_WITH, CONCAT
 - **Filter**: SELECT, UNIQUE, DIFFERENCE, INTERSECTION, UNION
 - **Sort**: SORT, SHUFFLE, ROTATE
-- **Group**: BY-FIELD, GROUP-BY-FIELD, GROUP-BY, GROUPS-OF
+- **Group**: BY_FIELD, GROUP_BY_FIELD, GROUP_BY, GROUPS_OF
 - **Utility**: <REPEAT, FOREACH, REDUCE, UNPACK, FLATTEN
 
 ## Options
