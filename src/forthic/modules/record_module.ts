@@ -7,14 +7,8 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
 ## Categories
 - Core: REC, REC@, |REC@, <REC!
-- Transform: RELABEL, INVERT-KEYS, REC-DEFAULTS, <DEL
+- Transform: RELABEL, INVERT_KEYS, REC_DEFAULTS, <DEL
 - Access: KEYS, VALUES
-
-## Examples
-[["name" "Alice"] ["age" 30]] REC
-{name: "Alice", age: 30} "name" REC@
-[{x: 1} {x: 2}] "x" |REC@
-{a: 1, b: 2} KEYS
 `);
   }
 
