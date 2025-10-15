@@ -19,7 +19,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - Profiling: PROFILE-START, PROFILE-TIMESTAMP, PROFILE-END, PROFILE-DATA
 - Logging: START_LOG, END_LOG
 - String: INTERPOLATE, PRINT
-- Debug: .s, .S
+- Debug: PEEK!, STACK!
 
 ## Options
 INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option_name value ...] ~> WORD
@@ -86,21 +86,21 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
   }
 
   @Word("( -- )", "Prints top of stack and stops execution")
-  async [".s"]() {
+  async ["PEEK!"]() {
     const stack = this.interp.get_stack().get_items();
     if (stack.length > 0) {
       console.log(stack[stack.length - 1]);
     } else {
       console.log("<STACK EMPTY>");
     }
-    throw new IntentionalStopError(".s");
+    throw new IntentionalStopError("PEEK!");
   }
 
   @Word("( -- )", "Prints entire stack (reversed) and stops execution")
-  async [".S"]() {
+  async ["STACK!"]() {
     const stack = this.interp.get_stack().get_items().slice().reverse();
     console.log(JSON.stringify(stack, null, 2));
-    throw new IntentionalStopError(".S");
+    throw new IntentionalStopError("STACK!");
   }
 
 

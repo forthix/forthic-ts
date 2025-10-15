@@ -459,24 +459,24 @@ describe("Dot symbol tokenization", () => {
     expect(token2.string).toEqual("NEXT");
   });
 
-  test("Short dot symbols (.s, .S) should be treated as words", () => {
+  test("One-character dot symbols (.s, .S, .x) should be treated as DOT_SYMBOL", () => {
     const input = ".s .S .x";
     const tokenizer = new Tokenizer(input, reference_location);
 
     const token1 = tokenizer.next_token();
-    expect(token1.type).toEqual(TokenType.WORD);
-    expect(token1.string).toEqual(".s");
+    expect(token1.type).toEqual(TokenType.DOT_SYMBOL);
+    expect(token1.string).toEqual("s");
 
     const token2 = tokenizer.next_token();
-    expect(token2.type).toEqual(TokenType.WORD);
-    expect(token2.string).toEqual(".S");
+    expect(token2.type).toEqual(TokenType.DOT_SYMBOL);
+    expect(token2.string).toEqual("S");
 
     const token3 = tokenizer.next_token();
-    expect(token3.type).toEqual(TokenType.WORD);
-    expect(token3.string).toEqual(".x");
+    expect(token3.type).toEqual(TokenType.DOT_SYMBOL);
+    expect(token3.string).toEqual("x");
   });
 
-  test("Minimum length dot symbol (.ab) should be treated as DOT_SYMBOL", () => {
+  test("Two-character dot symbol (.ab) should be treated as DOT_SYMBOL", () => {
     const input = ".ab NEXT";
     const tokenizer = new Tokenizer(input, reference_location);
 

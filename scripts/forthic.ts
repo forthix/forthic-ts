@@ -140,8 +140,8 @@ async function startREPL(filePath?: string) {
       return;
     }
 
-    // Handle REPL commands (but allow .s and .S to pass through to Forthic)
-    if (trimmed.startsWith('.') && trimmed !== '.s' && trimmed !== '.S') {
+    // Handle REPL commands
+    if (trimmed.startsWith('.')) {
       await handleReplCommand(trimmed, interp, rl);
       rl.prompt();
       return;
@@ -151,7 +151,7 @@ async function startREPL(filePath?: string) {
     try {
       await interp.run(trimmed);
     } catch (error) {
-      // Don't show error for intentional stops (.s, .S)
+      // Don't show error for intentional stops (PEEK!, STACK!)
       if (!(error instanceof IntentionalStopError)) {
         console.error(`Error: ${error.message}`);
       }
