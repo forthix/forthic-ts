@@ -503,8 +503,8 @@ export class Tokenizer {
       }
     }
 
-    // If dot symbol has less than 2 characters after the dot, treat it as a word
-    if (full_token_string.length < 3) { // "." + at least 2 chars = 3 minimum
+    // If dot symbol has no characters after the dot, treat it as a word
+    if (full_token_string.length < 2) { // "." + at least 1 char = 2 minimum
       return new Token(
         TokenType.WORD,
         full_token_string,
