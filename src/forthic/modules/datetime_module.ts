@@ -1,5 +1,5 @@
-import { Interpreter } from "../interpreter";
-import { DecoratedModule, Word, DirectWord, registerModuleDoc } from "../decorators/word";
+import { Interpreter } from "../interpreter.js";
+import { DecoratedModule, Word, DirectWord, registerModuleDoc } from "../decorators/word.js";
 import { Temporal } from "temporal-polyfill";
 
 export class DateTimeModule extends DecoratedModule {

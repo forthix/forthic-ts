@@ -10,7 +10,7 @@
     "emitDeclarationOnly": false,
     "esModuleInterop": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": false
   },
   "include": ["src"],
   "exclude": ["src/**/__tests__", "src/**/__mocks__", "src/**/tests"]

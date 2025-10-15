@@ -1,4 +1,4 @@
-import type { Interpreter } from "./interpreter";
+import type { Interpreter } from "./interpreter.js";
 
 /**
  * WordOptions - Type-safe options container for module words

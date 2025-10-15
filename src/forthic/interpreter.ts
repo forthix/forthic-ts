@@ -1,6 +1,6 @@
-import { TokenType, Token, Tokenizer, CodeLocation } from "./tokenizer";
-import { Module, Word, PushValueWord, DefinitionWord } from "./module";
-import { PositionedString } from "./tokenizer";
+import { TokenType, Token, Tokenizer, CodeLocation } from "./tokenizer.js";
+import { Module, Word, PushValueWord, DefinitionWord } from "./module.js";
+import { PositionedString } from "./tokenizer.js";
 import {
   UnknownWordError,
   UnknownModuleError,
@@ -10,17 +10,17 @@ import {
   ExtraSemicolonError,
   ModuleError,
   TooManyAttemptsError,
-} from "./errors";
+} from "./errors.js";
 import { Temporal } from "temporal-polyfill";
-import { LiteralHandler, to_bool, to_float, to_int, to_time, to_literal_date, to_zoned_datetime } from "./literals";
-import { CoreModule } from "./modules/core_module";
-import { ArrayModule } from "./modules/array_module";
-import { RecordModule } from "./modules/record_module";
-import { StringModule } from "./modules/string_module";
-import { MathModule } from "./modules/math_module";
-import { BooleanModule } from "./modules/boolean_module";
-import { JsonModule } from "./modules/json_module";
-import { DateTimeModule } from "./modules/datetime_module";
+import { LiteralHandler, to_bool, to_float, to_int, to_time, to_literal_date, to_zoned_datetime } from "./literals.js";
+import { CoreModule } from "./modules/core_module.js";
+import { ArrayModule } from "./modules/array_module.js";
+import { RecordModule } from "./modules/record_module.js";
+import { StringModule } from "./modules/string_module.js";
+import { MathModule } from "./modules/math_module.js";
+import { BooleanModule } from "./modules/boolean_module.js";
+import { JsonModule } from "./modules/json_module.js";
+import { DateTimeModule } from "./modules/datetime_module.js";
 
 type Timestamp = {
   label: string;

@@ -1,5 +1,5 @@
-import { Interpreter, dup_interpreter } from "../interpreter";
-import { DecoratedModule, Word, DirectWord, registerModuleDoc } from "../decorators/word";
+import { Interpreter, dup_interpreter } from "../interpreter.js";
+import { DecoratedModule, Word, DirectWord, registerModuleDoc } from "../decorators/word.js";
 
 export class ArrayModule extends DecoratedModule {
   static {
