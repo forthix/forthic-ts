@@ -1,6 +1,6 @@
-import { Module } from "../module";
-import { Interpreter } from "../interpreter";
-import { WordOptions } from "../word_options";
+import { Module } from "../module.js";
+import { Interpreter } from "../interpreter.js";
+import { WordOptions } from "../word_options.js";
 
 // Metadata storage (per class)
 const wordMetadata = new WeakMap<any, Map<string, WordMetadata>>();

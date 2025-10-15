@@ -1,5 +1,5 @@
 import { DecoratedModule } from "./word";
-import { StandardInterpreter } from "../interpreter";
+import { StandardInterpreter } from "../interpreter.js";
 
 /**
  * Generate markdown documentation for a module

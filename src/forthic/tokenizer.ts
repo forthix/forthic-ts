@@ -1,4 +1,4 @@
-import { CodeLocationData, InvalidWordNameError, UnterminatedStringError } from "./errors";
+import { CodeLocationData, InvalidWordNameError, UnterminatedStringError } from "./errors.js";
 
 export enum TokenType {
   STRING = 1,

@@ -1,6 +1,6 @@
-import { Interpreter } from "./interpreter";
-import { CodeLocation } from "./tokenizer";
-import { WordExecutionError } from "./errors";
+import { Interpreter } from "./interpreter.js";
+import { CodeLocation } from "./tokenizer.js";
+import { WordExecutionError } from "./errors.js";
 
 export type WordHandler =
   | ((interp: Interpreter) => Promise<void>)
