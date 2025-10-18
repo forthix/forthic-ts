@@ -11,9 +11,9 @@ describe("Interpreter.streamingRun", () => {
   test("general streaming test", async () => {
     const items: (string | { stringDelta: string })[] = [];
 
-    // First chunk with START_LOG and beginning of string
+    // First chunk with START-LOG and beginning of string
     for await (const delta of interp.streamingRun(
-      `START_LOG "The quick brown`,
+      `START-LOG "The quick brown`,
       false,
     )) {
       items.push(delta);
@@ -21,15 +21,15 @@ describe("Interpreter.streamingRun", () => {
 
     // Add more to the string
     for await (const delta of interp.streamingRun(
-      `START_LOG "The quick brown fox jumps`,
+      `START-LOG "The quick brown fox jumps`,
       false,
     )) {
       items.push(delta);
     }
 
-    // Complete the string and END_LOG
+    // Complete the string and END-LOG
     for await (const delta of interp.streamingRun(
-      `START_LOG "The quick brown fox jumps over" END_LOG`,
+      `START-LOG "The quick brown fox jumps over" END-LOG`,
       false,
     )) {
       items.push(delta);
@@ -37,7 +37,7 @@ describe("Interpreter.streamingRun", () => {
 
     // Add UPPER (split across chunks)
     for await (const delta of interp.streamingRun(
-      `START_LOG "The quick brown fox jumps over" END_LOG UPPER`,
+      `START-LOG "The quick brown fox jumps over" END-LOG UPPER`,
       false,
     )) {
       items.push(delta);
@@ -45,7 +45,7 @@ describe("Interpreter.streamingRun", () => {
 
     // Complete with CASE
     for await (const delta of interp.streamingRun(
-      `START_LOG "The quick brown fox jumps over" END_LOG UPPERCASE`,
+      `START-LOG "The quick brown fox jumps over" END-LOG UPPERCASE`,
       true,
     )) {
       items.push(delta);
@@ -184,18 +184,18 @@ Night brings peaceful rest""" EMAIL`;
     expect(myInterp.stack_peek()).toEqual(["sent 1", "sent 2", "sent 3"]);
   });
 
-  test("yields string deltas between START_LOG and END_LOG", async () => {
+  test("yields string deltas between START-LOG and END-LOG", async () => {
     const items: ({ stringDelta: string } | string)[] = [];
 
     for await (const fullValue of interp.streamingRun(
-      `123 START_LOG "hello world" END_LOG`,
+      `123 START-LOG "hello world" END-LOG`,
       true,
     )) {
       items.push(fullValue);
     }
 
     for await (const delta of interp.streamingRun(
-      `123 START_LOG "hello world`,
+      `123 START-LOG "hello world`,
       false,
     )) {
       items.push(delta);
@@ -204,21 +204,21 @@ Night brings peaceful rest""" EMAIL`;
     //123 STR
 
     for await (const delta of interp.streamingRun(
-      `123 START_LOG "hello world how`,
+      `123 START-LOG "hello world how`,
       false,
     )) {
       items.push(delta);
     }
 
     for await (const delta of interp.streamingRun(
-      `123 START_LOG "hello world how are you`,
+      `123 START-LOG "hello world how are you`,
       false,
     )) {
       items.push(delta);
     }
 
     for await (const delta of interp.streamingRun(
-      `123 START_LOG "hello world how are you doing today"`,
+      `123 START-LOG "hello world how are you doing today"`,
       true,
     )) {
       items.push(delta);
@@ -233,11 +233,11 @@ Night brings peaceful rest""" EMAIL`;
     ]);
   });
 
-  test("multiple START_LOG/END_LOG blocks", async () => {
+  test("multiple START-LOG/END-LOG blocks", async () => {
     const deltas: ({ stringDelta: string } | string)[] = [];
 
     for await (const delta of interp.streamingRun(
-      `START_LOG "first" END_LOG 123 START_LOG "second" END_LOG`,
+      `START-LOG "first" END-LOG 123 START-LOG "second" END-LOG`,
       true,
     )) {
       deltas.push(delta);
@@ -248,9 +248,9 @@ Night brings peaceful rest""" EMAIL`;
   test("handles split words across streaming chunks", async () => {
     const items: ({ stringDelta: string } | string)[] = [];
 
-    // First chunk with START_LOG and beginning of string
+    // First chunk with START-LOG and beginning of string
     for await (const delta of interp.streamingRun(
-      `START_LOG "The quick brown`,
+      `START-LOG "The quick brown`,
       false,
     )) {
       items.push(delta);
@@ -258,15 +258,15 @@ Night brings peaceful rest""" EMAIL`;
 
     // Add more to the string
     for await (const delta of interp.streamingRun(
-      `START_LOG "The quick brown fox jumps`,
+      `START-LOG "The quick brown fox jumps`,
       false,
     )) {
       items.push(delta);
     }
 
-    // Complete the string and END_LOG
+    // Complete the string and END-LOG
     for await (const delta of interp.streamingRun(
-      `START_LOG "The quick brown fox jumps over" END_LOG`,
+      `START-LOG "The quick brown fox jumps over" END-LOG`,
       false,
     )) {
       items.push(delta);
@@ -274,7 +274,7 @@ Night brings peaceful rest""" EMAIL`;
 
     // Add UPPER (split across chunks)
     for await (const delta of interp.streamingRun(
-      `START_LOG "The quick brown fox jumps over" END_LOG UPPER`,
+      `START-LOG "The quick brown fox jumps over" END-LOG UPPER`,
       false,
     )) {
       items.push(delta);
@@ -282,7 +282,7 @@ Night brings peaceful rest""" EMAIL`;
 
     // Complete with CASE
     for await (const delta of interp.streamingRun(
-      `START_LOG "The quick brown fox jumps over" END_LOG UPPERCASE`,
+      `START-LOG "The quick brown fox jumps over" END-LOG UPPERCASE`,
       true,
     )) {
       items.push(delta);
@@ -299,11 +299,11 @@ Night brings peaceful rest""" EMAIL`;
     ]);
   });
 
-  test("START_LOG/END_LOG with numbers", async () => {
+  test("START-LOG/END-LOG with numbers", async () => {
     const deltas: ({ stringDelta: string } | string)[] = [];
 
     for await (const delta of interp.streamingRun(
-      "START_LOG 1 2 3 END_LOG",
+      "START-LOG 1 2 3 END-LOG",
       true,
     )) {
       deltas.push(delta);
@@ -314,11 +314,11 @@ Night brings peaceful rest""" EMAIL`;
     expect(interp.get_stack().get_items()).toEqual([1, 2]);
   });
 
-  test("START_LOG/END_LOG with objects", async () => {
+  test("START-LOG/END-LOG with objects", async () => {
     const deltas: ({ stringDelta: string } | string)[] = [];
 
     for await (const delta of interp.streamingRun(
-      `START_LOG [["key with space" 1] ["other key with space" 2] ] REC END_LOG`,
+      `START-LOG [["key with space" 1] ["other key with space" 2] ] REC END-LOG`,
       true,
     )) {
       deltas.push(delta);
