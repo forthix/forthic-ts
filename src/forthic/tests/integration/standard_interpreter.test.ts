@@ -373,21 +373,21 @@ function makeRecords() {
 
 test("By field", async () => {
   interp.stack_push(makeRecords());
-  await interp.run("'key' BY_FIELD");
+  await interp.run("'key' BY-FIELD");
   const grouped = interp.stack_pop();
   expect(grouped[104].status).toBe("IN PROGRESS");
 });
 
 test("By field with nulls", async () => {
   interp.stack_push([...makeRecords(), null, null]);
-  await interp.run("'key' BY_FIELD");
+  await interp.run("'key' BY-FIELD");
   const grouped = interp.stack_pop();
   expect(grouped[104].status).toBe("IN PROGRESS");
 });
 
 test("Group by field", async () => {
   interp.stack_push(makeRecords());
-  await interp.run("'assignee' GROUP_BY_FIELD");
+  await interp.run("'assignee' GROUP-BY-FIELD");
   const grouped = interp.stack_pop();
   expect(Object.keys(grouped).sort()).toEqual(["user1", "user2"]);
   expect(grouped["user1"].length).toBe(4);
@@ -405,7 +405,7 @@ test("Group by field", async () => {
   interp.stack_push(by_key);
 
   // Now group a record
-  await interp.run("'assignee' GROUP_BY_FIELD");
+  await interp.run("'assignee' GROUP-BY-FIELD");
   let grouped_rec = interp.stack_pop();
   expect(Object.keys(grouped_rec).sort()).toEqual(["user1", "user2"]);
   expect(grouped_rec["user1"].length).toBe(4);
@@ -417,7 +417,7 @@ test("Group by field", async () => {
     { id: 1, attrs: ["blue", "important"] },
     { id: 2, attrs: ["red"] },
   ]);
-  await interp.run("'attrs' GROUP_BY_FIELD");
+  await interp.run("'attrs' GROUP-BY-FIELD");
   grouped_rec = interp.stack_pop();
   expect(grouped_rec["blue"][0].id).toBe(1);
   expect(grouped_rec["important"][0].id).toBe(1);
@@ -427,7 +427,7 @@ test("Group by field", async () => {
 test("Group by", async () => {
   interp.stack_push(makeRecords());
   await interp.run(`
-    "'assignee' REC@" GROUP_BY
+    "'assignee' REC@" GROUP-BY
   `);
   const grouped = interp.stack_pop();
   expect(Object.keys(grouped).sort()).toEqual(["user1", "user2"]);
@@ -447,7 +447,7 @@ test("Group by", async () => {
 
   // Now group a record
   await interp.run(`
-    "'assignee' REC@" GROUP_BY
+    "'assignee' REC@" GROUP-BY
   `);
   const grouped_rec = interp.stack_pop();
   expect(Object.keys(grouped_rec).sort()).toEqual(["user1", "user2"]);
@@ -460,7 +460,7 @@ test("Group by with key", async () => {
   interp.stack_push(makeRecords());
   await interp.run(`
     ['key' 'val'] VARIABLES
-    "val ! key ! key @ 3 MOD" [.with_key TRUE] ~> GROUP_BY
+    "val ! key ! key @ 3 MOD" [.with_key TRUE] ~> GROUP-BY
   `);
   const grouped = interp.stack_pop();
   expect(Object.keys(grouped).sort()).toEqual(["0", "1", "2"]);
@@ -482,7 +482,7 @@ test("Group by with key", async () => {
   // Now group a record
   await interp.run(`
     ['key' 'val'] VARIABLES
-    "val ! key ! key @ 2 *" [.with_key TRUE] ~> GROUP_BY
+    "val ! key ! key @ 2 *" [.with_key TRUE] ~> GROUP-BY
   `);
   const grouped_rec = interp.stack_pop();
   expect(Object.keys(grouped_rec).sort()).toEqual([
@@ -498,7 +498,7 @@ test("Group by with key", async () => {
 
 test("Groups of", async () => {
   await interp.run(`
-    [1 2 3 4 5 6 7 8] 3 GROUPS_OF
+    [1 2 3 4 5 6 7 8] 3 GROUPS-OF
   `);
   const groups = interp.stack_pop();
   expect(groups[0]).toEqual([1, 2, 3]);
@@ -517,7 +517,7 @@ test("Groups of record", async () => {
       ['f' 6]
       ['g' 7]
       ['h' 8]
-    ] REC 3 GROUPS_OF
+    ] REC 3 GROUPS-OF
   `);
   const groups = interp.stack_pop();
   expect(groups[0]).toEqual({ a: 1, b: 2, c: 3 });
@@ -540,7 +540,7 @@ test("Groups of using record", async () => {
 
   // Now group a record
   await interp.run(`
-      3 GROUPS_OF
+      3 GROUPS-OF
     `);
   const recs = interp.stack_pop();
   expect(Object.keys(recs[0]).length).toBe(3);
@@ -823,9 +823,9 @@ test("ZIP", async () => {
   expect(record["z"]).toEqual([300, undefined]);
 });
 
-test("ZIP_WITH", async () => {
+test("ZIP-WITH", async () => {
   await interp.run(`
-    [10 20] [1 2] "+" ZIP_WITH
+    [10 20] [1 2] "+" ZIP-WITH
   `);
   const array = interp.stack_pop();
   expect(array[0]).toBe(11);
@@ -833,7 +833,7 @@ test("ZIP_WITH", async () => {
 
   // First, set up the record
   await interp.run(`
-    [['a' 1] ['b' 2]] REC [['a' 10] ['b' 20]] REC "+" ZIP_WITH
+    [['a' 1] ['b' 2]] REC [['a' 10] ['b' 20]] REC "+" ZIP-WITH
   `);
   const record = interp.stack_pop();
   expect(Object.keys(record).sort()).toEqual(["a", "b"]);
@@ -1251,12 +1251,12 @@ test("FLATTEN one level record", async () => {
   expect(Object.keys(record).sort()).toEqual(["a", "b\talpha", "c"]);
 });
 
-test("KEY_OF", async () => {
+test("KEY-OF", async () => {
   await interp.run(`
     ['x'] VARIABLES
     ['a' 'b' 'c' 'd'] x !
-    x @  'c' KEY_OF
-    x @  'z' KEY_OF
+    x @  'c' KEY-OF
+    x @  'z' KEY-OF
   `);
   let stack = (interp as any).stack;
   expect(stack[0]).toBe(2);
@@ -1265,7 +1265,7 @@ test("KEY_OF", async () => {
   // For record
   interp = new StandardInterpreter();
   await interp.run(`
-    [['a' 1] ['b' 2] ['c' 3]] REC  2 KEY_OF
+    [['a' 1] ['b' 2] ['c' 3]] REC  2 KEY-OF
   `);
   stack = (interp as any).stack;
   expect(stack[0]).toBe("b");

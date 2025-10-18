@@ -148,8 +148,8 @@ test("ZIP", async () => {
   expect(array[1]).toEqual(["b", 2]);
 });
 
-test("ZIP_WITH", async () => {
-  await interp.run(`[10 20] [1 2] "ADD" ZIP_WITH`);
+test("ZIP-WITH", async () => {
+  await interp.run(`[10 20] [1 2] "ADD" ZIP-WITH`);
   const array = interp.stack_pop();
   expect(array[0]).toBe(11);
   expect(array[1]).toBe(22);
@@ -173,11 +173,11 @@ test("INDEX", async () => {
   expect(index_record["gamma"]).toEqual([102]);
 });
 
-test("KEY_OF", async () => {
-  await interp.run(`['a' 'b' 'c' 'd'] 'c' KEY_OF`);
+test("KEY-OF", async () => {
+  await interp.run(`['a' 'b' 'c' 'd'] 'c' KEY-OF`);
   expect(interp.stack_pop()).toBe(2);
 
-  await interp.run(`['a' 'b' 'c' 'd'] 'z' KEY_OF`);
+  await interp.run(`['a' 'b' 'c' 'd'] 'z' KEY-OF`);
   expect(interp.stack_pop()).toBeNull();
 });
 
@@ -194,8 +194,8 @@ test("SELECT", async () => {
 // Group Operations
 // ========================================
 
-test("GROUPS_OF", async () => {
-  await interp.run(`[1 2 3 4 5 6 7 8] 3 GROUPS_OF`);
+test("GROUPS-OF", async () => {
+  await interp.run(`[1 2 3 4 5 6 7 8] 3 GROUPS-OF`);
   const groups = interp.stack_pop();
   expect(groups[0]).toEqual([1, 2, 3]);
   expect(groups[1]).toEqual([4, 5, 6]);
@@ -266,7 +266,7 @@ test("FOREACH with options - with_key", async () => {
 
 test("GROUP-BY with options - with_key", async () => {
   await interp.run(`
-    [5 15 25 8 18] '10 /' [.with_key TRUE] ~> GROUP_BY
+    [5 15 25 8 18] '10 /' [.with_key TRUE] ~> GROUP-BY
   `);
   const grouped = interp.stack_pop();
   // with_key pushes: index, value -> 10 / -> groups by division result
