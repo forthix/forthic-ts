@@ -1,10 +1,10 @@
-import { StandardInterpreter } from "../../../interpreter";
+import { StandardInterpreter } from "../../../../interpreter";
 import {
   InvalidVariableNameError,
   WordExecutionError
-} from "../../../errors";
-import { CoreModule } from "../../../modules/core_module";
-import { WordOptions } from "../../../word_options";
+} from "../../../../errors";
+import { CoreModule } from "../../../../modules/standard/core_module";
+import { WordOptions } from "../../../../word_options";
 
 let interp: StandardInterpreter;
 let interp_any: any;

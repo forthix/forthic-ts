@@ -1,4 +1,4 @@
-import { DecoratedModule, Word, registerModuleDoc } from "../decorators/word.js";
+import { DecoratedModule, Word, registerModuleDoc } from "../../decorators/word.js";
 
 export class JsonModule extends DecoratedModule {
   static {

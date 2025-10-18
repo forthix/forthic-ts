@@ -1,8 +1,8 @@
-import { Variable } from "../module.js";
-import { Interpreter } from "../interpreter.js";
-import { InvalidVariableNameError, IntentionalStopError } from "../errors.js";
-import { DecoratedModule, Word, registerModuleDoc } from "../decorators/word.js";
-import { WordOptions } from "../word_options.js";
+import { Variable } from "../../module.js";
+import { Interpreter } from "../../interpreter.js";
+import { InvalidVariableNameError, IntentionalStopError } from "../../errors.js";
+import { DecoratedModule, Word, registerModuleDoc } from "../../decorators/word.js";
+import { WordOptions } from "../../word_options.js";
 
 export class CoreModule extends DecoratedModule {
   static {

@@ -13,14 +13,14 @@ import {
 } from "./errors.js";
 import { Temporal } from "temporal-polyfill";
 import { LiteralHandler, to_bool, to_float, to_int, to_time, to_literal_date, to_zoned_datetime } from "./literals.js";
-import { CoreModule } from "./modules/core_module.js";
-import { ArrayModule } from "./modules/array_module.js";
-import { RecordModule } from "./modules/record_module.js";
-import { StringModule } from "./modules/string_module.js";
-import { MathModule } from "./modules/math_module.js";
-import { BooleanModule } from "./modules/boolean_module.js";
-import { JsonModule } from "./modules/json_module.js";
-import { DateTimeModule } from "./modules/datetime_module.js";
+import { CoreModule } from "./modules/standard/core_module.js";
+import { ArrayModule } from "./modules/standard/array_module.js";
+import { RecordModule } from "./modules/standard/record_module.js";
+import { StringModule } from "./modules/standard/string_module.js";
+import { MathModule } from "./modules/standard/math_module.js";
+import { BooleanModule } from "./modules/standard/boolean_module.js";
+import { JsonModule } from "./modules/standard/json_module.js";
+import { DateTimeModule } from "./modules/standard/datetime_module.js";
 
 type Timestamp = {
   label: string;
