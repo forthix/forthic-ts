@@ -783,10 +783,10 @@ test("FOREACH to errors", async () => {
   expect(res).toBe(5);
 });
 
-test("INVERT_KEYS", async () => {
+test("INVERT-KEYS", async () => {
   const statusToManagerToIds = makeStatusToManagerToIds();
   interp.stack_push(statusToManagerToIds);
-  await interp.run("INVERT_KEYS");
+  await interp.run("INVERT-KEYS");
   const res = interp.stack_pop();
   const expected = {
     manager1: {
@@ -1373,25 +1373,25 @@ test("REPLACE", async () => {
   expect(stack[0]).toBe("1.40 2.20");
 });
 
-test("RE_MATCH", async () => {
+test("RE-MATCH", async () => {
   await interp.run(`
-    "123message456" "\\d{3}.*\\d{3}" RE_MATCH
+    "123message456" "\\d{3}.*\\d{3}" RE-MATCH
   `);
   const stack = (interp as any).stack;
   expect(stack[0]).not.toBeNull();
 });
 
-test("RE_MATCH_GROUP", async () => {
+test("RE-MATCH-GROUP", async () => {
   await interp.run(`
-    "123message456" "\\d{3}(.*)\\d{3}" RE_MATCH 1 RE_MATCH_GROUP
+    "123message456" "\\d{3}(.*)\\d{3}" RE-MATCH 1 RE-MATCH-GROUP
   `);
   const stack = (interp as any).stack;
   expect(stack[0]).toBe("message");
 });
 
-test("RE_MATCH_ALL", async () => {
+test("RE-MATCH-ALL", async () => {
   await interp.run(`
-    "mr-android ios my-android web test-web" ".*?(android|ios|web|seo)" RE_MATCH_ALL
+    "mr-android ios my-android web test-web" ".*?(android|ios|web|seo)" RE-MATCH-ALL
   `);
   const stack = (interp as any).stack;
   expect(stack[0]).toEqual(["android", "ios", "android", "web", "web"]);

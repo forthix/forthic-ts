@@ -7,10 +7,10 @@ export class StringModule extends DecoratedModule {
 String manipulation and processing operations with regex and URL encoding support.
 
 ## Categories
-- Conversion: >STR, URL_ENCODE, URL_DECODE
+- Conversion: >STR, URL-ENCODE, URL-DECODE
 - Transform: LOWERCASE, UPPERCASE, STRIP, ASCII
 - Split/Join: SPLIT, JOIN, CONCAT
-- Pattern: REPLACE, RE_MATCH, RE_MATCH_ALL, RE_MATCH_GROUP
+- Pattern: REPLACE, RE-MATCH, RE-MATCH-ALL, RE-MATCH-GROUP
 - Constants: /N, /R, /T
 
 ## Examples
@@ -116,7 +116,7 @@ String manipulation and processing operations with regex and URL encoding suppor
     return result;
   }
 
-  @Word("( string:string pattern:string -- match:any )", "Match string against regex pattern")
+  @Word("( string:string pattern:string -- match:any )", "Match string against regex pattern", "RE-MATCH")
   async RE_MATCH(string: string, pattern: string) {
     const re_pattern = new RegExp(pattern);
     let result: any = false;
@@ -124,7 +124,7 @@ String manipulation and processing operations with regex and URL encoding suppor
     return result;
   }
 
-  @Word("( string:string pattern:string -- matches:any[] )", "Find all regex matches in string")
+  @Word("( string:string pattern:string -- matches:any[] )", "Find all regex matches in string", "RE-MATCH-ALL")
   async RE_MATCH_ALL(string: string, pattern: string) {
     const re_pattern = new RegExp(pattern, "g");
     let matches: IterableIterator<RegExpMatchArray> = [][Symbol.iterator]();
@@ -133,21 +133,21 @@ String manipulation and processing operations with regex and URL encoding suppor
     return result;
   }
 
-  @Word("( match:any num:number -- result:any )", "Get capture group from regex match")
+  @Word("( match:any num:number -- result:any )", "Get capture group from regex match", "RE-MATCH-GROUP")
   async RE_MATCH_GROUP(match: any, num: number) {
     let result = null;
     if (match) result = match[num];
     return result;
   }
 
-  @Word("( str:string -- encoded:string )", "URL encode string")
+  @Word("( str:string -- encoded:string )", "URL encode string", "URL-ENCODE")
   async URL_ENCODE(str: string) {
     let result = "";
     if (str) result = encodeURIComponent(str);
     return result;
   }
 
-  @Word("( urlencoded:string -- decoded:string )", "URL decode string")
+  @Word("( urlencoded:string -- decoded:string )", "URL decode string", "URL-DECODE")
   async URL_DECODE(urlencoded: string) {
     let result = "";
     if (urlencoded) result = decodeURIComponent(urlencoded);

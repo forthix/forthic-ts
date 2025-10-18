@@ -72,35 +72,35 @@ describe("StringModule", () => {
     expect(interp.stack_pop()).toBe("hello there");
   });
 
-  test("RE_MATCH success", async () => {
-    await interp.run("'test123' 'test[0-9]+' RE_MATCH");
+  test("RE-MATCH success", async () => {
+    await interp.run("'test123' 'test[0-9]+' RE-MATCH");
     const result = interp.stack_pop();
     expect(result).toBeTruthy();
     expect(result[0]).toBe("test123");
   });
 
-  test("RE_MATCH failure", async () => {
-    await interp.run("'test' '[0-9]+' RE_MATCH");
+  test("RE-MATCH failure", async () => {
+    await interp.run("'test' '[0-9]+' RE-MATCH");
     expect(interp.stack_pop()).toBeFalsy();
   });
 
-  test("RE_MATCH_ALL", async () => {
-    await interp.run("'test1 test2 test3' 'test([0-9])' RE_MATCH_ALL");
+  test("RE-MATCH-ALL", async () => {
+    await interp.run("'test1 test2 test3' 'test([0-9])' RE-MATCH-ALL");
     expect(interp.stack_pop()).toEqual(["1", "2", "3"]);
   });
 
-  test("RE_MATCH_GROUP", async () => {
-    await interp.run("'test123' 'test([0-9]+)' RE_MATCH 1 RE_MATCH_GROUP");
+  test("RE-MATCH-GROUP", async () => {
+    await interp.run("'test123' 'test([0-9]+)' RE-MATCH 1 RE-MATCH-GROUP");
     expect(interp.stack_pop()).toBe("123");
   });
 
-  test("URL_ENCODE", async () => {
-    await interp.run("'hello world' URL_ENCODE");
+  test("URL-ENCODE", async () => {
+    await interp.run("'hello world' URL-ENCODE");
     expect(interp.stack_pop()).toBe("hello%20world");
   });
 
-  test("URL_DECODE", async () => {
-    await interp.run("'hello%20world' URL_DECODE");
+  test("URL-DECODE", async () => {
+    await interp.run("'hello%20world' URL-DECODE");
     expect(interp.stack_pop()).toBe("hello world");
   });
 });
