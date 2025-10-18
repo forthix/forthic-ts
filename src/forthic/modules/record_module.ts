@@ -7,7 +7,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
 ## Categories
 - Core: REC, REC@, |REC@, <REC!
-- Transform: RELABEL, INVERT_KEYS, REC_DEFAULTS, <DEL
+- Transform: RELABEL, INVERT-KEYS, REC-DEFAULTS, <DEL
 - Access: KEYS, VALUES
 `);
   }
@@ -131,7 +131,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
     return result;
   }
 
-  @Word("( record:any -- inverted:any )", "Invert two-level nested record structure", "INVERT_KEYS")
+  @Word("( record:any -- inverted:any )", "Invert two-level nested record structure", "INVERT-KEYS")
   async INVERT_KEYS(record: any) {
     const result: any = {};
     Object.keys(record).forEach((first_key) => {
@@ -146,7 +146,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
     return result;
   }
 
-  @Word("( record:any key_vals:any[] -- record:any )", "Set default values for missing/empty fields", "REC_DEFAULTS")
+  @Word("( record:any key_vals:any[] -- record:any )", "Set default values for missing/empty fields", "REC-DEFAULTS")
   async REC_DEFAULTS(record: any, key_vals: any[]) {
     key_vals.forEach((key_val) => {
       const key = key_val[0];

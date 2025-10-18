@@ -2,19 +2,12 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { ArrayModule } from '../src/forthic/modules/array_module';
-import { BooleanModule } from '../src/forthic/modules/boolean_module';
-import { DateTimeModule } from '../src/forthic/modules/datetime_module';
-import { JsonModule } from '../src/forthic/modules/json_module';
-import { MathModule } from '../src/forthic/modules/math_module';
-import { RecordModule } from '../src/forthic/modules/record_module';
-import { StringModule } from '../src/forthic/modules/string_module';
 
 /**
  * Documentation Generator for Forthic Modules
  *
- * Generates markdown documentation for all modules by extracting
- * metadata from @Word and @DirectWord decorators.
+ * Generates markdown documentation by parsing TypeScript source files
+ * and extracting metadata from @Word and @DirectWord decorators.
  */
 
 interface WordDoc {
@@ -27,12 +20,149 @@ interface ModuleDoc {
   name: string;
   words: WordDoc[];
   metadata?: {
-    name: string;
     description: string;
     categories: Array<{ name: string; words: string }>;
     optionsInfo?: string;
     examples: string[];
   } | null;
+}
+
+/**
+ * Parse module documentation from registerModuleDoc call
+ */
+function parseModuleMetadata(content: string): ModuleDoc['metadata'] | null {
+  const registerMatch = content.match(/registerModuleDoc\([^,]+,\s*`([^`]+)`\)/s);
+  if (!registerMatch) return null;
+
+  const docString = registerMatch[1];
+  const lines = docString.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+  const metadata: NonNullable<ModuleDoc['metadata']> = {
+    description: '',
+    categories: [],
+    optionsInfo: undefined,
+    examples: []
+  };
+
+  let currentSection: 'description' | 'categories' | 'options' | 'examples' = 'description';
+  let optionsLines: string[] = [];
+
+  for (const line of lines) {
+    // Check for section headers
+    if (line.startsWith('## Categories')) {
+      currentSection = 'categories';
+      continue;
+    } else if (line.startsWith('## Options')) {
+      currentSection = 'options';
+      continue;
+    } else if (line.startsWith('## Examples')) {
+      currentSection = 'examples';
+      continue;
+    }
+
+    // Process content based on current section
+    if (currentSection === 'description') {
+      if (metadata.description) {
+        metadata.description += ' ' + line;
+      } else {
+        metadata.description = line;
+      }
+    } else if (currentSection === 'categories') {
+      // Parse "- Category Name: WORD1, WORD2, WORD3"
+      const match = line.match(/^-\s*([^:]+):\s*(.+)$/);
+      if (match) {
+        metadata.categories.push({
+          name: match[1].trim(),
+          words: match[2].trim()
+        });
+      }
+    } else if (currentSection === 'options') {
+      optionsLines.push(line);
+    } else if (currentSection === 'examples') {
+      metadata.examples.push(line);
+    }
+  }
+
+  // Join options lines into a single string
+  if (optionsLines.length > 0) {
+    metadata.optionsInfo = optionsLines.join('\n');
+  }
+
+  return metadata;
+}
+
+/**
+ * Parse @Word and @DirectWord decorators from TypeScript source
+ */
+function parseWords(content: string): WordDoc[] {
+  const words: WordDoc[] = [];
+
+  // Match @Word decorators
+  const wordRegex = /@(?:Word|DirectWord)\s*\(\s*"([^"]+)"\s*,\s*"([^"]*)"\s*(?:,\s*"([^"]+)")?\s*\)/g;
+  let match;
+
+  while ((match = wordRegex.exec(content)) !== null) {
+    const stackEffect = match[1];
+    const description = match[2];
+    const customName = match[3];
+
+    // Find the method name by looking ahead
+    const afterDecorator = content.substring(match.index + match[0].length);
+    const methodMatch = afterDecorator.match(/async\s+(\w+)\s*\(/);
+
+    if (methodMatch) {
+      const methodName = methodMatch[1];
+      const wordName = customName || methodName;
+
+      words.push({
+        name: wordName,
+        stackEffect: stackEffect,
+        description: description
+      });
+    }
+  }
+
+  return words;
+}
+
+/**
+ * Extract module name from class definition
+ */
+function parseModuleName(content: string): string | null {
+  const classMatch = content.match(/export\s+class\s+(\w+Module)/);
+  if (!classMatch) return null;
+
+  // Look for super("modulename") call in constructor
+  const constructorMatch = content.match(/constructor\s*\([^)]*\)\s*\{[^}]*super\s*\(\s*"([^"]+)"\s*\)/s);
+  if (constructorMatch) {
+    return constructorMatch[1];
+  }
+
+  // Fallback: derive from class name
+  const className = classMatch[1];
+  return className.replace(/Module$/, '').toLowerCase();
+}
+
+/**
+ * Parse a single module file
+ */
+function parseModuleFile(filePath: string): ModuleDoc | null {
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const moduleName = parseModuleName(content);
+
+  if (!moduleName) {
+    console.warn(`Could not extract module name from ${filePath}`);
+    return null;
+  }
+
+  const words = parseWords(content);
+  const metadata = parseModuleMetadata(content);
+
+  return {
+    name: moduleName,
+    words: words.sort((a, b) => a.name.localeCompare(b.name)),
+    metadata: metadata
+  };
 }
 
 function generateIndexMarkdown(moduleDocs: ModuleDoc[]): string {
@@ -49,17 +179,21 @@ function generateIndexMarkdown(moduleDocs: ModuleDoc[]): string {
   for (const mod of moduleDocs) {
     markdown += `| [${mod.name}](./modules/${mod.name}.md) | ${mod.words.length} | `;
 
-    // Add brief description based on module name
-    const descriptions: Record<string, string> = {
-      'array': 'Array and collection operations',
-      'boolean': 'Comparison, logic, and membership operations',
-      'datetime': 'Date and time operations using Temporal API',
-      'json': 'JSON parsing and serialization',
-      'math': 'Mathematical operations and utilities',
-      'record': 'Record (object/dictionary) manipulation',
-      'string': 'String manipulation and processing'
-    };
-    markdown += descriptions[mod.name] || 'Module operations';
+    // Use metadata description if available, otherwise use defaults
+    if (mod.metadata?.description) {
+      markdown += mod.metadata.description;
+    } else {
+      const descriptions: Record<string, string> = {
+        'array': 'Array and collection operations',
+        'boolean': 'Comparison, logic, and membership operations',
+        'datetime': 'Date and time operations using Temporal API',
+        'json': 'JSON parsing and serialization',
+        'math': 'Mathematical operations and utilities',
+        'record': 'Record (object/dictionary) manipulation',
+        'string': 'String manipulation and processing'
+      };
+      markdown += descriptions[mod.name] || 'Module operations';
+    }
     markdown += ' |\n';
   }
 
@@ -130,30 +264,20 @@ function generateModuleMarkdown(moduleDoc: ModuleDoc): string {
 async function generateDocs() {
   const moduleDocs: ModuleDoc[] = [];
 
-  // Instantiate each module and extract documentation
-  const modules = [
-    new ArrayModule(),
-    new BooleanModule(),
-    new DateTimeModule(),
-    new JsonModule(),
-    new MathModule(),
-    new RecordModule(),
-    new StringModule(),
-  ];
+  // Find all module files in src/forthic/modules
+  const modulesDir = path.join(__dirname, '..', 'src', 'forthic', 'modules');
+  const files = fs.readdirSync(modulesDir)
+    .filter(f => f.endsWith('_module.ts'))
+    .map(f => path.join(modulesDir, f));
 
-  console.log(`Found ${modules.length} modules`);
+  console.log(`Found ${files.length} module files`);
 
-  // Extract documentation from each module
-  for (const module of modules) {
-    const words = module.getWordDocs() as WordDoc[];
-    const metadata = module.getModuleMetadata();
-
-    if (words.length > 0) {
-      moduleDocs.push({
-        name: module.get_name(),
-        words: words.sort((a, b) => a.name.localeCompare(b.name)),
-        metadata: metadata
-      });
+  // Parse each module file
+  for (const filePath of files) {
+    const moduleDoc = parseModuleFile(filePath);
+    if (moduleDoc && moduleDoc.words.length > 0) {
+      moduleDocs.push(moduleDoc);
+      console.log(`  Parsed ${moduleDoc.name}: ${moduleDoc.words.length} words`);
     }
   }
 

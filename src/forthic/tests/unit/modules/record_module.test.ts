@@ -80,13 +80,13 @@ test("RELABEL record", async () => {
   expect(rec.gamma).toBe(3);
 });
 
-test("INVERT_KEYS", async () => {
+test("INVERT-KEYS", async () => {
   await interp.run(`
     [
       ["x" [["a" 1] ["b" 2]] REC]
       ["y" [["a" 10] ["b" 20]] REC]
     ] REC
-    INVERT_KEYS
+    INVERT-KEYS
   `);
   const result = interp.stack_pop();
   expect(result.a.x).toBe(1);
@@ -98,7 +98,7 @@ test("INVERT_KEYS", async () => {
 test("REC_DEFAULTS", async () => {
   await interp.run(`
     [["a" 1] ["b" NULL] ["c" ""]] REC
-    [["b" 100] ["c" 200] ["d" 300]] REC_DEFAULTS
+    [["b" 100] ["c" 200] ["d" 300]] REC-DEFAULTS
   `);
   const rec = interp.stack_pop();
   expect(rec.a).toBe(1);

@@ -12,7 +12,7 @@ Array and collection operations for manipulating arrays and records.
 - Combine: APPEND, ZIP, ZIP_WITH, CONCAT
 - Filter: SELECT, UNIQUE, DIFFERENCE, INTERSECTION, UNION
 - Sort: SORT, SHUFFLE, ROTATE
-- Group: BY_FIELD, GROUP_BY_FIELD, GROUP_BY, GROUPS_OF
+- Group: BY_FIELD, GROUP-BY-FIELD, GROUP_BY, GROUPS_OF
 - Utility: <REPEAT, FOREACH, REDUCE, UNPACK, FLATTEN
 
 ## Options
@@ -575,7 +575,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @Word("( container1:any[] container2:any[] forthic:string -- result:any[] )", "Zip two arrays with combining function")
+  @Word("( container1:any[] container2:any[] forthic:string -- result:any[] )", "Zip two arrays with combining function", "ZIP-WITH")
   async ZIP_WITH(container1: any[], container2: any[], forthic: string) {
     const interp = this.interp
     const string_location = interp.get_string_location();
@@ -638,7 +638,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @Word("( container:any value:any -- key:any )", "Find key of value in container")
+  @Word("( container:any value:any -- key:any )", "Find key of value in container", "KEY-OF")
   async KEY_OF(container: any, value: any) {
     if (!container) return null;
 
@@ -698,7 +698,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
   }
 
 
-  @Word("( container:any[] field:string -- indexed:any )", "Index records by field value")
+  @Word("( container:any[] field:string -- indexed:any )", "Index records by field value", "BY-FIELD")
   async BY_FIELD(container: any[], field: string) {
     if (!container) container = [];
 
@@ -720,7 +720,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @Word("( container:any[] field:string -- grouped:any )", "Group records by field value")
+  @Word("( container:any[] field:string -- grouped:any )", "Group records by field value", "GROUP-BY-FIELD")
   async GROUP_BY_FIELD(container: any[], field: string) {
 
     if (!container) container = [];
@@ -748,7 +748,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
   @Word(
     "( items:any forthic:string [options:WordOptions] -- grouped:any )",
-    "Group items by function result. Options: with_key (bool). Example: [5 15 25] '10 /' [.with_key TRUE] ~> GROUP_BY"
+    "Group items by function result. Options: with_key (bool). Example: [5 15 25] '10 /' [.with_key TRUE] ~> GROUP-BY", "GROUP-BY"
   )
   async GROUP_BY(items: any, forthic: string, options: Record<string, any>) {
     let _items = items;
@@ -783,7 +783,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @Word("( container:any[] n:number -- groups:any[] )", "Split array into groups of size n")
+  @Word("( container:any[] n:number -- groups:any[] )", "Split array into groups of size n", "GROUPS-OF")
   async GROUPS_OF(container: any[], n: number) {
     if (n <= 0) throw "GROUPS-OF requires group size > 0";
 

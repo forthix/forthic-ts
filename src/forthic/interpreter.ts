@@ -816,7 +816,7 @@ export class Interpreter {
 
       if (
         this.stream &&
-        (token.type !== TokenType.WORD || token.string !== "START_LOG")
+        (token.type !== TokenType.WORD || token.string !== "START-LOG")
       ) {
         yield token.string;
       }

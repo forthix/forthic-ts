@@ -17,7 +17,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - Control: IDENTITY, NOP, DEFAULT, *DEFAULT, NULL, ARRAY?
 - Options: ~> (converts array to WordOptions)
 - Profiling: PROFILE-START, PROFILE-TIMESTAMP, PROFILE-END, PROFILE-DATA
-- Logging: START_LOG, END_LOG
+- Logging: START-LOG, END-LOG
 - String: INTERPOLATE, PRINT
 - Debug: PEEK!, STACK!
 
@@ -262,12 +262,12 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
   }
 
 
-  @Word("( -- )", "Starts logging interpreter stream")
+  @Word("( -- )", "Starts logging interpreter stream", "START-LOG")
   async START_LOG() {
     this.interp.startStream();
   }
 
-  @Word("( -- )", "Ends logging interpreter stream")
+  @Word("( -- )", "Ends logging interpreter stream", "END-LOG")
   async END_LOG() {
     this.interp.endStream();
   }
