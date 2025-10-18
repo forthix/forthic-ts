@@ -1,4 +1,4 @@
-import { StandardInterpreter } from "../../../interpreter";
+import { StandardInterpreter } from "../../../../interpreter";
 
 describe("StringModule", () => {
   let interp: StandardInterpreter;

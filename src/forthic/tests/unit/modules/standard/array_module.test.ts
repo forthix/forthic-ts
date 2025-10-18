@@ -1,4 +1,4 @@
-import { StandardInterpreter } from "../../../interpreter";
+import { StandardInterpreter } from "../../../../interpreter";
 
 let interp: StandardInterpreter;
 

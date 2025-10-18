@@ -1,5 +1,5 @@
-import { Interpreter } from "../interpreter.js";
-import { DecoratedModule, Word, DirectWord, registerModuleDoc } from "../decorators/word.js";
+import { Interpreter } from "../../interpreter.js";
+import { DecoratedModule, Word, DirectWord, registerModuleDoc } from "../../decorators/word.js";
 
 export class StringModule extends DecoratedModule {
   static {
