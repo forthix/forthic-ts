@@ -7,7 +7,7 @@ import * as path from 'path';
  * Documentation Generator for Forthic Modules
  *
  * Generates markdown documentation by parsing TypeScript source files
- * and extracting metadata from @Word and @DirectWord decorators.
+ * and extracting metadata from @ForthicWord and @ForthicDirectWord decorators.
  */
 
 interface WordDoc {
@@ -92,13 +92,13 @@ function parseModuleMetadata(content: string): ModuleDoc['metadata'] | null {
 }
 
 /**
- * Parse @Word and @DirectWord decorators from TypeScript source
+ * Parse @ForthicWord and @ForthicDirectWord decorators from TypeScript source
  */
 function parseWords(content: string): WordDoc[] {
   const words: WordDoc[] = [];
 
-  // Match @Word decorators
-  const wordRegex = /@(?:Word|DirectWord)\s*\(\s*"([^"]+)"\s*,\s*"([^"]*)"\s*(?:,\s*"([^"]+)")?\s*\)/g;
+  // Match @ForthicWord and @ForthicDirectWord decorators (also supports legacy @Word/@DirectWord)
+  const wordRegex = /@(?:ForthicWord|ForthicDirectWord|Word|DirectWord)\s*\(\s*"([^"]+)"\s*,\s*"([^"]*)"\s*(?:,\s*"([^"]+)")?\s*\)/g;
   let match;
 
   while ((match = wordRegex.exec(content)) !== null) {
@@ -261,14 +261,28 @@ function generateModuleMarkdown(moduleDoc: ModuleDoc): string {
   return markdown;
 }
 
+function findModuleFiles(dir: string): string[] {
+  const files: string[] = [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...findModuleFiles(fullPath));
+    } else if (entry.name.endsWith('_module.ts')) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+}
+
 async function generateDocs() {
   const moduleDocs: ModuleDoc[] = [];
 
-  // Find all module files in src/forthic/modules
+  // Find all module files in src/forthic/modules (recursively)
   const modulesDir = path.join(__dirname, '..', 'src', 'forthic', 'modules');
-  const files = fs.readdirSync(modulesDir)
-    .filter(f => f.endsWith('_module.ts'))
-    .map(f => path.join(modulesDir, f));
+  const files = findModuleFiles(modulesDir);
 
   console.log(`Found ${files.length} module files`);
 
