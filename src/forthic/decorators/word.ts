@@ -1,4 +1,4 @@
-import { Module } from "../module.js";
+import { Module, Word as WordClass, RuntimeInfo } from "../module.js";
 import { Interpreter } from "../interpreter.js";
 import { WordOptions } from "../word_options.js";
 
@@ -209,8 +209,14 @@ export function DirectWord(stackEffect: string, description: string = "", custom
  * }
  */
 export function Word(stackEffect: string, description: string = "", customWordName?: string) {
-  return function(target: any, propertyKey: string, descriptor: PropertyDescriptor) {
-    const originalMethod = descriptor.value;
+  return function(target: any, propertyKey: string, descriptor?: PropertyDescriptor) {
+    // Get the original method from the descriptor if available, otherwise from target
+    const originalMethod = descriptor?.value || target[propertyKey];
+
+    if (!originalMethod) {
+      throw new Error(`@Word decorator: No method found for ${propertyKey}`);
+    }
+
     const parsed = parseStackNotation(stackEffect);
     const wordName = customWordName || propertyKey;
 
@@ -227,8 +233,8 @@ export function Word(stackEffect: string, description: string = "", customWordNa
       inputCount: parsed.inputCount,
     });
 
-    // Replace method with wrapper that handles stack marshalling
-    descriptor.value = async function(this: Module, interp: Interpreter) {
+    // Create wrapper function that handles stack marshalling
+    const wrappedMethod = async function(this: Module, interp: Interpreter) {
       const inputs: any[] = [];
 
       // Check for optional WordOptions FIRST (before popping regular args)
@@ -260,7 +266,14 @@ export function Word(stackEffect: string, description: string = "", customWordNa
       }
     };
 
-    return descriptor;
+    // Return modified descriptor if one was provided, otherwise modify target directly
+    if (descriptor) {
+      descriptor.value = wrappedMethod;
+      return descriptor;
+    } else {
+      // For environments without descriptor (like experimental decorators)
+      target[propertyKey] = wrappedMethod;
+    }
   };
 }
 
@@ -308,8 +321,8 @@ export class DecoratedModule extends Module {
         // Get the wrapped method (already modified by decorator)
         const method = (this as any)[methodName];
 
-        // Register as exportable word
-        this.add_module_word(metadata.wordName, method.bind(this));
+        // Register as exportable word with standard library flag
+        this.add_standard_word(metadata.wordName, method.bind(this));
       }
     }
 
@@ -320,10 +333,32 @@ export class DecoratedModule extends Module {
         // Get the original method (NOT wrapped by decorator)
         const method = (this as any)[methodName];
 
-        // Register as exportable word
-        this.add_module_word(metadata.wordName, method.bind(this));
+        // Register as exportable word with standard library flag
+        this.add_standard_word(metadata.wordName, method.bind(this));
       }
     }
+  }
+
+  /**
+   * Add a standard library word that can execute in any runtime
+   *
+   * This creates a word marked with isStandard=true, allowing it to be
+   * included in batched remote execution (e.g., +, MAP, REVERSE can execute
+   * in Python runtime along with Python-specific words).
+   */
+  private add_standard_word(word_name: string, word_func: (interp: Interpreter) => Promise<void>): void {
+    const word = new WordClass(word_name);
+    word.execute = word_func;
+
+    // Override getRuntimeInfo to mark as standard library word
+    word.getRuntimeInfo = (): RuntimeInfo => ({
+      runtime: "local",
+      isRemote: false,
+      isStandard: true,
+      availableIn: ["typescript", "python", "ruby", "rust", "swift", "java"]
+    });
+
+    this.add_exportable_word(word);
   }
 
   /**

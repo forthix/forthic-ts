@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Forthic Browser WebSocket Example</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .input-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #555;
+    }
+    input[type="text"], textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      margin-right: 10px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .output {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-left: 4px solid #007bff;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .error {
+      border-left-color: #dc3545;
+      background-color: #fff5f5;
+      color: #dc3545;
+    }
+    .success {
+      border-left-color: #28a745;
+      background-color: #f0fff4;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-left: 10px;
+    }
+    .status.connected {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .status.disconnected {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    .progress {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #e7f3ff;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>
+      Forthic Browser WebSocket Client
+      <span id="status" class="status disconnected">Disconnected</span>
+    </h1>
+
+    <div class="input-group">
+      <label for="server-url">WebSocket Server URL:</label>
+      <input type="text" id="server-url" value="ws://localhost:3000/cable" placeholder="ws://localhost:3000/cable">
+    </div>
+
+    <div class="input-group">
+      <button id="connect-btn" onclick="connect()">Connect</button>
+      <button id="disconnect-btn" onclick="disconnect()" disabled>Disconnect</button>
+    </div>
+
+    <hr>
+
+    <h2>Execute Forthic Code</h2>
+
+    <div class="input-group">
+      <label for="forthic-code">Forthic Code:</label>
+      <textarea id="forthic-code" placeholder='Example: 1 2 + 3 *&#10;or: ["Alice" "Bob"] "UPPERCASE" MAP'>[1 2 3] "2 *" MAP</textarea>
+    </div>
+
+    <div class="input-group">
+      <button onclick="executeCode()">Execute</button>
+      <button onclick="listModules()">List Modules</button>
+    </div>
+
+    <div id="progress" class="progress" style="display: none;">
+      Progress: <span id="progress-text"></span>
+    </div>
+
+    <div id="output" class="output" style="display: none;"></div>
+  </div>
+
+  <script type="module">
+    // Import WebSocket client from forthic-ts
+    // In production, this would be: import { WebSocketClient } from '@forthix/forthic/websocket';
+    import { WebSocketClient } from '../dist/esm/websocket/index.js';
+
+    let client = null;
+
+    window.connect = async function() {
+      const url = document.getElementById('server-url').value;
+      const statusEl = document.getElementById('status');
+      const connectBtn = document.getElementById('connect-btn');
+      const disconnectBtn = document.getElementById('disconnect-btn');
+
+      try {
+        client = new WebSocketClient({
+          url: url,
+          timezone: 'UTC',
+          reconnect: true
+        });
+
+        // Wait a moment for connection to establish
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        if (client.isConnected()) {
+          statusEl.textContent = 'Connected';
+          statusEl.className = 'status connected';
+          connectBtn.disabled = true;
+          disconnectBtn.disabled = false;
+          showOutput('Connected to ' + url, 'success');
+        }
+      } catch (error) {
+        showOutput('Connection failed: ' + error.message, 'error');
+      }
+    };
+
+    window.disconnect = function() {
+      if (client) {
+        client.close();
+        client = null;
+      }
+
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = 'Disconnected';
+      statusEl.className = 'status disconnected';
+
+      document.getElementById('connect-btn').disabled = false;
+      document.getElementById('disconnect-btn').disabled = true;
+      showOutput('Disconnected from server', 'success');
+    };
+
+    window.executeCode = async function() {
+      if (!client || !client.isConnected()) {
+        showOutput('Please connect to the server first', 'error');
+        return;
+      }
+
+      const code = document.getElementById('forthic-code').value;
+      const progressEl = document.getElementById('progress');
+      const progressText = document.getElementById('progress-text');
+
+      try {
+        progressEl.style.display = 'block';
+        progressText.textContent = 'Executing...';
+
+        // Use streaming execution with progress updates
+        const result = await client.streamingExecute(
+          code,
+          [],
+          (progress) => {
+            progressText.textContent = `Step ${progress.step}/${progress.total_steps}: ${progress.current_word}`;
+            if (progress.message) {
+              progressText.textContent += ` - ${progress.message}`;
+            }
+          }
+        );
+
+        progressEl.style.display = 'none';
+        showOutput('Result Stack:\n' + JSON.stringify(result, null, 2), 'success');
+      } catch (error) {
+        progressEl.style.display = 'none';
+        showOutput('Execution error:\n' + error.message, 'error');
+      }
+    };
+
+    window.listModules = async function() {
+      if (!client || !client.isConnected()) {
+        showOutput('Please connect to the server first', 'error');
+        return;
+      }
+
+      try {
+        const modules = await client.listModules();
+        let output = 'Available Modules:\n\n';
+        modules.forEach(module => {
+          output += `${module.name}\n`;
+          output += `  Description: ${module.description}\n`;
+          output += `  Words: ${module.word_count}\n\n`;
+        });
+        showOutput(output, 'success');
+      } catch (error) {
+        showOutput('Error listing modules:\n' + error.message, 'error');
+      }
+    };
+
+    function showOutput(text, type = '') {
+      const outputEl = document.getElementById('output');
+      outputEl.textContent = text;
+      outputEl.className = 'output ' + type;
+      outputEl.style.display = 'block';
+    }
+
+    // Auto-connect on page load (optional)
+    // window.addEventListener('load', () => {
+    //   connect();
+    // });
+  </script>
+</body>
+</html>

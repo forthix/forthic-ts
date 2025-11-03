@@ -5,12 +5,21 @@
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
   "types": "dist/cjs/index.d.ts",
+  "browser": "dist/esm/index.js",
   "exports": {
     ".": {
-      "require": "./dist/cjs/index.js",
+      "browser": "./dist/esm/index.js",
       "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
       "default": "./dist/esm/index.js",
       "types": "./dist/cjs/index.d.ts"
+    },
+    "./websocket": {
+      "browser": "./dist/esm/websocket/index.js",
+      "import": "./dist/esm/websocket/index.js",
+      "require": "./dist/cjs/websocket/index.js",
+      "default": "./dist/esm/websocket/index.js",
+      "types": "./dist/cjs/websocket/index.d.ts"
     }
   },
   "files": [
@@ -28,7 +37,8 @@
     "prepublishOnly": "npm run build && npm test",
     "test": "jest",
     "test:watch": "jest --watch",
-    "docs:build": "npx ts-node scripts/generate-docs.ts"
+    "docs:build": "npx ts-node scripts/generate-docs.ts",
+    "grpc:server": "node dist/cjs/grpc/server.js"
   },
   "keywords": [
     "forthic",
@@ -56,7 +66,10 @@
   },
   "homepage": "https://github.com/forthix/forthic-ts#readme",
   "dependencies": {
-    "temporal-polyfill": "^0.2.5"
+    "@grpc/grpc-js": "^1.12.0",
+    "@grpc/proto-loader": "^0.7.0",
+    "temporal-polyfill": "^0.2.5",
+    "yaml": "^2.8.1"
   },
   "devDependencies": {
     "@babel/cli": "^7.25.9",

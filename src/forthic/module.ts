@@ -6,6 +6,20 @@ export type WordHandler =
   | ((interp: Interpreter) => Promise<void>)
   | ((interp: Interpreter) => void);
 
+/**
+ * RuntimeInfo - Metadata about where and how a word can execute
+ *
+ * Used by the ExecutionPlanner to batch remote word execution efficiently.
+ * Standard library words can execute in any runtime, while runtime-specific
+ * words (like RemoteWord) can only execute in their designated runtime.
+ */
+export interface RuntimeInfo {
+  runtime: string;          // "local" | "python" | "ruby" | "rust" | etc.
+  isRemote: boolean;        // True if this word requires remote execution
+  isStandard: boolean;      // True if this is a standard library word (available in all runtimes)
+  availableIn: string[];    // List of runtimes where this word is available
+}
+
 // -------------------------------------
 // Variable
 /**
@@ -72,6 +86,21 @@ export class Word {
   async execute(_interp: Interpreter): Promise<void> {
     throw new Error("Must override Word.execute");
   }
+
+  /**
+   * Get runtime execution information for this word
+   *
+   * Default implementation returns local, non-remote, non-standard.
+   * Subclasses override to specify runtime-specific behavior.
+   */
+  getRuntimeInfo(): RuntimeInfo {
+    return {
+      runtime: "local",
+      isRemote: false,
+      isStandard: false,
+      availableIn: ["typescript"]
+    };
+  }
 }
 
 /**
@@ -113,19 +142,76 @@ export class DefinitionWord extends Word {
   }
 
   async execute(interp: Interpreter): Promise<void> {
-    for (let i = 0; i < this.words.length; i++) {
-      const word = this.words[i];
-      try {
-        await word.execute(interp);
-      } catch (e) {
-        const tokenizer = interp.get_tokenizer();
-        throw new WordExecutionError(
-          `Error executing ${this.name}`,
-          e as Error,
-          tokenizer.get_token_location(),  // Where the word was called
-          word.get_location() || undefined,  // Where the word was defined
-        );
+    // Optimization: Use ExecutionPlanner to batch remote words
+    // Lazy import to avoid circular dependency
+    const { ExecutionPlanner } = await import('./execution_planner.js');
+    const { RuntimeManager } = await import('../grpc/runtime_manager.js');
+
+    const planner = new ExecutionPlanner();
+    const batches = planner.planExecution(this.words);
+    const runtimeManager = RuntimeManager.getInstance();
+
+    for (const batch of batches) {
+      if (!batch.isRemote) {
+        // Execute local words one by one
+        for (const word of batch.words) {
+          try {
+            await word.execute(interp);
+          } catch (e) {
+            const tokenizer = interp.get_tokenizer();
+            throw new WordExecutionError(
+              `Error executing ${this.name}`,
+              e as Error,
+              tokenizer.get_token_location(),
+              word.get_location() || undefined
+            );
+          }
+        }
+      } else {
+        // Batch execute remote words
+        try {
+          await this.executeBatch(batch, interp, runtimeManager);
+        } catch (e) {
+          const tokenizer = interp.get_tokenizer();
+          throw new WordExecutionError(
+            `Error executing ${this.name} (batched remote execution)`,
+            e as Error,
+            tokenizer.get_token_location(),
+            batch.words[0]?.get_location() || undefined
+          );
+        }
       }
+    }
+  }
+
+  /**
+   * Execute a batch of remote words in one RPC call
+   */
+  private async executeBatch(batch: any, interp: Interpreter, runtimeManager: any): Promise<void> {
+    const client = runtimeManager.getClient(batch.runtime);
+
+    if (!client) {
+      throw new Error(`No gRPC client registered for runtime '${batch.runtime}'`);
+    }
+
+    // Extract word names from the batch
+    const wordNames = batch.words.map((w: Word) => w.name);
+
+    // Get current stack state
+    const stack = interp.get_stack();
+    const stackItems = stack.get_items();
+
+    // Execute the sequence remotely
+    const resultStack = await client.executeSequence(wordNames, stackItems);
+
+    // Clear local stack and replace with result
+    while (interp.get_stack().length > 0) {
+      interp.stack_pop();
+    }
+
+    // Push all result items
+    for (const item of resultStack) {
+      interp.stack_push(item);
     }
   }
 }
@@ -218,6 +304,13 @@ export class ExecuteWord extends Word {
 
   async execute(interp: Interpreter): Promise<void> {
     await this.target_word.execute(interp);
+  }
+
+  /**
+   * Delegate runtime info to the target word
+   */
+  getRuntimeInfo(): RuntimeInfo {
+    return this.target_word.getRuntimeInfo();
   }
 }
 

@@ -1,0 +1,125 @@
+/**
+ * Phase 4: RemoteModule - Module that wraps runtime-specific words from a remote runtime
+ */
+import { Module } from '../forthic/module.js';
+import { Interpreter } from '../forthic/interpreter.js';
+import { GrpcClient, type GetModuleInfoResponse } from './client.js';
+import { RemoteWord } from './remote_word.js';
+
+/**
+ * RemoteModule - Module containing proxy words that execute in a remote runtime
+ *
+ * This module discovers words from a remote runtime (e.g., pandas module in Python)
+ * and creates RemoteWord proxies for each discovered word. When used in TypeScript
+ * Forthic code, these words execute in the remote runtime via gRPC.
+ *
+ * Example usage:
+ * ```typescript
+ * const client = new GrpcClient('localhost:50051');
+ * const pandasModule = new RemoteModule('pandas', client, 'python');
+ * await pandasModule.initialize();
+ * interp.register_module(pandasModule);
+ * interp.use_modules(['pandas']);
+ *
+ * // Now pandas words execute in Python runtime
+ * await interp.run(`
+ *   [{"name": "Alice", "age": 30}]
+ *   DF-FROM-RECORDS  # Executes in Python!
+ * `);
+ * ```
+ */
+export class RemoteModule extends Module {
+  private client: GrpcClient;
+  private runtimeName: string;
+  private initialized: boolean = false;
+  private moduleInfo: GetModuleInfoResponse | null = null;
+
+  /**
+   * @param moduleName - Name of the module in the remote runtime (e.g., "pandas")
+   * @param client - gRPC client connected to the remote runtime
+   * @param runtimeName - Name of the runtime (e.g., "python") for debugging
+   */
+  constructor(moduleName: string, client: GrpcClient, runtimeName: string = 'remote') {
+    super(moduleName);
+    this.client = client;
+    this.runtimeName = runtimeName;
+  }
+
+  /**
+   * Initialize the module by discovering words from the remote runtime
+   *
+   * This must be called before the module is registered with an interpreter.
+   * It fetches the module metadata and creates RemoteWord proxies for each word.
+   */
+  async initialize(): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
+
+    try {
+      // Discover module info from remote runtime
+      this.moduleInfo = await this.client.getModuleInfo(this.name);
+
+      // Create RemoteWord for each discovered word
+      for (const wordInfo of this.moduleInfo.words) {
+        const remoteWord = new RemoteWord(
+          wordInfo.name,
+          this.client,
+          this.runtimeName,
+          this.name,
+          wordInfo.stack_effect,
+          wordInfo.description
+        );
+
+        // Add as exportable word (visible when module is imported)
+        this.add_exportable_word(remoteWord);
+      }
+
+      this.initialized = true;
+    } catch (error) {
+      throw new Error(
+        `Failed to initialize remote module '${this.name}' from ${this.runtimeName} runtime: ${(error as Error).message}`
+      );
+    }
+  }
+
+  /**
+   * Override set_interp to ensure module is initialized
+   */
+  set_interp(interp: Interpreter): void {
+    if (!this.initialized) {
+      throw new Error(
+        `RemoteModule '${this.name}' must be initialized before being registered with an interpreter. Call await module.initialize() first.`
+      );
+    }
+    super.set_interp(interp);
+  }
+
+  /**
+   * Get the module metadata from the remote runtime
+   */
+  getModuleInfo(): GetModuleInfoResponse | null {
+    return this.moduleInfo;
+  }
+
+  /**
+   * Get runtime name for debugging
+   */
+  getRuntimeName(): string {
+    return this.runtimeName;
+  }
+
+  /**
+   * Check if module is initialized
+   */
+  isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  /**
+   * Get count of discovered words
+   */
+  getWordCount(): number {
+    return this.moduleInfo?.words?.length || 0;
+  }
+}

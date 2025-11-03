@@ -21,6 +21,7 @@ import { MathModule } from "./modules/standard/math_module.js";
 import { BooleanModule } from "./modules/standard/boolean_module.js";
 import { JsonModule } from "./modules/standard/json_module.js";
 import { DateTimeModule } from "./modules/standard/datetime_module.js";
+import { RemoteRuntimeModule } from "../grpc/remote_runtime_module.js";
 
 type Timestamp = {
   label: string;
@@ -359,17 +360,93 @@ export class Interpreter {
   }
 
   async run_with_tokenizer(tokenizer: Tokenizer): Promise<boolean> {
+    // Collect all words first for batching optimization
+    const words: Word[] = [];
     let token: Token;
+
     do {
       this.previous_token = token;
       token = tokenizer.next_token();
-      await this.handle_token(token);
+
+      // For word tokens, collect them instead of executing immediately
+      if (token.type === TokenType.WORD && !this.is_compiling) {
+        const word = this.find_word(token.string);
+        word.set_location(token.location);
+        words.push(word);
+      } else {
+        // For non-word tokens, execute any collected words first, then handle the token
+        if (words.length > 0) {
+          await this.executeBatchedWords(words);
+          words.length = 0; // Clear the array
+        }
+
+        await this.handle_token(token);
+      }
+
       if (token.type === TokenType.EOS) {
+        // Execute any remaining words
+        if (words.length > 0) {
+          await this.executeBatchedWords(words);
+        }
         break;
       }
       // eslint-disable-next-line no-constant-condition
     } while (true);
     return true; // Done executing
+  }
+
+  /**
+   * Execute a sequence of words with batching optimization
+   */
+  private async executeBatchedWords(words: Word[]): Promise<void> {
+    // Lazy import to avoid circular dependency
+    const { ExecutionPlanner } = await import('./execution_planner.js');
+    const { RuntimeManager } = await import('../grpc/runtime_manager.js');
+
+    const planner = new ExecutionPlanner();
+    const batches = planner.planExecution(words);
+    const runtimeManager = RuntimeManager.getInstance();
+
+    for (const batch of batches) {
+      if (!batch.isRemote) {
+        // Execute local words one by one
+        for (const word of batch.words) {
+          this.count_word(word);
+          await word.execute(this);
+        }
+      } else {
+        // Batch execute remote words in one RPC call
+        const client = runtimeManager.getClient(batch.runtime);
+
+        if (!client) {
+          throw new Error(`No gRPC client registered for runtime '${batch.runtime}'`);
+        }
+
+        // Count all words for profiling
+        for (const word of batch.words) {
+          this.count_word(word);
+        }
+
+        // Extract word names from the batch
+        const wordNames = batch.words.map((w: Word) => w.name);
+
+        // Get current stack state
+        const stackItems = this.stack.get_items();
+
+        // Execute the sequence remotely
+        const resultStack = await client.executeSequence(wordNames, stackItems);
+
+        // Clear local stack and replace with result
+        while (this.stack.length > 0) {
+          this.stack_pop();
+        }
+
+        // Push all result items
+        for (const item of resultStack) {
+          this.stack_push(item);
+        }
+      }
+    }
   }
 
   cur_module(): Module {
@@ -931,6 +1008,7 @@ export class StandardInterpreter extends Interpreter {
       new BooleanModule(),
       new JsonModule(),
       new DateTimeModule(),
+      new RemoteRuntimeModule(), // Phase 5: Remote runtime support
     ];
 
     // Import unprefixed at the BOTTOM of module stack
