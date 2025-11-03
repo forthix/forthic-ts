@@ -1,5 +1,5 @@
 import { Interpreter } from "../../interpreter.js";
-import { DecoratedModule, Word, DirectWord, registerModuleDoc } from "../../decorators/word.js";
+import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
 
 export class MathModule extends DecoratedModule {
   static {
@@ -30,7 +30,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
   // Arithmetic Operations
   // ========================================
 
-  @DirectWord("( a:number b:number -- sum:number ) OR ( numbers:number[] -- sum:number )", "Add two numbers or sum array", "+")
+  @ForthicDirectWord("( a:number b:number -- sum:number ) OR ( numbers:number[] -- sum:number )", "Add two numbers or sum array", "+")
   async plus(interp: Interpreter) {
     const b = interp.stack_pop();
 
@@ -53,12 +53,12 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     interp.stack_push(num_a + num_b);
   }
 
-  @DirectWord("( a:number b:number -- sum:number ) OR ( numbers:number[] -- sum:number )", "Add two numbers or sum array", "ADD")
+  @ForthicDirectWord("( a:number b:number -- sum:number ) OR ( numbers:number[] -- sum:number )", "Add two numbers or sum array", "ADD")
   async plus_ADD(interp: Interpreter) {
     return this.plus(interp);
   }
 
-  @Word("( a:number b:number -- difference:number )", "Subtract b from a", "-")
+  @ForthicWord("( a:number b:number -- difference:number )", "Subtract b from a", "-")
   async minus(a: number, b: number) {
     if (a === null || a === undefined || b === null || b === undefined) {
       return null;
@@ -66,7 +66,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     return a - b;
   }
 
-  @Word("( a:number b:number -- difference:number )", "Subtract b from a", "SUBTRACT")
+  @ForthicWord("( a:number b:number -- difference:number )", "Subtract b from a", "SUBTRACT")
   async minus_SUBTRACT(a: number, b: number) {
     if (a === null || a === undefined || b === null || b === undefined) {
       return null;
@@ -74,7 +74,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     return a - b;
   }
 
-  @DirectWord("( a:number b:number -- product:number ) OR ( numbers:number[] -- product:number )", "Multiply two numbers or product of array", "*")
+  @ForthicDirectWord("( a:number b:number -- product:number ) OR ( numbers:number[] -- product:number )", "Multiply two numbers or product of array", "*")
   async times(interp: Interpreter) {
     const b = interp.stack_pop();
 
@@ -101,12 +101,12 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     interp.stack_push(a * b);
   }
 
-  @DirectWord("( a:number b:number -- product:number ) OR ( numbers:number[] -- product:number )", "Multiply two numbers or product of array", "MULTIPLY")
+  @ForthicDirectWord("( a:number b:number -- product:number ) OR ( numbers:number[] -- product:number )", "Multiply two numbers or product of array", "MULTIPLY")
   async times_MULTIPLY(interp: Interpreter) {
     return this.times(interp);
   }
 
-  @Word("( a:number b:number -- quotient:number )", "Divide a by b", "/")
+  @ForthicWord("( a:number b:number -- quotient:number )", "Divide a by b", "/")
   async divide_by(a: number, b: number) {
     if (a === null || a === undefined || b === null || b === undefined) {
       return null;
@@ -117,7 +117,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     return a / b;
   }
 
-  @Word("( a:number b:number -- quotient:number )", "Divide a by b", "DIVIDE")
+  @ForthicWord("( a:number b:number -- quotient:number )", "Divide a by b", "DIVIDE")
   async divide_by_DIVIDE(a: number, b: number) {
     if (a === null || a === undefined || b === null || b === undefined) {
       return null;
@@ -129,7 +129,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
   }
 
   // ( m n -- remainder )
-  @Word("( m:number n:number -- remainder:number )", "Modulo operation (m % n)")
+  @ForthicWord("( m:number n:number -- remainder:number )", "Modulo operation (m % n)")
   async MOD(m: number, n: number) {
     if (m === null || m === undefined || n === null || n === undefined) {
       return null;
@@ -138,7 +138,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
   }
 
 
-  @Word("( items:any[] -- mean:any )", "Calculate mean of array (handles numbers, strings, objects)")
+  @ForthicWord("( items:any[] -- mean:any )", "Calculate mean of array (handles numbers, strings, objects)")
   async MEAN(items: any) {
     if (!items || (Array.isArray(items) && items.length === 0)) {
       return 0;
@@ -225,7 +225,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     return 0;
   }
 
-  @DirectWord("( a:number b:number -- max:number ) OR ( items:number[] -- max:number )", "Maximum of two numbers or array", "MAX")
+  @ForthicDirectWord("( a:number b:number -- max:number ) OR ( items:number[] -- max:number )", "Maximum of two numbers or array", "MAX")
   async MAX(interp: Interpreter) {
     const b = interp.stack_pop();
 
@@ -244,7 +244,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     interp.stack_push(Math.max(a, b));
   }
 
-  @DirectWord("( a:number b:number -- min:number ) OR ( items:number[] -- min:number )", "Minimum of two numbers or array", "MIN")
+  @ForthicDirectWord("( a:number b:number -- min:number ) OR ( items:number[] -- min:number )", "Minimum of two numbers or array", "MIN")
   async MIN(interp: Interpreter) {
     const b = interp.stack_pop();
 
@@ -263,7 +263,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     interp.stack_push(Math.min(a, b));
   }
 
-  @Word("( numbers:number[] -- sum:number )", "Sum of array (explicit)")
+  @ForthicWord("( numbers:number[] -- sum:number )", "Sum of array (explicit)")
   async SUM(numbers: number[]) {
     if (!numbers || !Array.isArray(numbers)) {
       return 0;
@@ -279,7 +279,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
   }
 
 
-  @Word("( a:any -- int:number )", "Convert to integer (returns length for arrays/objects, 0 for null)")
+  @ForthicWord("( a:any -- int:number )", "Convert to integer (returns length for arrays/objects, 0 for null)")
   async [">INT"](a: any) {
     if (a === null || a === undefined) {
       return 0;
@@ -296,7 +296,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     }
   }
 
-  @Word("( a:any -- float:number )", "Convert to float")
+  @ForthicWord("( a:any -- float:number )", "Convert to float")
   async [">FLOAT"](a: any) {
     if (a === null || a === undefined) {
       return 0.0;
@@ -309,7 +309,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     }
   }
 
-  @Word("( num:number digits:number -- result:string )", "Format number with fixed decimal places")
+  @ForthicWord("( num:number digits:number -- result:string )", "Format number with fixed decimal places")
   async [">FIXED"](num: number, digits: number) {
     if (num === null || num === undefined) {
       return null;
@@ -318,7 +318,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     return num.toFixed(digits);
   }
 
-  @Word("( num:number -- int:number )", "Round to nearest integer")
+  @ForthicWord("( num:number -- int:number )", "Round to nearest integer")
   async ROUND(num: number) {
     if (num === null || num === undefined) {
       return null;
@@ -328,18 +328,18 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
   }
 
 
-  @Word("( -- infinity:number )", "Push Infinity value")
+  @ForthicWord("( -- infinity:number )", "Push Infinity value")
   async INFINITY() {
     return Infinity;
   }
 
-  @Word("( low:number high:number -- random:number )", "Generate random number in range [low, high)")
+  @ForthicWord("( low:number high:number -- random:number )", "Generate random number in range [low, high)")
   async ["UNIFORM-RANDOM"](low: number, high: number) {
     return Math.random() * (high - low) + low;
   }
 
 
-  @Word("( n:number -- abs:number )", "Absolute value")
+  @ForthicWord("( n:number -- abs:number )", "Absolute value")
   async ABS(n: number) {
     if (n === null || n === undefined) {
       return null;
@@ -347,7 +347,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     return Math.abs(n);
   }
 
-  @Word("( n:number -- sqrt:number )", "Square root")
+  @ForthicWord("( n:number -- sqrt:number )", "Square root")
   async SQRT(n: number) {
     if (n === null || n === undefined) {
       return null;
@@ -355,7 +355,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     return Math.sqrt(n);
   }
 
-  @Word("( n:number -- floor:number )", "Round down to integer")
+  @ForthicWord("( n:number -- floor:number )", "Round down to integer")
   async FLOOR(n: number) {
     if (n === null || n === undefined) {
       return null;
@@ -363,7 +363,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     return Math.floor(n);
   }
 
-  @Word("( n:number -- ceil:number )", "Round up to integer")
+  @ForthicWord("( n:number -- ceil:number )", "Round up to integer")
   async CEIL(n: number) {
     if (n === null || n === undefined) {
       return null;
@@ -371,7 +371,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     return Math.ceil(n);
   }
 
-  @Word("( value:number min:number max:number -- clamped:number )", "Constrain value to range [min, max]")
+  @ForthicWord("( value:number min:number max:number -- clamped:number )", "Constrain value to range [min, max]")
   async CLAMP(value: number, min: number, max: number) {
     if (value === null || value === undefined || min === null || min === undefined || max === null || max === undefined) {
       return null;

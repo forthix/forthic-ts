@@ -1,5 +1,5 @@
 import { Interpreter } from "../../interpreter.js";
-import { DecoratedModule, Word, DirectWord, registerModuleDoc } from "../../decorators/word.js";
+import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
 
 export class BooleanModule extends DecoratedModule {
   static {
@@ -25,38 +25,38 @@ Comparison, logic, and membership operations for boolean values and conditions.
   }
 
 
-  @Word("( a:any b:any -- equal:boolean )", "Test equality", "==")
+  @ForthicWord("( a:any b:any -- equal:boolean )", "Test equality", "==")
   async equals(a: any, b: any) {
     return a === b;
   }
 
-  @Word("( a:any b:any -- not_equal:boolean )", "Test inequality", "!=")
+  @ForthicWord("( a:any b:any -- not_equal:boolean )", "Test inequality", "!=")
   async not_equals(a: any, b: any) {
     return a !== b;
   }
 
-  @Word("( a:any b:any -- less_than:boolean )", "Less than", "<")
+  @ForthicWord("( a:any b:any -- less_than:boolean )", "Less than", "<")
   async less_than(a: any, b: any) {
     return a < b;
   }
 
-  @Word("( a:any b:any -- less_equal:boolean )", "Less than or equal", "<=")
+  @ForthicWord("( a:any b:any -- less_equal:boolean )", "Less than or equal", "<=")
   async less_than_or_equal(a: any, b: any) {
     return a <= b;
   }
 
-  @Word("( a:any b:any -- greater_than:boolean )", "Greater than", ">")
+  @ForthicWord("( a:any b:any -- greater_than:boolean )", "Greater than", ">")
   async greater_than(a: any, b: any) {
     return a > b;
   }
 
-  @Word("( a:any b:any -- greater_equal:boolean )", "Greater than or equal", ">=")
+  @ForthicWord("( a:any b:any -- greater_equal:boolean )", "Greater than or equal", ">=")
   async greater_than_or_equal(a: any, b: any) {
     return a >= b;
   }
 
 
-  @DirectWord("( a:boolean b:boolean -- result:boolean ) OR ( bools:boolean[] -- result:boolean )", "Logical OR of two values or array", "OR")
+  @ForthicDirectWord("( a:boolean b:boolean -- result:boolean ) OR ( bools:boolean[] -- result:boolean )", "Logical OR of two values or array", "OR")
   async OR(interp: Interpreter) {
     const b = interp.stack_pop();
 
@@ -77,7 +77,7 @@ Comparison, logic, and membership operations for boolean values and conditions.
     interp.stack_push(a || b);
   }
 
-  @DirectWord("( a:boolean b:boolean -- result:boolean ) OR ( bools:boolean[] -- result:boolean )", "Logical AND of two values or array", "AND")
+  @ForthicDirectWord("( a:boolean b:boolean -- result:boolean ) OR ( bools:boolean[] -- result:boolean )", "Logical AND of two values or array", "AND")
   async AND(interp: Interpreter) {
     const b = interp.stack_pop();
 
@@ -98,23 +98,23 @@ Comparison, logic, and membership operations for boolean values and conditions.
     interp.stack_push(a && b);
   }
 
-  @Word("( bool:boolean -- result:boolean )", "Logical NOT")
+  @ForthicWord("( bool:boolean -- result:boolean )", "Logical NOT")
   async NOT(bool: boolean) {
     return !bool;
   }
 
-  @Word("( a:boolean b:boolean -- result:boolean )", "Logical XOR (exclusive or)")
+  @ForthicWord("( a:boolean b:boolean -- result:boolean )", "Logical XOR (exclusive or)")
   async XOR(a: boolean, b: boolean) {
     return (a || b) && !(a && b);
   }
 
-  @Word("( a:boolean b:boolean -- result:boolean )", "Logical NAND (not and)")
+  @ForthicWord("( a:boolean b:boolean -- result:boolean )", "Logical NAND (not and)")
   async NAND(a: boolean, b: boolean) {
     return !(a && b);
   }
 
 
-  @Word("( item:any array:any[] -- in:boolean )", "Check if item is in array")
+  @ForthicWord("( item:any array:any[] -- in:boolean )", "Check if item is in array")
   async IN(item: any, array: any[]) {
     if (!Array.isArray(array)) {
       return false;
@@ -122,7 +122,7 @@ Comparison, logic, and membership operations for boolean values and conditions.
     return array.includes(item);
   }
 
-  @Word("( items1:any[] items2:any[] -- any:boolean )", "Check if any item from items1 is in items2")
+  @ForthicWord("( items1:any[] items2:any[] -- any:boolean )", "Check if any item from items1 is in items2")
   async ANY(items1: any[], items2: any[]) {
     if (!Array.isArray(items1) || !Array.isArray(items2)) {
       return false;
@@ -142,7 +142,7 @@ Comparison, logic, and membership operations for boolean values and conditions.
     return false;
   }
 
-  @Word("( items1:any[] items2:any[] -- all:boolean )", "Check if all items from items2 are in items1")
+  @ForthicWord("( items1:any[] items2:any[] -- all:boolean )", "Check if all items from items2 are in items1")
   async ALL(items1: any[], items2: any[]) {
     if (!Array.isArray(items1) || !Array.isArray(items2)) {
       return false;
@@ -162,7 +162,7 @@ Comparison, logic, and membership operations for boolean values and conditions.
     return true;
   }
 
-  @Word("( a:any -- bool:boolean )", "Convert to boolean (JavaScript truthiness)")
+  @ForthicWord("( a:any -- bool:boolean )", "Convert to boolean (JavaScript truthiness)")
   async [">BOOL"](a: any) {
     return !!a;
   }

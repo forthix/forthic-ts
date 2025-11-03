@@ -1,4 +1,4 @@
-import { DecoratedModule, Word, registerModuleDoc } from "../../decorators/word.js";
+import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 
 export class RecordModule extends DecoratedModule {
   static {
@@ -35,7 +35,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
   }
 
 
-  @Word("( key_vals:any[] -- rec:any )", "Create record from [[key, val], ...] pairs")
+  @ForthicWord("( key_vals:any[] -- rec:any )", "Create record from [[key, val], ...] pairs")
   async REC(key_vals: any[]) {
     let _key_vals = key_vals;
     if (!_key_vals) _key_vals = [];
@@ -54,7 +54,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
     return result;
   }
 
-  @Word("( rec:any field:any -- value:any )", "Get value from record by field or array of fields", "REC@")
+  @ForthicWord("( rec:any field:any -- value:any )", "Get value from record by field or array of fields", "REC@")
   async REC_at(rec: any, field: any) {
     if (!rec) return null;
 
@@ -65,7 +65,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
     return result;
   }
 
-  @Word("( records:any field:any -- values:any )", "Map REC@ over array of records", "|REC@")
+  @ForthicWord("( records:any field:any -- values:any )", "Map REC@ over array of records", "|REC@")
   async pipe_REC_at(records: any, field: any) {
     // Push records back and field, then use MAP with REC@
     this.interp.stack_push(records);
@@ -73,7 +73,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
     return undefined; // Result already on stack from MAP
   }
 
-  @Word("( rec:any value:any field:any -- rec:any )", "Set value in record at field path", "<REC!")
+  @ForthicWord("( rec:any value:any field:any -- rec:any )", "Set value in record at field path", "<REC!")
   async l_REC_bang(rec: any, value: any, field: any) {
     let _rec = rec;
     if (!_rec) _rec = {};
@@ -104,7 +104,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
   }
 
 
-  @Word("( container:any old_keys:any[] new_keys:any[] -- container:any )", "Rename record keys")
+  @ForthicWord("( container:any old_keys:any[] new_keys:any[] -- container:any )", "Rename record keys")
   async RELABEL(container: any, old_keys: any[], new_keys: any[]) {
     if (!container) return container;
 
@@ -131,7 +131,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
     return result;
   }
 
-  @Word("( record:any -- inverted:any )", "Invert two-level nested record structure", "INVERT-KEYS")
+  @ForthicWord("( record:any -- inverted:any )", "Invert two-level nested record structure", "INVERT-KEYS")
   async INVERT_KEYS(record: any) {
     const result: any = {};
     Object.keys(record).forEach((first_key) => {
@@ -146,7 +146,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
     return result;
   }
 
-  @Word("( record:any key_vals:any[] -- record:any )", "Set default values for missing/empty fields", "REC-DEFAULTS")
+  @ForthicWord("( record:any key_vals:any[] -- record:any )", "Set default values for missing/empty fields", "REC-DEFAULTS")
   async REC_DEFAULTS(record: any, key_vals: any[]) {
     key_vals.forEach((key_val) => {
       const key = key_val[0];
@@ -159,7 +159,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
     return record;
   }
 
-  @Word("( container:any key:any -- container:any )", "Delete key from record or index from array", "<DEL")
+  @ForthicWord("( container:any key:any -- container:any )", "Delete key from record or index from array", "<DEL")
   async l_DEL(container: any, key: any) {
     if (!container) return container;
 
@@ -173,7 +173,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
   }
 
 
-  @Word("( container:any -- keys:any[] )", "Get keys from record or indices from array")
+  @ForthicWord("( container:any -- keys:any[] )", "Get keys from record or indices from array")
   async KEYS(container: any) {
     let _container = container;
     if (!_container) _container = [];
@@ -191,7 +191,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
     return result;
   }
 
-  @Word("( container:any -- values:any[] )", "Get values from record or elements from array")
+  @ForthicWord("( container:any -- values:any[] )", "Get values from record or elements from array")
   async VALUES(container: any) {
     let _container = container;
     if (!_container) _container = [];

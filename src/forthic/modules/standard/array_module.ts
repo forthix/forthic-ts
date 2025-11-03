@@ -1,5 +1,5 @@
 import { Interpreter, dup_interpreter } from "../../interpreter.js";
-import { DecoratedModule, Word, DirectWord, registerModuleDoc } from "../../decorators/word.js";
+import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
 
 export class ArrayModule extends DecoratedModule {
   static {
@@ -36,7 +36,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     super("array");
   }
 
-  @Word("( container:any item:any -- container:any )", "Append item to array or add key-value to record")
+  @ForthicWord("( container:any item:any -- container:any )", "Append item to array or add key-value to record")
   async APPEND(container: any, item: any) {
     let result = container;
     if (!result) result = [];
@@ -51,7 +51,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @Word("( container:any -- container:any )", "Reverse array")
+  @ForthicWord("( container:any -- container:any )", "Reverse array")
   async REVERSE(container: any) {
     if (!container) return container;
 
@@ -63,7 +63,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @Word("( array:any[] -- array:any[] )", "Remove duplicates from array")
+  @ForthicWord("( array:any[] -- array:any[] )", "Remove duplicates from array")
   async UNIQUE(array: any[]) {
     if (!array) return array;
 
@@ -75,7 +75,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @Word("( container:any -- length:number )", "Get length of array or record")
+  @ForthicWord("( container:any -- length:number )", "Get length of array or record")
   async LENGTH(container: any) {
     if (!container) return 0;
 
@@ -86,7 +86,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     }
   }
 
-  @Word("( container:any n:number -- item:any )", "Get nth element from array or record")
+  @ForthicWord("( container:any n:number -- item:any )", "Get nth element from array or record")
   async NTH(container: any, n: number) {
     if (n === null || !container) return null;
 
@@ -101,7 +101,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     }
   }
 
-  @Word("( container:any -- item:any )", "Get last element from array or record")
+  @ForthicWord("( container:any -- item:any )", "Get last element from array or record")
   async LAST(container: any) {
     if (!container) return null;
 
@@ -115,7 +115,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     }
   }
 
-  @Word("( container:any start:number end:number -- result:any )", "Extract slice from array or record")
+  @ForthicWord("( container:any start:number end:number -- result:any )", "Extract slice from array or record")
   async SLICE(container: any, start: number, end: number) {
     let _container = container;
     if (!_container) _container = [];
@@ -175,7 +175,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     }
   }
 
-  @Word("( container:any[] n:number [options:WordOptions] -- result:any[] )", "Take first n elements")
+  @ForthicWord("( container:any[] n:number [options:WordOptions] -- result:any[] )", "Take first n elements")
   async TAKE(container: any[], n: number, options: Record<string, any>) {
     const interp = this.interp
 
@@ -206,7 +206,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return taken
   }
 
-  @Word("( container:any n:number -- result:any )", "Drop first n elements from array or record")
+  @ForthicWord("( container:any n:number -- result:any )", "Drop first n elements from array or record")
   async DROP(container: any, n: number) {
     if (!container) return [];
     if (n <= 0) return container;
@@ -220,7 +220,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     }
   }
 
-  @Word("( lcontainer:any rcontainer:any -- result:any )", "Set difference between two containers")
+  @ForthicWord("( lcontainer:any rcontainer:any -- result:any )", "Set difference between two containers")
   async DIFFERENCE(lcontainer: any, rcontainer: any) {
     let _lcontainer = lcontainer || [];
     let _rcontainer = rcontainer || [];
@@ -245,7 +245,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     }
   }
 
-  @Word("( lcontainer:any rcontainer:any -- result:any )", "Set intersection between two containers")
+  @ForthicWord("( lcontainer:any rcontainer:any -- result:any )", "Set intersection between two containers")
   async INTERSECTION(lcontainer: any, rcontainer: any) {
     let _lcontainer = lcontainer || [];
     let _rcontainer = rcontainer || [];
@@ -270,7 +270,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     }
   }
 
-  @Word("( lcontainer:any rcontainer:any -- result:any )", "Set union between two containers")
+  @ForthicWord("( lcontainer:any rcontainer:any -- result:any )", "Set union between two containers")
   async UNION(lcontainer: any, rcontainer: any) {
     if (!lcontainer) lcontainer = [];
     if (!rcontainer) rcontainer = [];
@@ -307,7 +307,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
   }
 
 
-  @Word(
+  @ForthicWord(
     "( container:any[] [options:WordOptions] -- array:any[] )",
     "Sort container. Options: comparator (string or function). Example: [3 1 4] [.comparator \"-1 *\"] ~> SORT"
   )
@@ -392,7 +392,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
   }
 
 
-  @Word("( array:any[] -- array:any[] )", "Shuffle array randomly")
+  @ForthicWord("( array:any[] -- array:any[] )", "Shuffle array randomly")
   async SHUFFLE(array: any[]) {
     if (!array) return array;
 
@@ -405,7 +405,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @Word("( container:any -- container:any )", "Rotate container by moving last element to front")
+  @ForthicWord("( container:any -- container:any )", "Rotate container by moving last element to front")
   async ROTATE(container: any) {
     if (!container) return container;
 
@@ -421,7 +421,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @Word("( container:any -- elements:any )", "Unpack array or record elements onto stack")
+  @ForthicWord("( container:any -- elements:any )", "Unpack array or record elements onto stack")
   async UNPACK(container: any) {
     let _container = container;
     if (!_container) _container = [];
@@ -441,7 +441,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return undefined;
   }
 
-  @Word(
+  @ForthicWord(
     "( container:any [options:WordOptions] -- flat:any )",
     "Flatten nested arrays or records. Options: depth (number). Example: [[[1 2]]] [.depth 1] ~> FLATTEN"
   )
@@ -524,7 +524,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @Word("( container:any initial:any forthic:string -- result:any )", "Reduce array or record with accumulator")
+  @ForthicWord("( container:any initial:any forthic:string -- result:any )", "Reduce array or record with accumulator")
   async REDUCE(container: any, initial: any, forthic: string) {
     let _container = container;
     if (!_container) _container = [];
@@ -551,7 +551,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
   }
 
 
-  @Word("( container1:any[] container2:any[] -- result:any[] )", "Zip two arrays into array of pairs")
+  @ForthicWord("( container1:any[] container2:any[] -- result:any[] )", "Zip two arrays into array of pairs")
   async ZIP(container1: any[], container2: any[]) {
     if (!container1) container1 = [];
     if (!container2) container2 = [];
@@ -575,7 +575,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @Word("( container1:any[] container2:any[] forthic:string -- result:any[] )", "Zip two arrays with combining function", "ZIP-WITH")
+  @ForthicWord("( container1:any[] container2:any[] forthic:string -- result:any[] )", "Zip two arrays with combining function", "ZIP-WITH")
   async ZIP_WITH(container1: any[], container2: any[], forthic: string) {
     const interp = this.interp
     const string_location = interp.get_string_location();
@@ -612,7 +612,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @Word("( items:any[] forthic:string -- indexed:any )", "Create index mapping from array indices to values")
+  @ForthicWord("( items:any[] forthic:string -- indexed:any )", "Create index mapping from array indices to values")
   async INDEX(items: any[], forthic: string) {
     const interp = this.interp
     const string_location = interp.get_string_location();
@@ -638,7 +638,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @Word("( container:any value:any -- key:any )", "Find key of value in container", "KEY-OF")
+  @ForthicWord("( container:any value:any -- key:any )", "Find key of value in container", "KEY-OF")
   async KEY_OF(container: any, value: any) {
     if (!container) return null;
 
@@ -655,7 +655,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
   }
 
 
-  @Word("( container:any forthic:string [options:WordOptions] -- filtered:any )", "Filter items with predicate. Options: with_key (bool)")
+  @ForthicWord("( container:any forthic:string [options:WordOptions] -- filtered:any )", "Filter items with predicate. Options: with_key (bool)")
   async SELECT(container: any, forthic: string, options: Record<string, any>) {
     const interp = this.interp
     const string_location = interp.get_string_location();
@@ -698,7 +698,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
   }
 
 
-  @Word("( container:any[] field:string -- indexed:any )", "Index records by field value", "BY-FIELD")
+  @ForthicWord("( container:any[] field:string -- indexed:any )", "Index records by field value", "BY-FIELD")
   async BY_FIELD(container: any[], field: string) {
     if (!container) container = [];
 
@@ -720,7 +720,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @Word("( container:any[] field:string -- grouped:any )", "Group records by field value", "GROUP-BY-FIELD")
+  @ForthicWord("( container:any[] field:string -- grouped:any )", "Group records by field value", "GROUP-BY-FIELD")
   async GROUP_BY_FIELD(container: any[], field: string) {
 
     if (!container) container = [];
@@ -746,7 +746,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result
   }
 
-  @Word(
+  @ForthicWord(
     "( items:any forthic:string [options:WordOptions] -- grouped:any )",
     "Group items by function result. Options: with_key (bool). Example: [5 15 25] '10 /' [.with_key TRUE] ~> GROUP-BY", "GROUP-BY"
   )
@@ -783,7 +783,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @Word("( container:any[] n:number -- groups:any[] )", "Split array into groups of size n", "GROUPS-OF")
+  @ForthicWord("( container:any[] n:number -- groups:any[] )", "Split array into groups of size n", "GROUPS-OF")
   async GROUPS_OF(container: any[], n: number) {
     if (n <= 0) throw "GROUPS-OF requires group size > 0";
 
@@ -820,7 +820,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
   }
 
 
-  @Word(
+  @ForthicWord(
     "( items:any forthic:string [options:WordOptions] -- ? )",
     "Execute forthic for each item. Options: with_key (bool), push_error (bool). Example: ['a' 'b'] 'PROCESS' [.with_key TRUE] ~> FOREACH"
   )
@@ -882,7 +882,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return undefined;
   }
 
-  @Word(
+  @ForthicWord(
     "( items:any forthic:string [options:WordOptions] -- mapped:any )",
     "Map function over items. Options: with_key (bool), push_error (bool), depth (num), push_rest (bool). Example: [1 2 3] '2 *' [.with_key TRUE] ~> MAP"
   )
@@ -902,7 +902,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return undefined; // MapWord pushes result directly
   }
 
-  @DirectWord("( item:any forthic:string num_times:number -- )", "Repeat execution of forthic num_times", "<REPEAT")
+  @ForthicDirectWord("( item:any forthic:string num_times:number -- )", "Repeat execution of forthic num_times", "<REPEAT")
   async l_REPEAT(interp: Interpreter) {
     const num_times = interp.stack_pop();
     const forthic = interp.stack_pop();

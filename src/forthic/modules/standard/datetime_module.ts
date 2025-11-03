@@ -1,5 +1,5 @@
 import { Interpreter } from "../../interpreter.js";
-import { DecoratedModule, Word, DirectWord, registerModuleDoc } from "../../decorators/word.js";
+import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
 import { Temporal } from "temporal-polyfill";
 
 export class DateTimeModule extends DecoratedModule {
@@ -30,20 +30,20 @@ TODAY 7 ADD-DAYS
   }
 
 
-  @DirectWord("( -- date:Temporal.PlainDate )", "Get current date", "TODAY")
+  @ForthicDirectWord("( -- date:Temporal.PlainDate )", "Get current date", "TODAY")
   async TODAY(interp: Interpreter) {
     const today = Temporal.Now.plainDateISO(interp.get_timezone());
     interp.stack_push(today);
   }
 
-  @DirectWord("( -- datetime:Temporal.ZonedDateTime )", "Get current datetime", "NOW")
+  @ForthicDirectWord("( -- datetime:Temporal.ZonedDateTime )", "Get current datetime", "NOW")
   async NOW(interp: Interpreter) {
     const now = Temporal.Now.plainDateTimeISO(interp.get_timezone());
     interp.stack_push(now);
   }
 
 
-  @Word("( time:Temporal.PlainTime -- time:Temporal.PlainTime )", "Convert time to AM (subtract 12 from hour if >= 12)")
+  @ForthicWord("( time:Temporal.PlainTime -- time:Temporal.PlainTime )", "Convert time to AM (subtract 12 from hour if >= 12)")
   async AM(time: any) {
     if (!time || typeof time.hour !== "number") {
       return time;
@@ -54,7 +54,7 @@ TODAY 7 ADD-DAYS
     return time;
   }
 
-  @Word("( time:Temporal.PlainTime -- time:Temporal.PlainTime )", "Convert time to PM (add 12 to hour if < 12)")
+  @ForthicWord("( time:Temporal.PlainTime -- time:Temporal.PlainTime )", "Convert time to PM (add 12 to hour if < 12)")
   async PM(time: any) {
     if (!time || typeof time.hour !== "number") {
       return time;
@@ -66,7 +66,7 @@ TODAY 7 ADD-DAYS
   }
 
 
-  @Word("( item:any -- time:Temporal.PlainTime )", "Convert string or datetime to PlainTime", ">TIME")
+  @ForthicWord("( item:any -- time:Temporal.PlainTime )", "Convert string or datetime to PlainTime", ">TIME")
   async to_TIME(item: any) {
     if (!item) {
       return null;
@@ -109,7 +109,7 @@ TODAY 7 ADD-DAYS
     }
   }
 
-  @Word("( item:any -- date:Temporal.PlainDate )", "Convert string or datetime to PlainDate", ">DATE")
+  @ForthicWord("( item:any -- date:Temporal.PlainDate )", "Convert string or datetime to PlainDate", ">DATE")
   async to_DATE(item: any) {
     if (!item) {
       return null;
@@ -150,7 +150,7 @@ TODAY 7 ADD-DAYS
     return null;
   }
 
-  @DirectWord("( str_or_timestamp:any -- datetime:Temporal.ZonedDateTime )", "Convert string or timestamp to ZonedDateTime", ">DATETIME")
+  @ForthicDirectWord("( str_or_timestamp:any -- datetime:Temporal.ZonedDateTime )", "Convert string or timestamp to ZonedDateTime", ">DATETIME")
   async to_DATETIME(interp: Interpreter) {
     const item = interp.stack_pop();
 
@@ -193,7 +193,7 @@ TODAY 7 ADD-DAYS
     }
   }
 
-  @DirectWord("( date:Temporal.PlainDate time:Temporal.PlainTime -- datetime:Temporal.ZonedDateTime )", "Combine date and time into datetime", "AT")
+  @ForthicDirectWord("( date:Temporal.PlainDate time:Temporal.PlainTime -- datetime:Temporal.ZonedDateTime )", "Combine date and time into datetime", "AT")
   async AT(interp: Interpreter) {
     const time = interp.stack_pop();
     const date = interp.stack_pop();
@@ -220,7 +220,7 @@ TODAY 7 ADD-DAYS
   }
 
 
-  @Word("( time:Temporal.PlainTime -- str:string )", "Convert time to HH:MM string", "TIME>STR")
+  @ForthicWord("( time:Temporal.PlainTime -- str:string )", "Convert time to HH:MM string", "TIME>STR")
   async TIME_to_STR(time: any) {
     if (!time || typeof time.hour !== "number") {
       return "";
@@ -231,7 +231,7 @@ TODAY 7 ADD-DAYS
     return `${hour}:${minute}`;
   }
 
-  @Word("( date:Temporal.PlainDate -- str:string )", "Convert date to YYYY-MM-DD string", "DATE>STR")
+  @ForthicWord("( date:Temporal.PlainDate -- str:string )", "Convert date to YYYY-MM-DD string", "DATE>STR")
   async DATE_to_STR(date: any) {
     if (!date || typeof date.year !== "number") {
       return "";
@@ -240,7 +240,7 @@ TODAY 7 ADD-DAYS
     return date.toString();
   }
 
-  @Word("( date:Temporal.PlainDate -- int:number )", "Convert date to integer (YYYYMMDD)", "DATE>INT")
+  @ForthicWord("( date:Temporal.PlainDate -- int:number )", "Convert date to integer (YYYYMMDD)", "DATE>INT")
   async DATE_to_INT(date: any) {
     if (!date || typeof date.year !== "number") {
       return null;
@@ -253,7 +253,7 @@ TODAY 7 ADD-DAYS
   }
 
 
-  @DirectWord("( datetime:Temporal.ZonedDateTime -- timestamp:number )", "Convert datetime to Unix timestamp (seconds)", ">TIMESTAMP")
+  @ForthicDirectWord("( datetime:Temporal.ZonedDateTime -- timestamp:number )", "Convert datetime to Unix timestamp (seconds)", ">TIMESTAMP")
   async to_TIMESTAMP(interp: Interpreter) {
     const datetime = interp.stack_pop();
 
@@ -283,7 +283,7 @@ TODAY 7 ADD-DAYS
     interp.stack_push(Math.floor(timestamp / 1000)); // Return seconds for compatibility
   }
 
-  @DirectWord("( timestamp:number -- datetime:Temporal.ZonedDateTime )", "Convert Unix timestamp (seconds) to datetime", "TIMESTAMP>DATETIME")
+  @ForthicDirectWord("( timestamp:number -- datetime:Temporal.ZonedDateTime )", "Convert Unix timestamp (seconds) to datetime", "TIMESTAMP>DATETIME")
   async TIMESTAMP_to_DATETIME(interp: Interpreter) {
     const timestamp = interp.stack_pop();
 
@@ -300,7 +300,7 @@ TODAY 7 ADD-DAYS
 
 
   // ( date num_days -- date )
-  @Word("( date:Temporal.PlainDate num_days:number -- date:Temporal.PlainDate )", "Add days to a date", "ADD-DAYS")
+  @ForthicWord("( date:Temporal.PlainDate num_days:number -- date:Temporal.PlainDate )", "Add days to a date", "ADD-DAYS")
   async ADD_DAYS(date: any, num_days: number) {
     if (!date || typeof date.year !== "number" || num_days === null || num_days === undefined) {
       return null;
@@ -310,7 +310,7 @@ TODAY 7 ADD-DAYS
   }
 
   // ( date1 date2 -- num_days )
-  @Word("( date1:Temporal.PlainDate date2:Temporal.PlainDate -- num_days:number )", "Get difference in days between dates (date1 - date2)", "SUBTRACT-DATES")
+  @ForthicWord("( date1:Temporal.PlainDate date2:Temporal.PlainDate -- num_days:number )", "Get difference in days between dates (date1 - date2)", "SUBTRACT-DATES")
   async SUBTRACT_DATES(date1: any, date2: any) {
     if (!date1 || !date2 || typeof date1.year !== "number" || typeof date2.year !== "number") {
       return null;

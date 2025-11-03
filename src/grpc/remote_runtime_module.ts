@@ -7,7 +7,7 @@
  * - USE-PY-MODULES-AS: Load Python modules with a prefix
  * - LOAD-RUNTIMES: Load runtimes from YAML configuration (Phase 6)
  */
-import { DecoratedModule, Word, registerModuleDoc } from '../forthic/decorators/word.js';
+import { DecoratedModule, ForthicWord, registerModuleDoc } from '../forthic/decorators/word.js';
 import { RuntimeManager } from './runtime_manager.js';
 import { RemoteModule } from './remote_module.js';
 import { ConfigLoader } from './config_loader.js';
@@ -44,7 +44,7 @@ Remote runtime management for multi-language execution.
     super('remote_runtime');
   }
 
-  @Word(
+  @ForthicWord(
     '( runtime_name:string address:string -- )',
     'Connect to a remote runtime. Example: "python" "localhost:50051" CONNECT-RUNTIME'
   )
@@ -62,7 +62,7 @@ Remote runtime management for multi-language execution.
     runtimeManager.connectRuntime(runtime_name, address);
   }
 
-  @Word(
+  @ForthicWord(
     '( module_names:string[] -- )',
     'Load Python modules from connected python runtime. Example: ["math" "array"] USE-PY-MODULES'
   )
@@ -70,7 +70,7 @@ Remote runtime management for multi-language execution.
     await this.loadRemoteModules(module_names, 'python', '');
   }
 
-  @Word(
+  @ForthicWord(
     '( module_names:string[] prefix:string -- )',
     'Load Python modules with prefix. Example: ["pandas"] "py" USE-PY-MODULES-AS'
   )
@@ -78,7 +78,7 @@ Remote runtime management for multi-language execution.
     await this.loadRemoteModules(module_names, 'python', prefix);
   }
 
-  @Word(
+  @ForthicWord(
     '( runtime_names:string[] -- )',
     'Load runtimes from default configuration file (forthic-runtimes.yaml). Example: ["python"] LOAD-RUNTIMES'
   )
@@ -94,7 +94,7 @@ Remote runtime management for multi-language execution.
     await this.loadRuntimesFromFile(configPath, runtime_names);
   }
 
-  @Word(
+  @ForthicWord(
     '( config_path:string runtime_names:string[] -- )',
     'Load runtimes from specified configuration file. Example: "./config.yaml" ["python"] LOAD-RUNTIMES-FROM'
   )

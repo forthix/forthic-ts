@@ -147,7 +147,7 @@ function parseStackNotation(stackEffect: string): { inputCount: number; hasOptio
 }
 
 /**
- * @DirectWord Decorator
+ * @ForthicDirectWord Decorator
  *
  * Auto-registers word but does NOT handle stack marshalling.
  * Use this for words that need direct interpreter access to manually manipulate the stack.
@@ -158,14 +158,14 @@ function parseStackNotation(stackEffect: string): { inputCount: number; hasOptio
  * @param customWordName - Optional custom word name (defaults to method name)
  *
  * @example
- * @DirectWord("( item:any forthic:string num:number -- )", "Repeat execution num_times", "<REPEAT")
+ * @ForthicDirectWord("( item:any forthic:string num:number -- )", "Repeat execution num_times", "<REPEAT")
  * async l_REPEAT(interp: Interpreter) {
  *   const num = interp.stack_pop();
  *   const forthic = interp.stack_pop();
  *   // ... manual stack manipulation
  * }
  */
-export function DirectWord(stackEffect: string, description: string = "", customWordName?: string) {
+export function ForthicDirectWord(stackEffect: string, description: string = "", customWordName?: string) {
   return function(target: any, propertyKey: string, descriptor: PropertyDescriptor) {
     const wordName = customWordName || propertyKey;
 
@@ -187,7 +187,7 @@ export function DirectWord(stackEffect: string, description: string = "", custom
 }
 
 /**
- * @Word Decorator
+ * @ForthicWord Decorator
  *
  * Auto-registers word and handles stack marshalling.
  * Word name defaults to method name, but can be overridden.
@@ -197,18 +197,18 @@ export function DirectWord(stackEffect: string, description: string = "", custom
  * @param customWordName - Optional custom word name (defaults to method name)
  *
  * @example
- * @Word("( a:number b:number -- sum:number )", "Adds two numbers")
+ * @ForthicWord("( a:number b:number -- sum:number )", "Adds two numbers")
  * async ADD(a: number, b: number) {
  *   return a + b;
  * }
  *
  * @example
- * @Word("( rec:any field:any -- value:any )", "Get value from record", "REC@")
+ * @ForthicWord("( rec:any field:any -- value:any )", "Get value from record", "REC@")
  * async REC_at(rec: any, field: any) {
  *   // Word name will be "REC@" instead of "REC_at"
  * }
  */
-export function Word(stackEffect: string, description: string = "", customWordName?: string) {
+export function ForthicWord(stackEffect: string, description: string = "", customWordName?: string) {
   return function(target: any, propertyKey: string, descriptor?: PropertyDescriptor) {
     // Get the original method from the descriptor if available, otherwise from target
     const originalMethod = descriptor?.value || target[propertyKey];
@@ -314,7 +314,7 @@ export class DecoratedModule extends Module {
   }
 
   private registerDecoratedWords() {
-    // Register @Word decorated methods
+    // Register @ForthicWord decorated methods
     const classMetadata = wordMetadata.get(this.constructor);
     if (classMetadata) {
       for (const [methodName, metadata] of classMetadata.entries()) {
@@ -326,7 +326,7 @@ export class DecoratedModule extends Module {
       }
     }
 
-    // Register @DirectWord decorated methods
+    // Register @ForthicDirectWord decorated methods
     const directClassMetadata = directWordMetadata.get(this.constructor);
     if (directClassMetadata) {
       for (const [methodName, metadata] of directClassMetadata.entries()) {
@@ -369,7 +369,7 @@ export class DecoratedModule extends Module {
   getWordDocs(): Array<{ name: string, stackEffect: string, description: string }> {
     const docs: Array<{ name: string, stackEffect: string, description: string }> = [];
 
-    // Get @Word decorated methods
+    // Get @ForthicWord decorated methods
     const classMetadata = wordMetadata.get(this.constructor);
     if (classMetadata) {
       docs.push(...Array.from(classMetadata.values()).map(meta => ({
@@ -379,7 +379,7 @@ export class DecoratedModule extends Module {
       })));
     }
 
-    // Get @DirectWord decorated methods
+    // Get @ForthicDirectWord decorated methods
     const directClassMetadata = directWordMetadata.get(this.constructor);
     if (directClassMetadata) {
       docs.push(...Array.from(directClassMetadata.values()).map(meta => ({

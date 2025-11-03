@@ -1,7 +1,7 @@
 import { Variable } from "../../module.js";
 import { Interpreter } from "../../interpreter.js";
 import { InvalidVariableNameError, IntentionalStopError } from "../../errors.js";
-import { DecoratedModule, Word, registerModuleDoc } from "../../decorators/word.js";
+import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 import { WordOptions } from "../../word_options.js";
 
 export class CoreModule extends DecoratedModule {
@@ -68,24 +68,24 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
   }
 
 
-  @Word("( a:any -- )", "Removes top item from stack")
+  @ForthicWord("( a:any -- )", "Removes top item from stack")
   async POP(a: any) {
     // No return = push nothing
   }
 
-  @Word("( a:any -- a:any a:any )", "Duplicates top stack item")
+  @ForthicWord("( a:any -- a:any a:any )", "Duplicates top stack item")
   async DUP(a: any) {
     this.interp.stack_push(a);
     this.interp.stack_push(a);
   }
 
-  @Word("( a:any b:any -- b:any a:any )", "Swaps top two stack items")
+  @ForthicWord("( a:any b:any -- b:any a:any )", "Swaps top two stack items")
   async SWAP(a: any, b: any) {
     this.interp.stack_push(b);
     this.interp.stack_push(a);
   }
 
-  @Word("( -- )", "Prints top of stack and stops execution")
+  @ForthicWord("( -- )", "Prints top of stack and stops execution")
   async ["PEEK!"]() {
     const stack = this.interp.get_stack().get_items();
     if (stack.length > 0) {
@@ -96,7 +96,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     throw new IntentionalStopError("PEEK!");
   }
 
-  @Word("( -- )", "Prints entire stack (reversed) and stops execution")
+  @ForthicWord("( -- )", "Prints entire stack (reversed) and stops execution")
   async ["STACK!"]() {
     const stack = this.interp.get_stack().get_items().slice().reverse();
     console.log(JSON.stringify(stack, null, 2));
@@ -104,7 +104,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
   }
 
 
-  @Word("( varnames:string[] -- )", "Creates variables in current module")
+  @ForthicWord("( varnames:string[] -- )", "Creates variables in current module")
   async VARIABLES(varnames: string[]) {
     const module = this.interp.cur_module();
     varnames.forEach((v: string) => {
@@ -119,7 +119,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     });
   }
 
-  @Word("( value:any variable:any -- )", "Sets variable value (auto-creates if string name)")
+  @ForthicWord("( value:any variable:any -- )", "Sets variable value (auto-creates if string name)")
   async ["!"](value: any, variable: any) {
     let var_obj: Variable;
     if (typeof variable === 'string') {
@@ -130,7 +130,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     var_obj.set_value(value);
   }
 
-  @Word("( variable:any -- value:any )", "Gets variable value (auto-creates if string name)")
+  @ForthicWord("( variable:any -- value:any )", "Gets variable value (auto-creates if string name)")
   async ["@"](variable: any) {
     let var_obj: Variable;
     if (typeof variable === 'string') {
@@ -141,7 +141,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     return var_obj.get_value();
   }
 
-  @Word("( value:any variable:any -- value:any )", "Sets variable and returns value")
+  @ForthicWord("( value:any variable:any -- value:any )", "Sets variable and returns value")
   async ["!@"](value: any, variable: any) {
     let var_obj: Variable;
     if (typeof variable === 'string') {
@@ -154,45 +154,45 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
   }
 
 
-  @Word("( string:string -- )", "Interprets Forthic string in current context")
+  @ForthicWord("( string:string -- )", "Interprets Forthic string in current context")
   async INTERPRET(string: string) {
     const string_location = this.interp.get_string_location();
     if (string) await this.interp.run(string, string_location);
   }
 
-  @Word("( names:string[] -- )", "Exports words from current module")
+  @ForthicWord("( names:string[] -- )", "Exports words from current module")
   async EXPORT(names: string[]) {
     this.interp.cur_module().add_exportable(names);
   }
 
-  @Word("( names:string[] -- )", "Imports modules by name")
+  @ForthicWord("( names:string[] -- )", "Imports modules by name")
   async USE_MODULES(names: string[]) {
     if (!names) return;
     this.interp.use_modules(names);
   }
 
 
-  @Word("( -- )", "Does nothing (identity operation)")
+  @ForthicWord("( -- )", "Does nothing (identity operation)")
   async IDENTITY() {
     // No-op
   }
 
-  @Word("( -- )", "Does nothing (no operation)")
+  @ForthicWord("( -- )", "Does nothing (no operation)")
   async NOP() {
     // No-op
   }
 
-  @Word("( -- null:null )", "Pushes null onto stack")
+  @ForthicWord("( -- null:null )", "Pushes null onto stack")
   async NULL() {
     return null;
   }
 
-  @Word("( value:any -- boolean:boolean )", "Returns true if value is an array")
+  @ForthicWord("( value:any -- boolean:boolean )", "Returns true if value is an array")
   async ["ARRAY?"](value: any) {
     return value instanceof Array;
   }
 
-  @Word("( value:any default_value:any -- result:any )", "Returns value or default if value is null/undefined/empty string")
+  @ForthicWord("( value:any default_value:any -- result:any )", "Returns value or default if value is null/undefined/empty string")
   async DEFAULT(value: any, default_value: any) {
     if (value === undefined || value === null || value === "") {
       return default_value;
@@ -200,7 +200,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     return value;
   }
 
-  @Word("( value:any default_forthic:string -- result:any )", "Returns value or executes Forthic if value is null/undefined/empty string")
+  @ForthicWord("( value:any default_forthic:string -- result:any )", "Returns value or executes Forthic if value is null/undefined/empty string")
   async ["*DEFAULT"](value: any, default_forthic: string) {
     if (value === undefined || value === null || value === "") {
       const string_location = this.interp.get_string_location();
@@ -211,28 +211,28 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
   }
 
 
-  @Word("( array:any[] -- options:WordOptions )", "Convert options array to WordOptions. Format: [.key1 val1 .key2 val2]")
+  @ForthicWord("( array:any[] -- options:WordOptions )", "Convert options array to WordOptions. Format: [.key1 val1 .key2 val2]")
   async ["~>"](array: any[]) {
     return new WordOptions(array);
   }
 
 
-  @Word("( -- )", "Starts profiling word execution")
+  @ForthicWord("( -- )", "Starts profiling word execution")
   async ["PROFILE-START"]() {
     this.interp.start_profiling();
   }
 
-  @Word("( -- )", "Stops profiling word execution")
+  @ForthicWord("( -- )", "Stops profiling word execution")
   async ["PROFILE-END"]() {
     this.interp.stop_profiling();
   }
 
-  @Word("( label:string -- )", "Records profiling timestamp with label")
+  @ForthicWord("( label:string -- )", "Records profiling timestamp with label")
   async ["PROFILE-TIMESTAMP"](label: string) {
     this.interp.add_timestamp(label);
   }
 
-  @Word("( -- profile_data:object )", "Returns profiling data (word counts and timestamps)")
+  @ForthicWord("( -- profile_data:object )", "Returns profiling data (word counts and timestamps)")
   async ["PROFILE-DATA"]() {
     const histogram = this.interp.word_histogram();
     const timestamps = this.interp.profile_timestamps();
@@ -262,18 +262,18 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
   }
 
 
-  @Word("( -- )", "Starts logging interpreter stream", "START-LOG")
+  @ForthicWord("( -- )", "Starts logging interpreter stream", "START-LOG")
   async START_LOG() {
     this.interp.startStream();
   }
 
-  @Word("( -- )", "Ends logging interpreter stream", "END-LOG")
+  @ForthicWord("( -- )", "Ends logging interpreter stream", "END-LOG")
   async END_LOG() {
     this.interp.endStream();
   }
 
 
-  @Word("( string:string [options:WordOptions] -- result:string )", "Interpolate variables (.name) and return result string. Use \\. to escape literal dots.")
+  @ForthicWord("( string:string [options:WordOptions] -- result:string )", "Interpolate variables (.name) and return result string. Use \\. to escape literal dots.")
   async INTERPOLATE(string: string, options: Record<string, any>) {
     const separator = options.separator ?? ", ";
     const null_text = options.null_text ?? "null";
@@ -282,7 +282,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     return this.interpolateString(string, separator, null_text, use_json);
   }
 
-  @Word("( value:any [options:WordOptions] -- )", "Print value to stdout. Strings interpolate variables (.name). Non-strings formatted with options. Use \\. to escape literal dots in strings.")
+  @ForthicWord("( value:any [options:WordOptions] -- )", "Print value to stdout. Strings interpolate variables (.name). Non-strings formatted with options. Use \\. to escape literal dots in strings.")
   async PRINT(value: any, options: Record<string, any>) {
     const separator = options.separator ?? ", ";
     const null_text = options.null_text ?? "null";

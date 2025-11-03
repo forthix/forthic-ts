@@ -36,6 +36,8 @@
     "build": "npm run build:cjs && npm run build:esm",
     "prepublishOnly": "npm run build && npm test",
     "test": "jest",
+    "test:unit": "jest",
+    "test:integration": "jest --testPathIgnorePatterns=[]",
     "test:watch": "jest --watch",
     "docs:build": "npx ts-node scripts/generate-docs.ts",
     "grpc:server": "node dist/cjs/grpc/server.js"

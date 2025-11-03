@@ -1,38 +1,38 @@
 import { StandardInterpreter } from "../../../interpreter";
-import { DecoratedModule, Word } from "../../../decorators/word";
+import { DecoratedModule, ForthicWord } from "../../../decorators/word";
 
 class TestModule extends DecoratedModule {
   constructor() {
     super("test");
   }
 
-  @Word("( a:number b:number -- sum:number )", "Adds two numbers")
+  @ForthicWord("( a:number b:number -- sum:number )", "Adds two numbers")
   async ADD(a: number, b: number) {
     return a + b;
   }
 
-  @Word("( a:any -- a:any a:any )", "Duplicates value")
+  @ForthicWord("( a:any -- a:any a:any )", "Duplicates value")
   async DUP(a: any) {
     this.interp.stack_push(a);
     this.interp.stack_push(a);
   }
 
-  @Word("( a:any -- )", "Pops value (no output)")
+  @ForthicWord("( a:any -- )", "Pops value (no output)")
   async POP(a: any) {
     // No return = push nothing
   }
 
-  @Word("( -- arr:number[] )", "Returns array (single value)")
+  @ForthicWord("( -- arr:number[] )", "Returns array (single value)")
   async ARRAY() {
     return [1, 2, 3];
   }
 
-  @Word("( -- )", "Returns nothing")
+  @ForthicWord("( -- )", "Returns nothing")
   async NOOP() {
     // No return = push nothing
   }
 
-  @Word("( a:number b:number c:number -- result:number )", "Multiplies three numbers")
+  @ForthicWord("( a:number b:number c:number -- result:number )", "Multiplies three numbers")
   async ["MULT-3"](a: number, b: number, c: number) {
     return a * b * c;
   }
@@ -125,7 +125,7 @@ describe("@Word Decorator", () => {
         }
 
         // @ts-ignore - intentionally bad for testing
-        @Word("a:any -- b:any", "Missing parentheses")
+        @ForthicWord("a:any -- b:any", "Missing parentheses")
         async BAD(a: any) {
           return a;
         }
@@ -143,7 +143,7 @@ describe("@Word Decorator", () => {
         }
 
         // @ts-ignore - intentionally bad for testing
-        @Word("( a:any b:any )", "Missing --")
+        @ForthicWord("( a:any b:any )", "Missing --")
         async BAD(a: any, b: any) {
           return a;
         }

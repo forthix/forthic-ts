@@ -2,7 +2,7 @@
  * TypeScript-specific File System Module
  * Provides file system operations only available in TypeScript/Node.js runtime
  */
-import { DecoratedModule, Word, registerModuleDoc } from "../../decorators/word.js";
+import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -28,7 +28,7 @@ TypeScript-specific file system operations for Node.js runtime.
     super("fs");
   }
 
-  @Word("( path:string -- exists:boolean )", "Check if file exists", "FILE-EXISTS?")
+  @ForthicWord("( path:string -- exists:boolean )", "Check if file exists", "FILE-EXISTS?")
   async FILE_EXISTS_Q(filePath: string) {
     try {
       return fs.existsSync(filePath) && fs.statSync(filePath).isFile();
@@ -37,7 +37,7 @@ TypeScript-specific file system operations for Node.js runtime.
     }
   }
 
-  @Word("( path:string -- exists:boolean )", "Check if directory exists", "DIR-EXISTS?")
+  @ForthicWord("( path:string -- exists:boolean )", "Check if directory exists", "DIR-EXISTS?")
   async DIR_EXISTS_Q(dirPath: string) {
     try {
       return fs.existsSync(dirPath) && fs.statSync(dirPath).isDirectory();
@@ -46,40 +46,40 @@ TypeScript-specific file system operations for Node.js runtime.
     }
   }
 
-  @Word("( path:string -- content:string )", "Read file contents as string", "READ-FILE")
+  @ForthicWord("( path:string -- content:string )", "Read file contents as string", "READ-FILE")
   async READ_FILE(filePath: string) {
     return fs.readFileSync(filePath, 'utf-8');
   }
 
-  @Word("( path:string -- lines:string[] )", "Read file as array of lines", "READ-FILE-LINES")
+  @ForthicWord("( path:string -- lines:string[] )", "Read file as array of lines", "READ-FILE-LINES")
   async READ_FILE_LINES(filePath: string) {
     const content = fs.readFileSync(filePath, 'utf-8');
     return content.split('\n');
   }
 
-  @Word("( path:string content:string -- )", "Write content to file", "WRITE-FILE")
+  @ForthicWord("( path:string content:string -- )", "Write content to file", "WRITE-FILE")
   async WRITE_FILE(filePath: string, content: string) {
     fs.writeFileSync(filePath, content, 'utf-8');
     return undefined;
   }
 
-  @Word("( path:string content:string -- )", "Append content to file", "APPEND-FILE")
+  @ForthicWord("( path:string content:string -- )", "Append content to file", "APPEND-FILE")
   async APPEND_FILE(filePath: string, content: string) {
     fs.appendFileSync(filePath, content, 'utf-8');
     return undefined;
   }
 
-  @Word("( parts:string[] -- path:string )", "Join path components", "JOIN-PATH")
+  @ForthicWord("( parts:string[] -- path:string )", "Join path components", "JOIN-PATH")
   async JOIN_PATH(...parts: string[]) {
     return path.join(...parts);
   }
 
-  @Word("( path:string -- basename:string )", "Get basename of path")
+  @ForthicWord("( path:string -- basename:string )", "Get basename of path")
   async BASENAME(filePath: string) {
     return path.basename(filePath);
   }
 
-  @Word("( path:string -- dirname:string )", "Get directory name of path")
+  @ForthicWord("( path:string -- dirname:string )", "Get directory name of path")
   async DIRNAME(filePath: string) {
     return path.dirname(filePath);
   }

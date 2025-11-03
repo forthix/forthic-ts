@@ -1,4 +1,4 @@
-import { DecoratedModule, Word, registerModuleDoc } from "../../decorators/word.js";
+import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 
 export class JsonModule extends DecoratedModule {
   static {
@@ -20,7 +20,7 @@ JSON serialization, parsing, and formatting operations.
     super("json");
   }
 
-  @Word("( object:any -- json:string )", "Convert object to JSON string", ">JSON")
+  @ForthicWord("( object:any -- json:string )", "Convert object to JSON string", ">JSON")
   async to_JSON(object: any) {
     if (object === null || object === undefined) {
       return "null";
@@ -28,7 +28,7 @@ JSON serialization, parsing, and formatting operations.
     return JSON.stringify(object);
   }
 
-  @Word("( json:string -- object:any )", "Parse JSON string to object", "JSON>")
+  @ForthicWord("( json:string -- object:any )", "Parse JSON string to object", "JSON>")
   async from_JSON(json: string) {
     if (!json || json.trim() === "") {
       return null;
@@ -36,7 +36,7 @@ JSON serialization, parsing, and formatting operations.
     return JSON.parse(json);
   }
 
-  @Word("( json:string -- pretty:string )", "Format JSON with 2-space indentation", "JSON-PRETTIFY")
+  @ForthicWord("( json:string -- pretty:string )", "Format JSON with 2-space indentation", "JSON-PRETTIFY")
   async JSON_PRETTIFY(json: string) {
     if (!json || json.trim() === "") {
       return "";
