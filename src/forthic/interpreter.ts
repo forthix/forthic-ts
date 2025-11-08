@@ -21,7 +21,6 @@ import { MathModule } from "./modules/standard/math_module.js";
 import { BooleanModule } from "./modules/standard/boolean_module.js";
 import { JsonModule } from "./modules/standard/json_module.js";
 import { DateTimeModule } from "./modules/standard/datetime_module.js";
-import { RemoteRuntimeModule } from "../grpc/remote_runtime_module.js";
 
 type Timestamp = {
   label: string;
@@ -401,11 +400,20 @@ export class Interpreter {
   private async executeBatchedWords(words: Word[]): Promise<void> {
     // Lazy import to avoid circular dependency
     const { ExecutionPlanner } = await import('./execution_planner.js');
-    const { RuntimeManager } = await import('../grpc/runtime_manager.js');
+
+    // Only import RuntimeManager in Node.js environment (not browser)
+    // gRPC requires Node.js and won't work in browser
+    const isBrowser = typeof window !== 'undefined';
+    let RuntimeManager: any = null;
+
+    if (!isBrowser) {
+      const module = await import('../grpc/runtime_manager.js');
+      RuntimeManager = module.RuntimeManager;
+    }
 
     const planner = new ExecutionPlanner();
     const batches = planner.planExecution(words);
-    const runtimeManager = RuntimeManager.getInstance();
+    const runtimeManager = RuntimeManager ? RuntimeManager.getInstance() : null;
 
     for (const batch of batches) {
       if (!batch.isRemote) {
@@ -415,6 +423,11 @@ export class Interpreter {
           await word.execute(this);
         }
       } else {
+        // Remote execution only works in Node.js environment
+        if (!runtimeManager) {
+          throw new Error(`Remote execution not available in browser environment. Runtime '${batch.runtime}' cannot be accessed.`);
+        }
+
         // Batch execute remote words in one RPC call
         const client = runtimeManager.getClient(batch.runtime);
 
@@ -978,11 +991,17 @@ export function dup_interpreter(interp: Interpreter): Interpreter {
 /**
  * Interpreter - Full-featured interpreter with standard library
  *
- * Extends BareInterpreter and automatically imports standard modules:
+ * Extends Interpreter and automatically imports standard modules:
  * - CoreModule: Stack operations, variables, module system, control flow
  * - ArrayModule: Array/collection operations
+ * - RecordModule: Record/object operations
+ * - StringModule: String operations
+ * - MathModule: Mathematical operations
+ * - BooleanModule: Boolean/comparison operations
+ * - JsonModule: JSON parsing/serialization
+ * - DateTimeModule: Date and time operations
  *
- * For most use cases, use this class. Use BareInterpreter if you need
+ * For most use cases, use this class. Use Interpreter if you need
  * full control over which modules are loaded.
  */
 export class StandardInterpreter extends Interpreter {
@@ -990,15 +1009,15 @@ export class StandardInterpreter extends Interpreter {
     // Don't pass modules to super - we'll import them after stdlib
     super([], timezone);
 
-    // Import standard library modules FIRST (checked last during lookup)
-    // This allows user modules to shadow stdlib words
+    // Import standard library synchronously
     this.import_standard_library();
 
-    // Import user modules AFTER stdlib (checked first during lookup)
+    // Import additional modules
     this.import_modules(modules);
   }
 
   private import_standard_library() {
+    // Load standard library modules synchronously
     const stdlib = [
       new CoreModule(),
       new ArrayModule(),
@@ -1008,7 +1027,6 @@ export class StandardInterpreter extends Interpreter {
       new BooleanModule(),
       new JsonModule(),
       new DateTimeModule(),
-      new RemoteRuntimeModule(), // Phase 5: Remote runtime support
     ];
 
     // Import unprefixed at the BOTTOM of module stack
