@@ -1,5 +1,5 @@
 /**
- * Phase 4: RemoteWord - Word that executes in a remote runtime via gRPC
+ * RemoteWord - Word that executes in a remote runtime via gRPC
  */
 import { Word, RuntimeInfo } from '../forthic/module.js';
 import { Interpreter } from '../forthic/interpreter.js';

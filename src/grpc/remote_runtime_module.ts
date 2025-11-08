@@ -1,5 +1,5 @@
 /**
- * Phase 5-6: RemoteRuntimeModule - Forthic module for managing remote runtime connections
+ * RemoteRuntimeModule - Forthic module for managing remote runtime connections
  *
  * Provides words to connect to remote runtimes and load their modules:
  * - CONNECT-RUNTIME: Establish connection to a remote runtime
@@ -25,7 +25,7 @@ Remote runtime management for multi-language execution.
 - Configuration: LOAD-RUNTIMES
 
 ## Examples
-# Manual connection (Phase 5)
+# Manual connection
 "python" "localhost:50051" CONNECT-RUNTIME
 ["math" "array"] USE-PY-MODULES
 

@@ -2,9 +2,9 @@
  * WebSocketRemoteModule - Module that wraps runtime-specific words from a remote runtime
  * Mirrors RemoteModule from gRPC implementation
  */
-import { Module } from '../forthic/module.js';
-import { Interpreter } from '../forthic/interpreter.js';
-import { WebSocketClient, type ModuleInfo } from './client.js';
+import { Module } from '../../forthic/module.js';
+import { Interpreter } from '../../forthic/interpreter.js';
+import { ActionCableClient, type ModuleInfo } from './client.js';
 import { WebSocketRemoteWord } from './remote_word.js';
 
 /**
@@ -12,11 +12,11 @@ import { WebSocketRemoteWord } from './remote_word.js';
  *
  * This module discovers words from a remote runtime (e.g., pandas module in Ruby)
  * and creates WebSocketRemoteWord proxies for each discovered word. When used in TypeScript
- * Forthic code, these words execute in the remote runtime via WebSocket.
+ * Forthic code, these words execute in the remote runtime via ActionCable.
  *
  * Example usage:
  * ```typescript
- * const client = new WebSocketClient({ url: 'ws://localhost:3000/cable' });
+ * const client = new ActionCableClient({ url: 'ws://localhost:3000/cable' });
  * const pandasModule = new WebSocketRemoteModule('pandas', client, 'rails');
  * await pandasModule.initialize();
  * interp.register_module(pandasModule);
@@ -24,23 +24,23 @@ import { WebSocketRemoteWord } from './remote_word.js';
  *
  * // Now pandas words execute in Rails runtime
  * await interp.run(`
- *   [{"name": "Alice", "age": 30}]
+ *   [ [[.name "Alice"]  [.age 30]] REC]
  *   DF-FROM-RECORDS  # Executes in Rails!
  * `);
  * ```
  */
 export class WebSocketRemoteModule extends Module {
-  private client: WebSocketClient;
+  private client: ActionCableClient;
   private runtimeName: string;
   private initialized: boolean = false;
   private moduleInfo: ModuleInfo | null = null;
 
   /**
    * @param moduleName - Name of the module in the remote runtime (e.g., "pandas")
-   * @param client - WebSocket client connected to the remote runtime
+   * @param client - ActionCable client connected to the remote runtime
    * @param runtimeName - Name of the runtime (e.g., "rails") for debugging
    */
-  constructor(moduleName: string, client: WebSocketClient, runtimeName: string = 'remote') {
+  constructor(moduleName: string, client: ActionCableClient, runtimeName: string = 'remote') {
     super(moduleName);
     this.client = client;
     this.runtimeName = runtimeName;

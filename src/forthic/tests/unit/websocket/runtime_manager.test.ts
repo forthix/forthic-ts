@@ -1,11 +1,11 @@
 /**
  * Unit tests for WebSocket RuntimeManager
  */
-import { WebSocketRuntimeManager } from '../../../../websocket/runtime_manager.js';
-import { WebSocketClient } from '../../../../websocket/client.js';
+import { WebSocketRuntimeManager } from '../../../../websocket/action_cable/runtime_manager.js';
+import { ActionCableClient } from '../../../../websocket/action_cable/client.js';
 
-// Mock WebSocketClient
-jest.mock('../../../../websocket/client.js');
+// Mock ActionCableClient
+jest.mock('../../../../websocket/action_cable/client.js');
 
 describe('WebSocketRuntimeManager', () => {
   let manager: WebSocketRuntimeManager;
@@ -31,7 +31,7 @@ describe('WebSocketRuntimeManager', () => {
   test('connectRuntime creates and registers client', () => {
     const client = manager.connectRuntime('rails', 'ws://localhost:3000/cable');
 
-    expect(WebSocketClient).toHaveBeenCalledWith({ url: 'ws://localhost:3000/cable' });
+    expect(ActionCableClient).toHaveBeenCalledWith({ url: 'ws://localhost:3000/cable' });
     expect(manager.hasClient('rails')).toBe(true);
     expect(manager.getClient('rails')).toBe(client);
   });
@@ -40,7 +40,7 @@ describe('WebSocketRuntimeManager', () => {
     const config = { timezone: 'America/New_York', reconnect: false };
     const client = manager.connectRuntime('rails', 'ws://localhost:3000/cable', config);
 
-    expect(WebSocketClient).toHaveBeenCalledWith({
+    expect(ActionCableClient).toHaveBeenCalledWith({
       url: 'ws://localhost:3000/cable',
       timezone: 'America/New_York',
       reconnect: false,
@@ -49,7 +49,7 @@ describe('WebSocketRuntimeManager', () => {
   });
 
   test('registerClient manually registers a client', () => {
-    const mockClient = new WebSocketClient({ url: 'ws://test:3000/cable' });
+    const mockClient = new ActionCableClient({ url: 'ws://test:3000/cable' });
     manager.registerClient('custom', mockClient);
 
     expect(manager.hasClient('custom')).toBe(true);
@@ -75,7 +75,7 @@ describe('WebSocketRuntimeManager', () => {
   });
 
   test('disconnectRuntime closes and removes client', () => {
-    const mockClient = new WebSocketClient({ url: 'ws://test:3000/cable' });
+    const mockClient = new ActionCableClient({ url: 'ws://test:3000/cable' });
     const closeSpy = jest.spyOn(mockClient, 'close');
 
     manager.registerClient('test', mockClient);
@@ -91,8 +91,8 @@ describe('WebSocketRuntimeManager', () => {
   });
 
   test('clearAll closes all clients', () => {
-    const mockClient1 = new WebSocketClient({ url: 'ws://test1:3000/cable' });
-    const mockClient2 = new WebSocketClient({ url: 'ws://test2:3000/cable' });
+    const mockClient1 = new ActionCableClient({ url: 'ws://test1:3000/cable' });
+    const mockClient2 = new ActionCableClient({ url: 'ws://test2:3000/cable' });
     const closeSpy1 = jest.spyOn(mockClient1, 'close');
     const closeSpy2 = jest.spyOn(mockClient2, 'close');
 

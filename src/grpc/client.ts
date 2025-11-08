@@ -1,8 +1,7 @@
 /**
- * Phase 3 gRPC Client for Forthic
- * Connects to Python runtime and executes remote words
+ * gRPC Client for Forthic
+ * Connects to other Forthic runtimes and executes remote words
  * Supports all basic Forthic types and module discovery
- * Phase 9: Enhanced error handling with rich context
  */
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
@@ -47,7 +46,7 @@ interface ErrorInfo {
   context?: Record<string, string>;
 }
 
-interface ListModulesRequest {}
+interface ListModulesRequest { }
 
 interface ListModulesResponse {
   modules: ModuleSummary[];
@@ -108,17 +107,15 @@ export class GrpcClient {
   constructor(address: string = 'localhost:50051') {
     this.address = address;
 
-    // Load the proto file
-    // Try multiple paths to handle different execution contexts (source vs compiled)
+    // Load the proto file (v1)
+    // Handle both compiled (dist/cjs/grpc) and source (src/grpc) locations
+    const fs = require('fs');
     const possiblePaths = [
-      path.join(__dirname, '../../../../forthic/protos/forthic_runtime.proto'), // From dist/cjs/grpc
-      path.join(__dirname, '../../../forthic/protos/forthic_runtime.proto'),    // Alternative
-      path.join(process.cwd(), '../forthic/protos/forthic_runtime.proto'),       // From project root
+      path.join(__dirname, '../../../protos/v1/forthic_runtime.proto'),  // From dist/cjs/grpc
+      path.join(__dirname, '../../protos/v1/forthic_runtime.proto'),     // From src/grpc (tests)
     ];
 
     let PROTO_PATH = possiblePaths[0];
-    // Use the first path that exists
-    const fs = require('fs');
     for (const tryPath of possiblePaths) {
       if (fs.existsSync(tryPath)) {
         PROTO_PATH = tryPath;
@@ -149,7 +146,7 @@ export class GrpcClient {
    */
   async executeWord(wordName: string, stack: any[]): Promise<any[]> {
     return new Promise((resolve, reject) => {
-      // Serialize the stack using Phase 2 serializer
+      // Serialize the stack using serializer
       const serializedStack = stack.map((value) => serializeValue(value));
 
       const request: ExecuteWordRequest = {
@@ -164,15 +161,13 @@ export class GrpcClient {
         }
 
         if (response.error) {
-          // Phase 9: Create rich error with full context
-          console.log('[DEBUG] Raw error from server:', JSON.stringify(response.error, null, 2));
+          // Create rich error with full context
           const errorInfo = parseErrorInfo(response.error);
-          console.log('[DEBUG] Parsed error info:', errorInfo);
           reject(new RemoteRuntimeError(errorInfo));
           return;
         }
 
-        // Deserialize the result stack using Phase 2 deserializer
+        // Deserialize the result stack using deserializer
         const resultStack = response.result_stack.map((value) => deserializeValue(value));
         resolve(resultStack);
       });
@@ -202,7 +197,7 @@ export class GrpcClient {
         }
 
         if (response.error) {
-          // Phase 9: Create rich error with full context
+          // Create rich error with full context
           const errorInfo = parseErrorInfo(response.error);
           reject(new RemoteRuntimeError(errorInfo));
           return;
@@ -216,7 +211,7 @@ export class GrpcClient {
   }
 
   /**
-   * Phase 3: List available runtime-specific modules
+   * List available runtime-specific modules
    * @returns Promise with array of module summaries
    */
   async listModules(): Promise<ModuleSummary[]> {
@@ -235,7 +230,7 @@ export class GrpcClient {
   }
 
   /**
-   * Phase 3: Get detailed information about a specific module
+   * Get detailed information about a specific module
    * @param moduleName Name of the module
    * @returns Promise with module details including word list
    */

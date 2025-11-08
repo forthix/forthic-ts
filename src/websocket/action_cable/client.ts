@@ -1,13 +1,13 @@
 /**
- * WebSocket Client for Forthic
+ * ActionCable Client for Forthic
  * Browser-compatible client that mirrors GrpcClient API
- * Connects to Rails ActionCable server and executes remote words
+ * Specifically designed for Rails ActionCable WebSocket protocol
  */
 
-import { serializeStack, deserializeStack, StackValue } from './serializer.js';
-import { RemoteRuntimeError } from './errors.js';
+import { serializeStack, deserializeStack, StackValue } from '../serializer.js';
+import { RemoteRuntimeError } from '../errors.js';
 
-// Message types matching the WebSocket protocol
+// Message types matching the ActionCable protocol
 interface BaseMessage {
   type: string;
   id: string;
@@ -129,7 +129,7 @@ interface PendingRequest {
   onProgress?: (progress: ProgressUpdate) => void;
 }
 
-export interface WebSocketClientConfig {
+export interface ActionCableClientConfig {
   url: string;              // ws://localhost:3000/cable
   timezone?: string;
   reconnect?: boolean;
@@ -138,18 +138,19 @@ export interface WebSocketClientConfig {
 }
 
 /**
- * WebSocket client for executing words in remote Forthic runtimes
+ * ActionCable client for executing words in remote Forthic runtimes
  * Mirrors the GrpcClient API for compatibility
+ * Uses Rails ActionCable WebSocket protocol
  */
-export class WebSocketClient {
+export class ActionCableClient {
   private ws?: WebSocket;
-  private config: Required<WebSocketClientConfig>;
+  private config: Required<ActionCableClientConfig>;
   private pendingRequests: Map<string, PendingRequest> = new Map();
   private messageId: number = 0;
   private connected: boolean = false;
   private connectionPromise?: Promise<void>;
 
-  constructor(config: WebSocketClientConfig) {
+  constructor(config: ActionCableClientConfig) {
     this.config = {
       url: config.url,
       timezone: config.timezone || 'UTC',
@@ -278,8 +279,9 @@ export class WebSocketClient {
 
   /**
    * Send a request and wait for response
+   * @template T The expected result type (the value of the `result` field)
    */
-  private async sendRequest(message: any): Promise<any> {
+  private async sendRequest<T>(message: BaseMessage): Promise<T> {
     await this.ensureConnected();
 
     return new Promise((resolve, reject) => {
@@ -300,11 +302,12 @@ export class WebSocketClient {
 
   /**
    * Send a streaming request with progress callbacks
+   * @template T The expected result type (the value of the `result` field)
    */
-  private async sendStreamingRequest(
-    message: any,
+  private async sendStreamingRequest<T>(
+    message: BaseMessage,
     onProgress?: (progress: ProgressUpdate) => void
-  ): Promise<any> {
+  ): Promise<T> {
     await this.ensureConnected();
 
     return new Promise((resolve, reject) => {
@@ -346,7 +349,7 @@ export class WebSocketClient {
       },
     };
 
-    const result = await this.sendRequest(message);
+    const result = await this.sendRequest<{ stack: StackValue[] }>(message);
     return deserializeStack(result.stack);
   }
 
@@ -364,7 +367,7 @@ export class WebSocketClient {
       },
     };
 
-    const result = await this.sendRequest(message);
+    const result = await this.sendRequest<{ stack: StackValue[] }>(message);
     return deserializeStack(result.stack);
   }
 
@@ -378,7 +381,7 @@ export class WebSocketClient {
       id: this.nextMessageId(),
     };
 
-    const result = await this.sendRequest(message);
+    const result = await this.sendRequest<{ modules: ModuleSummary[] }>(message);
     return result.modules || [];
   }
 
@@ -395,7 +398,7 @@ export class WebSocketClient {
       },
     };
 
-    return await this.sendRequest(message);
+    return await this.sendRequest<ModuleInfo>(message);
   }
 
   /**
@@ -415,7 +418,7 @@ export class WebSocketClient {
       },
     };
 
-    const result = await this.sendStreamingRequest(message, onProgress);
+    const result = await this.sendStreamingRequest<{ stack: StackValue[] }>(message, onProgress);
     return deserializeStack(result.stack);
   }
 

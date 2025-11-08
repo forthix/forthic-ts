@@ -29,7 +29,7 @@ export class RuntimeManager {
 
   /**
    * Connect to a runtime and register the client
-   * Phase 5: Convenience method for CONNECT-RUNTIME word
+   * Convenience method for CONNECT-RUNTIME word
    *
    * @param runtimeName - Name of the runtime (e.g., "python", "ruby")
    * @param address - Address of the runtime (e.g., "localhost:50051")

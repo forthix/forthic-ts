@@ -1,24 +1,24 @@
 /**
- * WebSocketRemoteWord - Word that executes in a remote runtime via WebSocket
+ * WebSocketRemoteWord - Word that executes in a remote runtime via ActionCable
  * Mirrors RemoteWord from gRPC implementation
  */
-import { Word, RuntimeInfo } from '../forthic/module.js';
-import { Interpreter } from '../forthic/interpreter.js';
-import { WebSocketClient } from './client.js';
+import { Word, RuntimeInfo } from '../../forthic/module.js';
+import { Interpreter } from '../../forthic/interpreter.js';
+import { ActionCableClient } from './client.js';
 
 /**
  * WebSocketRemoteWord - Proxy word that delegates execution to a remote runtime
  *
  * When executed:
  * 1. Captures current interpreter stack
- * 2. Sends word name + stack to remote runtime via WebSocket
+ * 2. Sends word name + stack to remote runtime via ActionCable
  * 3. Replaces local stack with result stack from remote execution
  *
  * This allows seamless integration of remote runtime words
  * into the local TypeScript interpreter.
  */
 export class WebSocketRemoteWord extends Word {
-  private client: WebSocketClient;
+  private client: ActionCableClient;
   private runtimeName: string;
   private moduleName: string;
   public stackEffect: string;
@@ -26,7 +26,7 @@ export class WebSocketRemoteWord extends Word {
 
   /**
    * @param name - Word name (e.g., "DF_FROM_RECORDS")
-   * @param client - WebSocket client connected to remote runtime
+   * @param client - ActionCable client connected to remote runtime
    * @param runtimeName - Name of remote runtime (e.g., "rails", "ruby")
    * @param moduleName - Module name (e.g., "pandas")
    * @param stackEffect - Stack notation (e.g., "( records:array -- df:DataFrame )")
@@ -34,7 +34,7 @@ export class WebSocketRemoteWord extends Word {
    */
   constructor(
     name: string,
-    client: WebSocketClient,
+    client: ActionCableClient,
     runtimeName: string,
     moduleName: string,
     stackEffect: string = '( -- )',

@@ -1,5 +1,5 @@
 /**
- * Phase 9: Rich error handling for multi-runtime execution
+ * Rich error handling for multi-runtime execution
  * Custom error classes that preserve context across runtime boundaries
  */
 

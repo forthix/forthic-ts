@@ -1,5 +1,5 @@
 /**
- * Phase 11.1: TypeScript gRPC Server for Forthic
+ * TypeScript gRPC Server for Forthic
  * Implements stack-based execution and module discovery
  * Mirrors the Python server implementation (forthic-py/forthic/grpc/server.py)
  */
@@ -8,7 +8,6 @@ import * as protoLoader from '@grpc/proto-loader';
 import * as path from 'path';
 import { StandardInterpreter } from '../forthic/interpreter.js';
 import { serializeValue, deserializeValue } from './serializer.js';
-import { Stack } from '../forthic/interpreter.js';
 import { FsModule } from '../forthic/modules/typescript/fs_module.js';
 
 // Type definitions for our gRPC service
@@ -60,7 +59,7 @@ interface ErrorInfo {
   context?: { [key: string]: string };
 }
 
-interface ListModulesRequest {}
+interface ListModulesRequest { }
 
 interface ListModulesResponse {
   modules: ModuleSummary[];
@@ -89,30 +88,14 @@ interface WordInfo {
   description: string;
 }
 
-// Standard library modules (available in all runtimes)
-const STANDARD_MODULES = new Set([
-  'array',
-  'record',
-  'string',
-  'math',
-  'datetime',
-  'json',
-  'boolean',
-  'core',
-]);
-
 /**
  * ForthicRuntimeServicer - Implements the gRPC service for TypeScript runtime
  * Mirrors Python's ForthicRuntimeServicer
  */
 class ForthicRuntimeServicer {
-  private interpreter: any; // StandardInterpreter
   private runtimeModules: { [key: string]: any };
 
   constructor() {
-    // Create a StandardInterpreter instance with all stdlib modules
-    this.interpreter = new StandardInterpreter();
-
     // Track TypeScript-specific modules (non-stdlib)
     // Register runtime-specific modules (like FsModule for Node.js)
     this.runtimeModules = {
@@ -130,24 +113,18 @@ class ForthicRuntimeServicer {
     try {
       const request = call.request;
       const wordName = request.word_name;
-      console.log(`[EXECUTE_WORD] word='${wordName}' stack_size=${request.stack.length}`);
 
       // Deserialize the entire stack
       const stack = request.stack.map((sv) => deserializeValue(sv));
-      console.log(`[EXECUTE_WORD] Deserialized stack: ${stack.map((x) => typeof x)}`);
 
       // Execute word with stack-based execution
       const resultStack = await this._executeWithStack(wordName, stack);
-      console.log(`[EXECUTE_WORD] Result stack: ${resultStack.map((x) => typeof x)}`);
 
       // Serialize result stack
       const responseStack = resultStack.map((v) => serializeValue(v));
-      console.log(`[EXECUTE_WORD] Success`);
 
       callback(null, { result_stack: responseStack });
     } catch (error) {
-      console.log(`[EXECUTE_WORD] ERROR: ${error}`);
-      console.log(`[EXECUTE_WORD] Stack trace:`, error.stack);
 
       // Build rich error context
       const errorInfo = this._buildErrorInfo(error, call.request.word_name);
@@ -165,24 +142,18 @@ class ForthicRuntimeServicer {
     const request = call.request;
     try {
       const wordNames = request.word_names;
-      console.log(`[EXECUTE_SEQUENCE] words=${wordNames} stack_size=${request.stack.length}`);
 
       // Deserialize the initial stack
       const stack = request.stack.map((sv) => deserializeValue(sv));
-      console.log(`[EXECUTE_SEQUENCE] Deserialized stack: ${stack.map((x) => typeof x)}`);
 
       // Execute the word sequence
       const resultStack = await this._executeSequenceWithStack(wordNames, stack);
-      console.log(`[EXECUTE_SEQUENCE] Result stack: ${resultStack.map((x) => typeof x)}`);
 
       // Serialize result stack
       const responseStack = resultStack.map((v) => serializeValue(v));
-      console.log(`[EXECUTE_SEQUENCE] Success`);
 
       callback(null, { result_stack: responseStack });
     } catch (error) {
-      console.log(`[EXECUTE_SEQUENCE] ERROR: ${error}`);
-      console.log(`[EXECUTE_SEQUENCE] Stack trace:`, error.stack);
 
       // Build rich error context
       const errorInfo = this._buildErrorInfo(error, null, {
@@ -260,7 +231,7 @@ class ForthicRuntimeServicer {
       } else {
         // Fallback: Extract word information using reflection
         const exportedWords = mod.exportable || {};
-        for (const [name, word] of Object.entries(exportedWords)) {
+        for (const [name, _word] of Object.entries(exportedWords)) {
           words.push({
             name: name,
             stack_effect: '( -- )',
@@ -293,7 +264,7 @@ class ForthicRuntimeServicer {
     const interp = new StandardInterpreter();
 
     // Register runtime-specific modules in fresh interpreter
-    for (const [moduleName, module] of Object.entries(this.runtimeModules)) {
+    for (const [_moduleName, module] of Object.entries(this.runtimeModules)) {
       interp.register_module(module);
     }
 
@@ -363,9 +334,6 @@ class ForthicRuntimeServicer {
     // Get error type name
     const errorType = exception.constructor?.name || 'Error';
 
-    console.log(`[_buildErrorInfo] error_type=${errorType}, stack_trace_lines=${stackTrace.length}`);
-    console.log(`[_buildErrorInfo] word_name=${wordName}, context=${JSON.stringify(context)}`);
-
     // Build context dictionary
     const errorContext: { [key: string]: string } = {};
     if (wordName) {
@@ -393,10 +361,6 @@ class ForthicRuntimeServicer {
       }
     }
 
-    console.log(`[_buildErrorInfo] Created ErrorInfo: message=${errorInfo.message}, error_type=${errorInfo.error_type}`);
-    console.log(`[_buildErrorInfo] Stack trace count: ${errorInfo.stack_trace?.length || 0}`);
-    console.log(`[_buildErrorInfo] Final context: ${JSON.stringify(errorInfo.context)}`);
-
     return errorInfo;
   }
 
@@ -419,16 +383,15 @@ class ForthicRuntimeServicer {
 export async function serve(port: number = 50052): Promise<grpc.Server> {
   const server = new grpc.Server();
 
-  // Load the proto file
+  // Load the proto file (v1)
+  // Handle both compiled (dist/cjs/grpc) and source (src/grpc) locations
+  const fs = require('fs');
   const possiblePaths = [
-    path.join(__dirname, '../../../../forthic/protos/forthic_runtime.proto'), // From dist/cjs/grpc
-    path.join(__dirname, '../../../forthic/protos/forthic_runtime.proto'),    // Alternative
-    path.join(process.cwd(), '../forthic/protos/forthic_runtime.proto'),       // From project root
+    path.join(__dirname, '../../../protos/v1/forthic_runtime.proto'),  // From dist/cjs/grpc
+    path.join(__dirname, '../../protos/v1/forthic_runtime.proto'),     // From src/grpc (tests)
   ];
 
   let PROTO_PATH = possiblePaths[0];
-  // Use the first path that exists
-  const fs = require('fs');
   for (const tryPath of possiblePaths) {
     if (fs.existsSync(tryPath)) {
       PROTO_PATH = tryPath;
@@ -463,19 +426,12 @@ export async function serve(port: number = 50052): Promise<grpc.Server> {
     server.bindAsync(
       `0.0.0.0:${port}`,
       grpc.ServerCredentials.createInsecure(),
-      (err, actualPort) => {
+      (err, _actualPort) => {
         if (err) {
           console.error('Failed to start server:', err);
           reject(err);
           return;
         }
-
-        console.log(`Forthic TypeScript gRPC server listening on port ${actualPort}`);
-        console.log('Phase 11.1: TypeScript gRPC Server Foundation');
-        console.log('Features:');
-        console.log('  - Full StandardInterpreter with all stdlib words');
-        console.log('  - Runtime-specific module discovery (ListModules, GetModuleInfo)');
-        console.log('  - Stack-based word execution (ExecuteWord, ExecuteSequence)');
 
         const loaded = Object.keys(servicer['runtimeModules']);
         if (loaded.length > 0) {

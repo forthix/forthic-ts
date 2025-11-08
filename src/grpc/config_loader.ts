@@ -1,5 +1,5 @@
 /**
- * Phase 6: ConfigLoader - Parse and validate YAML configuration for runtime setup
+ * ConfigLoader - Parse and validate YAML configuration for runtime setup
  *
  * Loads forthic-runtimes.yaml configuration files and validates the schema.
  */

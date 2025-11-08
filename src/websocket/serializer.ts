@@ -2,10 +2,11 @@
  * WebSocket JSON Serializer for Forthic
  * Mirrors gRPC serializer but outputs JSON instead of protobuf
  * Handles: int, float, string, bool, null, array, record, temporal types
+ * Uses shared type detection from common/type_utils
  */
 
 import { Temporal } from "temporal-polyfill";
-import { isPlainDate, isInstant, isZonedDateTime } from "../grpc/temporal_utils.js";
+import { getForthicType } from "../common/type_utils.js";
 
 // JSON StackValue format matching the WebSocket protocol
 export interface StackValue {
@@ -15,75 +16,64 @@ export interface StackValue {
 
 /**
  * Serialize a JavaScript value to a JSON StackValue
+ * Uses shared type detection and maps to JSON format
  */
 export function serializeValue(value: any): StackValue {
-  // Handle null/undefined
-  if (value === null || value === undefined) {
-    return { type: 'null', value: null };
-  }
+  const type = getForthicType(value);
 
-  // Handle Temporal types (check ZonedDateTime BEFORE Instant)
-  if (isZonedDateTime(value)) {
-    return {
-      type: 'zoned_datetime',
-      value: value.toString(),
-    };
-  }
+  switch (type) {
+    case 'null':
+      return { type: 'null', value: null };
 
-  if (isInstant(value)) {
-    return {
-      type: 'instant',
-      value: value.toString(),
-    };
-  }
+    case 'boolean':
+      return { type: 'bool', value };
 
-  if (isPlainDate(value)) {
-    return {
-      type: 'plain_date',
-      value: value.toString(),
-    };
-  }
-
-  // Handle boolean (check before number)
-  if (typeof value === 'boolean') {
-    return { type: 'bool', value };
-  }
-
-  // Handle number
-  if (typeof value === 'number') {
-    if (Number.isInteger(value)) {
+    case 'integer':
       return { type: 'int', value };
-    } else {
+
+    case 'float':
       return { type: 'float', value };
-    }
-  }
 
-  // Handle string
-  if (typeof value === 'string') {
-    return { type: 'string', value };
-  }
+    case 'string':
+      return { type: 'string', value };
 
-  // Handle array
-  if (Array.isArray(value)) {
-    return {
-      type: 'array',
-      value: value.map((item) => serializeValue(item)),
-    };
-  }
+    case 'array':
+      return {
+        type: 'array',
+        value: value.map((item: any) => serializeValue(item)),
+      };
 
-  // Handle object/record
-  if (typeof value === 'object') {
-    const fields: { [key: string]: StackValue } = {};
-    for (const [key, val] of Object.entries(value)) {
-      fields[key] = serializeValue(val);
-    }
-    return {
-      type: 'record',
-      value: fields,
-    };
-  }
+    case 'record':
+      const fields: { [key: string]: StackValue } = {};
+      for (const [key, val] of Object.entries(value)) {
+        fields[key] = serializeValue(val);
+      }
+      return {
+        type: 'record',
+        value: fields,
+      };
 
-  throw new Error(`Cannot serialize value: ${value}`);
+    case 'instant':
+      return {
+        type: 'instant',
+        value: value.toString(),
+      };
+
+    case 'plain_date':
+      return {
+        type: 'plain_date',
+        value: value.toString(),
+      };
+
+    case 'zoned_datetime':
+      return {
+        type: 'zoned_datetime',
+        value: value.toString(),
+      };
+
+    default:
+      throw new Error(`Unsupported Forthic type: ${type}`);
+  }
 }
 
 /**

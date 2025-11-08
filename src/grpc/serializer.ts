@@ -1,11 +1,11 @@
 /**
- * Phase 2: Serialization/Deserialization for all basic Forthic types
- * Handles: int, float, string, bool, null, array, record/object
- * Phase 8: Added temporal types (Temporal.Instant, Temporal.PlainDate, Temporal.ZonedDateTime)
+ * gRPC Serialization/Deserialization for Forthic types
+ * Converts JavaScript values to/from protobuf StackValue format
+ * Uses shared type detection from common/type_utils
  */
 
 import { Temporal } from "temporal-polyfill";
-import { isPlainDate, isInstant, isZonedDateTime } from "./temporal_utils.js";
+import { getForthicType } from "../common/type_utils.js";
 
 // Type definitions matching the protobuf schema
 interface StackValue {
@@ -44,80 +44,66 @@ interface ZonedDateTimeValue {
 
 /**
  * Serialize a JavaScript value to a StackValue protobuf message
+ * Uses shared type detection and maps to protobuf format
  */
 export function serializeValue(value: any): StackValue {
-  // Handle null/undefined
-  if (value === null || value === undefined) {
-    return { null_value: {} };
-  }
+  const type = getForthicType(value);
 
-  // Handle Temporal types using duck typing to avoid instanceof issues with multiple library instances
-  // IMPORTANT: Check ZonedDateTime BEFORE Instant, as ZonedDateTime may also match isInstant()
-  if (isZonedDateTime(value)) {
-    return {
-      zoned_datetime_value: {
-        iso8601: value.toString(),
-        timezone: value.timeZoneId,
-      },
-    };
-  }
+  switch (type) {
+    case 'null':
+      return { null_value: {} };
 
-  if (isInstant(value)) {
-    return {
-      instant_value: {
-        iso8601: value.toString(),
-      },
-    };
-  }
+    case 'boolean':
+      return { bool_value: value };
 
-  if (isPlainDate(value)) {
-    return {
-      plain_date_value: {
-        iso8601_date: value.toString(),
-      },
-    };
-  }
-
-  // Handle boolean (check before number since typeof true === 'boolean')
-  if (typeof value === 'boolean') {
-    return { bool_value: value };
-  }
-
-  // Handle number
-  if (typeof value === 'number') {
-    if (Number.isInteger(value)) {
+    case 'integer':
       return { int_value: value };
-    } else {
+
+    case 'float':
       return { float_value: value };
-    }
-  }
 
-  // Handle string
-  if (typeof value === 'string') {
-    return { string_value: value };
-  }
+    case 'string':
+      return { string_value: value };
 
-  // Handle array
-  if (Array.isArray(value)) {
-    return {
-      array_value: {
-        items: value.map((item) => serializeValue(item)),
-      },
-    };
-  }
+    case 'array':
+      return {
+        array_value: {
+          items: value.map((item: any) => serializeValue(item)),
+        },
+      };
 
-  // Handle object/record
-  if (typeof value === 'object') {
-    const fields: { [key: string]: StackValue } = {};
-    for (const [key, val] of Object.entries(value)) {
-      fields[key] = serializeValue(val);
-    }
-    return {
-      record_value: { fields },
-    };
-  }
+    case 'record':
+      const fields: { [key: string]: StackValue } = {};
+      for (const [key, val] of Object.entries(value)) {
+        fields[key] = serializeValue(val);
+      }
+      return { record_value: { fields } };
 
-  throw new Error(`Unsupported value type: ${typeof value}`);
+    case 'instant':
+      return {
+        instant_value: {
+          iso8601: value.toString(),
+        },
+      };
+
+    case 'plain_date':
+      return {
+        plain_date_value: {
+          iso8601_date: value.toString(),
+        },
+      };
+
+    case 'zoned_datetime':
+      return {
+        zoned_datetime_value: {
+          iso8601: value.toString(),
+          timezone: value.timeZoneId,
+        },
+      };
+
+    default:
+      throw new Error(`Unsupported Forthic type: ${type}`);
+  }
 }
 
 /**

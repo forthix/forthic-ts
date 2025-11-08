@@ -1,5 +1,5 @@
 /**
- * Phase 4: RemoteModule - Module that wraps runtime-specific words from a remote runtime
+ * RemoteModule - Module that wraps runtime-specific words from a remote runtime
  */
 import { Module } from '../forthic/module.js';
 import { Interpreter } from '../forthic/interpreter.js';
@@ -21,9 +21,8 @@ import { RemoteWord } from './remote_word.js';
  * interp.register_module(pandasModule);
  * interp.use_modules(['pandas']);
  *
- * // Now pandas words execute in Python runtime
  * await interp.run(`
- *   [{"name": "Alice", "age": 30}]
+ *   [ [[.name "Alice"]  [.age 30]] REC]
  *   DF-FROM-RECORDS  # Executes in Python!
  * `);
  * ```
