@@ -28,8 +28,8 @@
     "README.md"
   ],
   "scripts": {
-    "forthic": "ts-node scripts/forthic.ts",
-    "repl": "ts-node scripts/forthic.ts --repl",
+    "forthic": "tsx scripts/forthic.ts",
+    "repl": "tsx scripts/forthic.ts --repl",
     "pretty": "prettier --print-width 120 --write \"./**/*.{js,jsx,mjs,cjs,ts,tsx,json}\"",
     "build:cjs": "tsc --project tsconfig.cjs.json",
     "build:esm": "tsc --project tsconfig.esm.json",
@@ -39,7 +39,7 @@
     "test:unit": "jest",
     "test:integration": "jest --testPathIgnorePatterns=[]",
     "test:watch": "jest --watch",
-    "docs:build": "npx ts-node scripts/generate-docs.ts",
+    "docs:build": "tsx scripts/generate-docs.ts",
     "grpc:server": "node dist/cjs/grpc/server.js"
   },
   "keywords": [
@@ -89,6 +89,7 @@
     "prettier": "3.4.1",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.45.0"
   },
