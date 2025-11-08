@@ -1,16 +1,16 @@
 # Forthic TypeScript Runtime
 
-**A TypeScript/JavaScript runtime for [Forthic](https://github.com/forthix/forthic)** - the stack-based, concatenative language for composable transformations.
+**A TypeScript/JavaScript runtime for [Forthic](https://github.com/forthix/forthic)** - *the* stack-based, concatenative language for composable transformations.
 
-Use Forthic to wrap your TypeScript/JavaScript code in composable transformations, leveraging categorical principles for clean, powerful abstractions.
+Use Forthic to wrap your TypeScript/JavaScript code within composable words, leveraging categorical principles for clean, powerful abstractions.
 
-**[Main Forthic Documentation](https://github.com/forthix/forthic)** | **[Getting Started](#getting-started)** | **[Examples](examples/)** | **[API Docs](docs/)**
+**[Forthic Parent Documentation](https://github.com/forthix/forthic)** | **[Getting Started with forthic-ts](#getting-started)** | **[Examples](examples/)** | **[API Docs](docs/)**
 
 ---
 
 ## What is Forthic?
 
-Forthic enables **categorical coding** - using Category Theory principles to build composable transformations. This TypeScript runtime lets you:
+Forthic enables **categorical coding** - a way to solve problems by viewing them in terms of trasnformation rather than copmutation. This TypeScript runtime lets you:
 
 1. **Wrap existing code** with simple decorators
 2. **Compose transformations** cleanly using stack-based operations
@@ -55,9 +55,9 @@ const interp = new Interpreter();
 interp.register_module(new AnalyticsModule());
 
 await interp.run(`
-  ["analytics"] USE_MODULES
+  ["analytics"] USE-MODULES
 
-  [1 2 3 100 4 5] 2 FILTER-OUTLIERS analytics.AVERAGE
+  [1 2 3 100 4 5] 2 FILTER-OUTLIERS AVERAGE
 `);
 
 const result = interp.stack_pop(); // Clean average without outliers
@@ -132,12 +132,12 @@ const interp = new Interpreter();
 interp.register_module(new MyModule());
 
 await interp.run(`
-  ["mymodule"] USE_MODULES
+  ["mymodule"] USE-MODULES
   SOME-DATA PROCESS
 `);
 ```
 
-See [docs/getting-started.md](docs/getting-started.md) for detailed tutorial.
+See [examples/README.md](examples/README.md) for detailed tutorials and examples.
 
 ---
 
@@ -162,7 +162,7 @@ See [docs/modules/](docs/modules/) for complete reference.
 The `@Word` decorator makes wrapping code trivial:
 
 ```typescript
-@Word("( input:type -- output:type )", "Description")
+@Word("( input:type -- output:type )", "Description", "MY-WORD")
 async MY_WORD(input: any) {
   return yourLogic(input);
 }
@@ -175,18 +175,26 @@ async MY_WORD(input: any) {
 - Browser and Node.js compatible
 - Supports async/await
 
-### Composition-First Design
+
+### Package Exports
+
+forthic-ts provides multiple import paths for different use cases:
 
 ```typescript
-// Build higher-level abstractions through composition
-await interp.run(`
-  : CLEAN-AVERAGE   2 analytics.FILTER-OUTLIERS analytics.AVERAGE ;
+// Main package - Core interpreter and standard library (works everywhere)
+import { Interpreter, DecoratedModule, Word } from '@forthix/forthic';
 
-  dataset-1 CLEAN-AVERAGE
-  dataset-2 CLEAN-AVERAGE
-  dataset-3 CLEAN-AVERAGE
-`);
+// WebSocket support - Browser-compatible multi-runtime execution
+import { ActionCableClient, WebSocketRemoteModule } from '@forthix/forthic/websocket';
+
+// gRPC support - Node.js-only multi-runtime execution
+import { GrpcClient, RemoteModule, startGrpcServer } from '@forthix/forthic/grpc';
 ```
+
+**Environment Compatibility**:
+- **Main package** (`@forthix/forthic`): Works in both Node.js and browsers
+- **WebSocket** (`@forthix/forthic/websocket`): Works in both Node.js and browsers
+- **gRPC** (`@forthix/forthic/grpc`): Node.js only (requires `@grpc/grpc-js`)
 
 ---
 
@@ -207,57 +215,7 @@ await interp.run(`
 
 ## Examples
 
-### Data Transformation Pipeline
-
-```typescript
-await interp.run(`
-  data-records
-    'DUP "score" REC@ 80 >' SELECT    # Filter records with score > 80
-    '"name" REC@' MAP                  # Extract names
-    'UPPERCASE' MAP                    # Convert to uppercase
-    ', ' JOIN                          # Join into comma-separated string
-`);
-```
-
-### Wrapping Business Logic
-
-```typescript
-export class OrderModule extends DecoratedModule {
-  constructor(private orderService: OrderService) {
-    super("orders");
-  }
-
-  @Word("( order:object -- validatedOrder:object )", "Validate order")
-  async VALIDATE(order: any) {
-    return this.orderService.validate(order);
-  }
-
-  @Word("( order:object -- orderWithTax:object )", "Calculate tax")
-  async CALCULATE_TAX(order: any) {
-    return this.orderService.calculateTax(order);
-  }
-
-  @Word("( order:object -- submittedOrder:object )", "Submit order")
-  async SUBMIT(order: any) {
-    return this.orderService.submit(order);
-  }
-}
-
-// Compose into high-level workflow
-await interp.run(`
-  ["orders"] USE_MODULES
-
-  : PROCESS-ORDER
-      VALIDATE
-      CALCULATE-TAX
-      SUBMIT
-  ;
-
-  new-order PROCESS-ORDER
-`);
-```
-
-More examples in [examples/](examples/) directory.
+See examples in the [examples](examples/) directory.
 
 ---
 
@@ -279,13 +237,45 @@ npm run docs:build
 
 ---
 
-## Multi-Runtime Vision
+## Multi-Runtime Execution
 
-Forthic is designed to work **seamlessly across multiple runtimes** (TypeScript, Java, Python, Ruby, .NET). Call Java modules from TypeScript, Python ML models from .NET - all transparently.
+Call code from other language runtimes seamlessly - use Python's pandas from TypeScript, or TypeScript's fs module from Ruby.
 
-See [Multi-Runtime Architecture](https://github.com/forthix/forthic/tree/main/docs/multi-runtime) for the vision.
+### Quick Example
 
-**Status:** TypeScript runtime is active. Java in progress. Python, Ruby, .NET planned.
+```typescript
+import { Interpreter } from '@forthix/forthic';
+import { GrpcClient, RemoteModule } from '@forthix/forthic/grpc';
+
+const interp = new Interpreter();
+
+// Connect to Python runtime
+const client = new GrpcClient('localhost:50051');
+const pandas = new RemoteModule('pandas', client, 'python');
+await pandas.initialize();
+
+interp.register_module(pandas);
+
+// Now use Python pandas from TypeScript!
+await interp.run(`["pandas"] USE-MODULES  [records] DF-FROM-RECORDS`);
+```
+
+### Approaches
+
+- **gRPC** - Node.js ↔ Python ↔ Ruby (fast, server-to-server)
+- **WebSocket** - Browser ↔ Rails (ActionCable, client-server)
+
+### Learn More
+
+📖 **[Complete Multi-Runtime Documentation](docs/multi-runtime/)**
+
+- **[Overview](docs/multi-runtime/)** - When and how to use multi-runtime
+- **[gRPC Setup](docs/multi-runtime/grpc.md)** - Server and client configuration
+- **[WebSocket Setup](docs/multi-runtime/websocket.md)** - Browser-compatible communication
+- **[Configuration](docs/multi-runtime/configuration.md)** - YAML config and connection management
+- **[Examples](examples/)** - Working code samples (05-grpc-server.ts, 06-grpc-client.ts)
+
+**Runtime Status:** ✅ TypeScript, Python, Ruby | 🚧 Rust | 📋 Java, .NET
 
 ---
 
@@ -322,4 +312,4 @@ Also see the [main Forthic contributing guide](https://github.com/forthix/forthi
 
 ---
 
-**Forthic TypeScript: Wrap your code. Compose transformations. Build powerful abstractions.**
+**Forthic**: Wrap. Compose. Abstract.

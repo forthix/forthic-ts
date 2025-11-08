@@ -161,7 +161,7 @@ Module description here.
 ## Examples
 
 \`\`\`forthic
-["mymodule"] USE_MODULES
+["mymodule"] USE-MODULES
 example usage here
 \`\`\`
     `);
@@ -368,7 +368,7 @@ Brief description of what this module does.
 ## Examples
 
 \`\`\`forthic
-["mymodule"] USE_MODULES
+["mymodule"] USE-MODULES
 
 # Example 1: Basic usage
 input MY-WORD

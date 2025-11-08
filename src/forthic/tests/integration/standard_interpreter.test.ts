@@ -1858,7 +1858,7 @@ test("Unknown word", async () => {
 
 test("Unknown module", async () => {
   try {
-    await interp.run("['garbage'] USE_MODULES");
+    await interp.run("['garbage'] USE-MODULES");
   } catch (e) {
     expect(e).toBeInstanceOf(UnknownModuleError);
     expect(e.getModuleName()).toEqual("garbage");

@@ -10,7 +10,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 
 - **Stack**: POP, DUP, SWAP
 - **Variables**: VARIABLES, !, @, !@
-- **Module**: EXPORT, USE_MODULES
+- **Module**: EXPORT, USE-MODULES
 - **Execution**: INTERPRET
 - **Control**: IDENTITY, NOP, DEFAULT, *DEFAULT, NULL, ARRAY?
 - **Options**: ~> (converts array to WordOptions)
@@ -33,7 +33,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
 "Items: .items" [.separator " | "] ~> PRINT
 [1 2 3] PRINT                           # Direct printing: 1, 2, 3
 [1 2 3] [.separator " | "] ~> PRINT    # With options: 1 | 2 | 3
-{"name" "Alice"} [.json TRUE] ~> PRINT  # JSON format: {"name":"Alice"}
+[ [.name "Alice"] ] REC [.json TRUE] ~> PRINT  # JSON format: {"name":"Alice"}
 "Hello .name" INTERPOLATE .greeting !
 [1 2 3] DUP SWAP
 ```
@@ -224,7 +224,7 @@ Swaps top two stack items
 
 ---
 
-### USE_MODULES
+### USE-MODULES
 
 **Stack Effect:** `( names:string[] -- )`
 

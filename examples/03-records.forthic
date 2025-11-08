@@ -13,7 +13,7 @@
 
 # Update a field by merging
 .alice @ 31 .age <REC!
-# Stack now has: "Alice" {"name" "Alice" "age" 31 "city" "NYC"}
+# Stack now has: "Alice" [ [.name "Alice"] [.age 31] [.city "NYC"] ] REC
 
 # Duplicate and get all keys
 .alice @ KEYS

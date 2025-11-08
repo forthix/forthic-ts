@@ -21,10 +21,15 @@ npm run repl
 
 ### Available Examples
 
+**Single-Runtime Examples** (.forthic files):
 1. **01-hello.forthic** - Simple "Hello World"
 2. **02-arrays.forthic** - Array operations (MAP, SELECT, REDUCE)
 3. **03-records.forthic** - Record manipulation (REC@, KEYS, VALUES)
 4. **04-composition.forthic** - Defining and composing words
+
+**Multi-Runtime Examples** (.ts files):
+5. **05-grpc-server.ts** - Expose TypeScript runtime via gRPC
+6. **06-grpc-client.ts** - Call Python/Ruby from TypeScript via gRPC
 
 ---
 
@@ -83,9 +88,9 @@ const interp = new Interpreter();
 interp.register_module(new MathModule());
 
 await interp.run(`
-  ["math"] USE_MODULES
-  5 3 math.ADD      # 8
-  math.SQUARE       # 64
+  ["math"] USE-MODULES
+  5 3 ADD      # 8
+  SQUARE       # 64
 `);
 ```
 
@@ -110,13 +115,13 @@ await interp.run(`
 ```typescript
 await interp.run(`
   # Create record
-  {"name" "Alice" "age" 30 "score" 95}
+  [ [.name "Alice"] [.age 30] [.score 95] ] REC
 
   # Extract field
   DUP "name" REC@     # "Alice"
 
   # Update field
-  {"score" 100} MERGE # {"name" "Alice" "age" 30 "score" 100}
+  [ [.score 100] ] REC MERGE # {"name" "Alice" "age" 30 "score" 100}
 `);
 ```
 
@@ -183,9 +188,9 @@ const interp = new Interpreter();
 interp.register_module(new UserModule(userService));
 
 await interp.run(`
-  ["users"] USE_MODULES
-  "user-123" users.FIND
-  {"email" "newemail@example.com"} users.UPDATE
+  ["users"] USE-MODULES
+  "user-123" FIND
+  [ [.email "newemail@example.com"] ] REC UPDATE
 `);
 ```
 
@@ -218,13 +223,9 @@ export class ReportingModule extends DecoratedModule {
 
 // Compose into high-level concepts
 await interp.run(`
-  ["reporting"] USE_MODULES
+  ["reporting"] USE-MODULES
 
-  : ANALYZE-AND-REPORT
-      reporting.STATS
-      reporting.FORMAT-STATS
-  ;
-
+  : ANALYZE-AND-REPORT   STATS FORMAT-STATS;
   [1 2 3 4 5] ANALYZE-AND-REPORT
   # "Mean: 3, Min: 1, Max: 5"
 `);
@@ -239,38 +240,9 @@ await interp.run(`
   : JSON>RECORD   JSON> ;
 
   # Round trip
-  {"name" "Alice" "age" 30}
+  [ [.name "Alice"] [.age 30] ] REC
     RECORD>JSON     # JSON string
     JSON>RECORD     # Back to record
-`);
-```
-
-### Error Handling
-
-```typescript
-export class ValidationModule extends DecoratedModule {
-  constructor() {
-    super("validation");
-  }
-
-  @Word("( data:any -- validData:any )", "Validate data")
-  async VALIDATE(data: any) {
-    if (!data.email || !data.email.includes('@')) {
-      throw new Error('Invalid email address');
-    }
-    return data;
-  }
-}
-
-// Use with error handling in Forthic
-await interp.run(`
-  ["validation"] USE_MODULES
-
-  TRY
-    user-data validation.VALIDATE
-  CATCH
-    "Validation failed: " SWAP + PRINTLN
-  END-TRY
 `);
 ```
 
@@ -360,15 +332,9 @@ export class DataPipelineModule extends DecoratedModule {
 
 // Build a complete pipeline
 await interp.run(`
-  ["pipeline"] USE_MODULES
+  ["pipeline"] USE-MODULES
 
-  : RUN-PIPELINE
-      pipeline.FETCH
-      pipeline.CLEAN
-      pipeline.ENRICH
-      pipeline.AGGREGATE
-  ;
-
+  : RUN-PIPELINE   FETCH CLEAN ENRICH AGGREGATE;
   "data-source-1" RUN-PIPELINE
 `);
 ```
@@ -391,8 +357,8 @@ describe('MyModule', () => {
 
   it('should process data correctly', async () => {
     await interp.run(`
-      ["mymodule"] USE_MODULES
-      [1 2 3] mymodule.PROCESS
+      ["mymodule"] USE-MODULES
+      [1 2 3] PROCESS
     `);
 
     const result = interp.stack_pop();
@@ -403,11 +369,125 @@ describe('MyModule', () => {
 
 ---
 
+## Multi-Runtime Execution
+
+📖 **For complete multi-runtime documentation, see [docs/multi-runtime/](../docs/multi-runtime/)**
+
+Call code from other language runtimes transparently - use Python's pandas from TypeScript, or TypeScript's fs module from Ruby.
+
+### Running the Examples
+
+#### Example 5: gRPC Server (Expose TypeScript)
+
+Start TypeScript as a gRPC server to expose runtime-specific modules (like `fs`) to other runtimes:
+
+```bash
+# Run the server example
+npx tsx examples/05-grpc-server.ts
+
+# Or use the built-in script
+npm run grpc:server
+```
+
+The server exposes:
+- **fs module**: File operations (READ-FILE, WRITE-FILE, FILE-EXISTS?, etc.)
+
+Other runtimes can now connect and use these TypeScript-specific modules!
+
+#### Example 6: gRPC Client (Call Remote Runtimes)
+
+Connect to a Python or Ruby runtime and call their modules from TypeScript:
+
+```bash
+# Prerequisites: Start Python gRPC server first
+# (In Python forthic runtime)
+# forthic-server --port 50051 --modules pandas
+
+# Then run the client example
+npx tsx examples/06-grpc-client.ts
+```
+
+This example shows:
+- Connecting to remote runtime
+- Discovering available modules
+- Calling Python pandas from TypeScript
+- Type-safe cross-runtime execution
+
+### When to Use Multi-Runtime
+
+**Use gRPC when:**
+- Running in Node.js (not browser)
+- Need high performance
+- Calling between server processes (TypeScript ↔ Python ↔ Ruby)
+- Using runtime-specific libraries (pandas, Rails models, Node.js fs)
+
+**Use WebSocket when:**
+- Running in browser
+- Need to call backend runtime from frontend
+- Using Rails with ActionCable
+
+**Example use cases:**
+- **Data Science**: Call Python pandas/numpy from TypeScript web app
+- **File Operations**: Use Node.js fs module from Python workflow
+- **Web Apps**: Call Rails business logic from browser Forthic code
+- **Microservices**: Compose operations across multiple language services
+
+### Configuration
+
+Create `forthic-runtimes.yaml` in your project root:
+
+```yaml
+runtimes:
+  python:
+    host: localhost
+    port: 50051
+    modules:
+      - pandas
+      - numpy
+  ruby:
+    host: localhost
+    port: 50053
+    modules:
+      - rails_models
+```
+
+Load configuration in your code:
+
+```typescript
+import { ConfigLoader, RuntimeManager } from '@forthix/forthic/grpc';
+
+const config = await ConfigLoader.load('./forthic-runtimes.yaml');
+const manager = RuntimeManager.getInstance();
+
+// Connect to all configured runtimes
+for (const [name, runtimeConfig] of Object.entries(config.runtimes)) {
+  manager.connectRuntime(name, `${runtimeConfig.host}:${runtimeConfig.port}`);
+}
+```
+
+### Browser Compatibility
+
+**Important**: gRPC only works in Node.js environments. For browser-compatible multi-runtime execution, use WebSocket:
+
+```typescript
+// In browser
+import { ActionCableClient, WebSocketRemoteModule } from '@forthix/forthic/websocket';
+
+const client = new ActionCableClient({
+  url: 'ws://localhost:3000/cable'
+});
+
+const railsModule = new WebSocketRemoteModule('my_module', client, 'rails');
+await railsModule.initialize();
+```
+
+---
+
 ## Additional Resources
 
 - **[Main Forthic Docs](https://github.com/forthix/forthic)** - Core concepts and philosophy
 - **[Module Documentation](../docs/modules/)** - Standard library reference
-- **[Getting Started](../docs/getting-started.md)** - Detailed tutorial
+- **[Main README](../README.md)** - Package overview and installation
 - **[Contributing](../CONTRIBUTING.md)** - How to contribute
 
 ---

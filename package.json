@@ -1,6 +1,6 @@
 {
   "name": "@forthix/forthic",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Stack-based, concatenative language for composable transformations - TypeScript/JavaScript runtime",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -20,6 +20,18 @@
       "require": "./dist/cjs/websocket/index.js",
       "default": "./dist/esm/websocket/index.js",
       "types": "./dist/cjs/websocket/index.d.ts"
+    },
+    "./grpc": {
+      "node": {
+        "import": "./dist/esm/grpc/index.js",
+        "require": "./dist/cjs/grpc/index.js",
+        "types": "./dist/cjs/grpc/index.d.ts"
+      },
+      "default": {
+        "types": "./dist/cjs/grpc/browser-stub.d.ts",
+        "import": "./dist/esm/grpc/browser-stub.js",
+        "require": "./dist/cjs/grpc/browser-stub.js"
+      }
     }
   },
   "files": [
