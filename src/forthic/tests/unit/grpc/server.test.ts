@@ -16,9 +16,8 @@ describe('TypeScript gRPC Server', () => {
   // Helper to load proto and create client
   const createClient = () => {
     const possiblePaths = [
-      path.join(__dirname, '../../../../forthic/protos/forthic_runtime.proto'),
-      path.join(__dirname, '../../../forthic/protos/forthic_runtime.proto'),
-      path.join(process.cwd(), '../forthic/protos/forthic_runtime.proto'),
+      path.join(__dirname, '../../../../../protos/v1/forthic_runtime.proto'),
+      path.join(process.cwd(), 'protos/v1/forthic_runtime.proto'),
     ];
 
     let PROTO_PATH = possiblePaths[0];
