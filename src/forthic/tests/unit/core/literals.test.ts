@@ -82,15 +82,16 @@ describe("Literal Handlers", () => {
 
 
 
-  test("Handler priority - first registered wins", async () => {
+  test("Handler priority - last registered wins (can override)", async () => {
     const handler1: LiteralHandler = (str) => str === "TEST" ? "FIRST" : null;
     const handler2: LiteralHandler = (str) => str === "TEST" ? "SECOND" : null;
 
     interp.register_literal_handler(handler1);
     interp.register_literal_handler(handler2);
 
+    // handler2 was registered last, so it's checked first and wins
     await interp.run("TEST");
-    expect(interp.stack_pop()).toBe("FIRST");
+    expect(interp.stack_pop()).toBe("SECOND");
   });
 
   test("Standard handler priority - float before int", async () => {
