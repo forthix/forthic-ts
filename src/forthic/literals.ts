@@ -108,7 +108,12 @@ export function to_literal_date(
 
 /**
  * Create a zoned datetime literal handler with timezone support
- * Parses: 2025-05-24T10:15:00Z, 2025-05-24T10:15:00-05:00, 2025-05-24T10:15:00
+ * Parses:
+ * - 2025-05-24T10:15:00[America/Los_Angeles] (IANA named timezone, RFC 9557)
+ * - 2025-05-24T10:15:00-07:00[America/Los_Angeles] (offset + IANA timezone)
+ * - 2025-05-24T10:15:00Z (UTC)
+ * - 2025-05-24T10:15:00-05:00 (offset timezone)
+ * - 2025-05-24T10:15:00 (uses interpreter's timezone)
  */
 export function to_zoned_datetime(
   timezone: Temporal.TimeZoneLike
@@ -117,6 +122,13 @@ export function to_zoned_datetime(
     if (!str.includes("T")) return null;
 
     try {
+      // Handle IANA named timezone in bracket notation (RFC 9557)
+      // Examples: 2025-05-20T08:00:00[America/Los_Angeles]
+      //           2025-05-20T08:00:00-07:00[America/Los_Angeles]
+      if (str.includes("[") && str.endsWith("]")) {
+        return Temporal.ZonedDateTime.from(str);
+      }
+
       // Handle explicit UTC (Z suffix)
       if (str.endsWith("Z")) {
         return Temporal.Instant.from(str).toZonedDateTimeISO("UTC");
@@ -126,7 +138,7 @@ export function to_zoned_datetime(
       const offsetMatch = str.match(/[+-]\d{2}:\d{2}$/);
       if (offsetMatch) {
         const instant = Temporal.Instant.from(str);
-        // Extract the offset from the string to determine the timezone
+        // Convert to UTC for canonical storage
         return instant.toZonedDateTimeISO("UTC");
       }
 
