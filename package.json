@@ -1,6 +1,6 @@
 {
   "name": "@forthix/forthic",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Stack-based, concatenative language for composable transformations - TypeScript/JavaScript runtime",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
