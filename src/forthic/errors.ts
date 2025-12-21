@@ -26,7 +26,7 @@ export class ForthicError extends Error {
   }
 
   getDescription(): string {
-    throw new Error("Not implemented");
+    return this.note;
   }
 
   getError(): Error {
@@ -38,6 +38,10 @@ export class ForthicError extends Error {
   }
 
   getNote(): string {
+    return this.note;
+  }
+
+  getMessage(): string {
     return this.note;
   }
 }
@@ -67,13 +71,22 @@ export class WordExecutionError extends ForthicError {
     call_location?: CodeLocationData,
     definition_location?: CodeLocationData
   ) {
-    super("", message, call_location);
+    // Pass the error as cause to maintain compatibility with code that checks .cause
+    super("", message, call_location, error);
     this.innerError = error;
     this.definition_location = definition_location;
   }
 
   getError(): Error {
     return this.innerError;
+  }
+
+  getRootError(): Error {
+    let current = this.innerError;
+    while (current.cause instanceof Error) {
+      current = current.cause;
+    }
+    return current;
   }
 
   getDefinitionLocation(): CodeLocationData | undefined {
