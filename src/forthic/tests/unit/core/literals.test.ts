@@ -66,6 +66,35 @@ describe("Literal Handlers", () => {
     expect(datetime.minute).toBe(20);
   });
 
+  test("Zoned datetime with IANA timezone in bracket notation", async () => {
+    await interp.run("2025-05-20T08:00:00[America/Los_Angeles]");
+    const datetime = interp.stack_pop();
+    expect(datetime).toBeInstanceOf(Temporal.ZonedDateTime);
+    expect(datetime.timeZoneId).toBe("America/Los_Angeles");
+    expect(datetime.year).toBe(2025);
+    expect(datetime.month).toBe(5);
+    expect(datetime.day).toBe(20);
+    expect(datetime.hour).toBe(8);
+    expect(datetime.minute).toBe(0);
+  });
+
+  test("Zoned datetime with offset and IANA timezone", async () => {
+    await interp.run("2025-05-20T08:00:00-07:00[America/Los_Angeles]");
+    const datetime = interp.stack_pop();
+    expect(datetime).toBeInstanceOf(Temporal.ZonedDateTime);
+    expect(datetime.timeZoneId).toBe("America/Los_Angeles");
+    expect(datetime.hour).toBe(8); // Wall clock time preserved
+  });
+
+  test("Zoned datetime with different IANA timezone", async () => {
+    await interp.run("2025-05-20T10:30:00[Europe/London]");
+    const datetime = interp.stack_pop();
+    expect(datetime).toBeInstanceOf(Temporal.ZonedDateTime);
+    expect(datetime.timeZoneId).toBe("Europe/London");
+    expect(datetime.hour).toBe(10);
+    expect(datetime.minute).toBe(30);
+  });
+
   test("Custom literal handler", async () => {
     // Currency literal: "$42.50" → 42.5
     const to_currency: LiteralHandler = (str: string) => {
@@ -82,15 +111,16 @@ describe("Literal Handlers", () => {
 
 
 
-  test("Handler priority - first registered wins", async () => {
+  test("Handler priority - last registered wins (can override)", async () => {
     const handler1: LiteralHandler = (str) => str === "TEST" ? "FIRST" : null;
     const handler2: LiteralHandler = (str) => str === "TEST" ? "SECOND" : null;
 
     interp.register_literal_handler(handler1);
     interp.register_literal_handler(handler2);
 
+    // handler2 was registered last, so it's checked first and wins
     await interp.run("TEST");
-    expect(interp.stack_pop()).toBe("FIRST");
+    expect(interp.stack_pop()).toBe("SECOND");
   });
 
   test("Standard handler priority - float before int", async () => {

@@ -10,6 +10,9 @@ import {
   ExtraSemicolonError,
   ModuleError,
   TooManyAttemptsError,
+  WordExecutionError,
+  ForthicError,
+  IntentionalStopError,
 } from "./errors.js";
 import { Temporal } from "temporal-polyfill";
 import { LiteralHandler, to_bool, to_float, to_int, to_time, to_literal_date, to_zoned_datetime } from "./literals.js";
@@ -420,7 +423,28 @@ export class Interpreter {
         // Execute local words one by one
         for (const word of batch.words) {
           this.count_word(word);
-          await word.execute(this);
+          try {
+            await word.execute(this);
+          } catch (e) {
+            // Don't wrap IntentionalStopError - it's a control-flow mechanism for debugging
+            if (e instanceof IntentionalStopError) {
+              throw e;
+            }
+            // Don't wrap ForthicError subclasses - they already have location context
+            if (e instanceof ForthicError) {
+              throw e;
+            }
+            // Wrap generic errors in WordExecutionError to add location context
+            if (e instanceof Error) {
+              throw new WordExecutionError(
+                e.message,
+                e,
+                this.get_tokenizer()?.get_token_location(),
+                word.get_location() || undefined
+              );
+            }
+            throw e;
+          }
         }
       } else {
         // Remote execution only works in Node.js environment
@@ -609,10 +633,10 @@ export class Interpreter {
 
   /**
    * Register a custom literal handler
-   * Handlers are checked in registration order
+   * New handlers are added first so they can override existing ones
    */
   register_literal_handler(handler: LiteralHandler): void {
-    this.literal_handlers.push(handler);
+    this.literal_handlers.unshift(handler);
   }
 
   /**

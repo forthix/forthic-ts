@@ -6,8 +6,8 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import * as path from 'path';
-import { serializeValue, deserializeValue } from './serializer';
-import { RemoteRuntimeError, parseErrorInfo } from './errors';
+import { serializeValue, deserializeValue } from './serializer.js';
+import { RemoteRuntimeError, parseErrorInfo } from './errors.js';
 
 // Type definitions for our gRPC service
 interface StackValue {

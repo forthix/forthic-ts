@@ -475,10 +475,35 @@ export class Tokenizer {
       const char = this.input_string[this.input_pos];
       this.advance_position(1);
       if (this.is_whitespace(char)) break;
-      if ([";", "[", "]", "{", "}", "#"].indexOf(char) >= 0) {
+      if ([";", "{", "}", "#"].indexOf(char) >= 0) {
         this.advance_position(-1);
         break;
-      } else this.token_string += char;
+      }
+      // Handle RFC 9557 datetime with IANA timezone: 2025-05-20T08:00:00[America/Los_Angeles]
+      // When we see '[', check if token looks like a datetime (contains 'T')
+      // If so, include the bracketed timezone as part of the token
+      if (char === "[") {
+        if (this.token_string.includes("T")) {
+          // This looks like a datetime, gather until ']'
+          this.token_string += char;
+          while (this.input_pos < this.input_string.length) {
+            const tzChar = this.input_string[this.input_pos];
+            this.advance_position(1);
+            this.token_string += tzChar;
+            if (tzChar === "]") break;
+          }
+          break;
+        } else {
+          // Not a datetime, treat '[' as delimiter
+          this.advance_position(-1);
+          break;
+        }
+      }
+      if (char === "]") {
+        this.advance_position(-1);
+        break;
+      }
+      this.token_string += char;
     }
     return new Token(
       TokenType.WORD,

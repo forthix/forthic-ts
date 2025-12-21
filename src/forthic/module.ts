@@ -1,10 +1,16 @@
 import { Interpreter } from "./interpreter.js";
 import { CodeLocation } from "./tokenizer.js";
-import { WordExecutionError } from "./errors.js";
+import { WordExecutionError, IntentionalStopError } from "./errors.js";
 
 export type WordHandler =
   | ((interp: Interpreter) => Promise<void>)
   | ((interp: Interpreter) => void);
+
+export type WordErrorHandler = (
+  error: Error,
+  word: Word,
+  interp: Interpreter
+) => Promise<void>;
 
 /**
  * RuntimeInfo - Metadata about where and how a word can execute
@@ -68,11 +74,47 @@ export class Word {
   name: string;
   string: string;
   location: CodeLocation | null;
+  protected errorHandlers: WordErrorHandler[];
 
   constructor(name: string) {
     this.name = name;
     this.string = name;
     this.location = null;
+    this.errorHandlers = [];
+  }
+
+  addErrorHandler(handler: WordErrorHandler): void {
+    this.errorHandlers.push(handler);
+  }
+
+  removeErrorHandler(handler: WordErrorHandler): void {
+    const index = this.errorHandlers.indexOf(handler);
+    if (index > -1) {
+      this.errorHandlers.splice(index, 1);
+    }
+  }
+
+  clearErrorHandlers(): void {
+    this.errorHandlers = [];
+  }
+
+  getErrorHandlers(): WordErrorHandler[] {
+    return this.errorHandlers.slice();
+  }
+
+  /**
+   * Try error handlers in order. Returns true if error was handled.
+   */
+  protected async tryErrorHandlers(error: Error, interp: Interpreter): Promise<boolean> {
+    for (const handler of this.errorHandlers) {
+      try {
+        await handler(error, this, interp);
+        return true;
+      } catch {
+        // Handler failed, try next one
+      }
+    }
+    return false;
   }
 
   set_location(location: CodeLocation | null): void {
@@ -314,6 +356,37 @@ export class ExecuteWord extends Word {
   }
 }
 
+/**
+ * ModuleWord - Word created via add_module_word() with error handler support
+ *
+ * Wraps a handler function and supports per-word error handlers.
+ * When an error occurs, checks for registered error handlers on the word.
+ * If any handler returns normally, the error is suppressed; if all throw, the error propagates.
+ */
+export class ModuleWord extends Word {
+  handler: WordHandler;
+
+  constructor(name: string, handler: WordHandler) {
+    super(name);
+    this.handler = handler;
+  }
+
+  async execute(interp: Interpreter): Promise<void> {
+    try {
+      await this.handler(interp);
+    } catch (e) {
+      if (e instanceof IntentionalStopError) {
+        throw e;
+      }
+
+      const handled = await this.tryErrorHandlers(e as Error, interp);
+      if (!handled) {
+        throw e;
+      }
+    }
+  }
+}
+
 // -------------------------------------
 // Module
 
@@ -458,9 +531,8 @@ export class Module {
     this.exportable.push(word.name);
   }
 
-  add_module_word(word_name: string, word_func: (interp: Interpreter) => Promise<void>): void {
-    const word = new Word(word_name);
-    word.execute = word_func;
+  add_module_word(word_name: string, word_func: WordHandler): void {
+    const word = new ModuleWord(word_name, word_func);
     this.add_exportable_word(word);
   }
 
