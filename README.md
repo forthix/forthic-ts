@@ -4,7 +4,7 @@
 
 Use Forthic to wrap your TypeScript/JavaScript code within composable words, leveraging categorical principles for clean, powerful abstractions.
 
-**[Forthic Parent Documentation](https://github.com/forthix/forthic)** | **[Getting Started with forthic-ts](#getting-started)** | **[Examples](examples/)** | **[API Docs](docs/)**
+**[Learn at forthix.com](https://forthix.com)** | **[Forthic Docs](https://github.com/forthix/forthic)** | **[Getting Started](#getting-started)** | **[Examples](examples/)** | **[API Docs](docs/)**
 
 ---
 
@@ -16,7 +16,9 @@ Forthic enables **categorical coding** - a way to solve problems by viewing them
 2. **Compose transformations** cleanly using stack-based operations
 3. **Build powerful abstractions** from simple primitives
 
-See the [Forthic repository](https://github.com/forthix/forthic) for philosophy, core concepts, and why categorical coding matters.
+**[Learn more about Categorical Coding →](https://forthix.com/blog/category-theory-for-the-rest-of-us-coders)**
+
+See the [Forthic repository](https://github.com/forthix/forthic) for technical documentation and API references.
 
 ---
 
@@ -199,6 +201,10 @@ import { GrpcClient, RemoteModule, startGrpcServer } from '@forthix/forthic/grpc
 ---
 
 ## Documentation
+
+### Learning Resources
+- **[forthix.com](https://forthix.com)** - Learn about Forthic and Categorical Coding
+- **[Category Theory for Coders](https://forthix.com/blog/category-theory-for-the-rest-of-us-coders)** - Understand the foundations
 
 ### This Runtime
 - **[Getting Started](docs/getting-started.md)** - TypeScript-specific setup
