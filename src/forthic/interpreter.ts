@@ -362,24 +362,24 @@ export class Interpreter {
   }
 
   async run_with_tokenizer(tokenizer: Tokenizer): Promise<boolean> {
-    // Collect all words first for batching optimization
-    const words: Word[] = [];
+    // Collect word tokens first for batching optimization
+    // We store tokens (not resolved Words) to defer word lookup until execution time.
+    // This allows dynamically defined words (e.g., from LOAD) to be found.
+    const wordTokens: Token[] = [];
     let token: Token;
 
     do {
       this.previous_token = token;
       token = tokenizer.next_token();
 
-      // For word tokens, collect them instead of executing immediately
+      // For word tokens, collect the token (defer word lookup until execution)
       if (token.type === TokenType.WORD && !this.is_compiling) {
-        const word = this.find_word(token.string);
-        word.set_location(token.location);
-        words.push(word);
+        wordTokens.push(token);
       } else {
         // For non-word tokens, execute any collected words first, then handle the token
-        if (words.length > 0) {
-          await this.executeBatchedWords(words);
-          words.length = 0; // Clear the array
+        if (wordTokens.length > 0) {
+          await this.executeBatchedWordTokens(wordTokens);
+          wordTokens.length = 0; // Clear the array
         }
 
         await this.handle_token(token);
@@ -387,14 +387,34 @@ export class Interpreter {
 
       if (token.type === TokenType.EOS) {
         // Execute any remaining words
-        if (words.length > 0) {
-          await this.executeBatchedWords(words);
+        if (wordTokens.length > 0) {
+          await this.executeBatchedWordTokens(wordTokens);
         }
         break;
       }
       // eslint-disable-next-line no-constant-condition
     } while (true);
     return true; // Done executing
+  }
+
+  /**
+   * Execute a sequence of word tokens with deferred word lookup.
+   * This resolves words at execution time (not parse time) to support
+   * dynamically defined words (e.g., words defined by LOAD).
+   *
+   * Words are looked up and executed ONE AT A TIME to ensure that
+   * words defined during execution (e.g., by LOAD) are available
+   * for subsequent words in the same batch.
+   */
+  private async executeBatchedWordTokens(tokens: Token[]): Promise<void> {
+    // Look up and execute each word one at a time
+    // This ensures words defined during execution are available for later words
+    for (const token of tokens) {
+      const word = this.find_word(token.string);
+      word.set_location(token.location);
+      this.count_word(word);
+      await word.execute(this);
+    }
   }
 
   /**
