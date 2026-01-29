@@ -413,7 +413,28 @@ export class Interpreter {
       const word = this.find_word(token.string);
       word.set_location(token.location);
       this.count_word(word);
-      await word.execute(this);
+      try {
+        await word.execute(this);
+      } catch (e) {
+        // Don't wrap IntentionalStopError - it's a control-flow mechanism for debugging
+        if (e instanceof IntentionalStopError) {
+          throw e;
+        }
+        // Don't wrap ForthicError subclasses - they already have location context
+        if (e instanceof ForthicError) {
+          throw e;
+        }
+        // Wrap generic errors in WordExecutionError to add location context
+        if (e instanceof Error) {
+          throw new WordExecutionError(
+            e.message,
+            e,
+            this.get_tokenizer()?.get_token_location(),
+            word.get_location() || undefined
+          );
+        }
+        throw e;
+      }
     }
   }
 
