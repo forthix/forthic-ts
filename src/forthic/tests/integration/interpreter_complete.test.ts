@@ -155,6 +155,29 @@ describe("Interpreter - Complete End-to-End Tests", () => {
 
       expect(interp.stack_pop()).toBe("value");
     });
+
+    test("USE-MODULES with prefixed option uses module name as prefix", async () => {
+      const testModule = new Module("test");
+      testModule.add_exportable_word(new PushValueWord("VALUE", 99));
+
+      interp.register_module(testModule);
+      await interp.run(`["test"] [.prefixed TRUE] ~> USE-MODULES`);
+      await interp.run("test.VALUE");
+
+      expect(interp.stack_pop()).toBe(99);
+    });
+
+    test("USE-MODULES prefixed option does not affect array tuple form", async () => {
+      const testModule = new Module("test");
+      testModule.add_exportable_word(new PushValueWord("VALUE", 77));
+
+      interp.register_module(testModule);
+      // Array tuple form [name, prefix] should use explicit prefix, ignoring prefixed option
+      await interp.run(`[["test" "t"]] [.prefixed TRUE] ~> USE-MODULES`);
+      await interp.run("t.VALUE");
+
+      expect(interp.stack_pop()).toBe(77);
+    });
   });
 
   describe("Error Handling", () => {
