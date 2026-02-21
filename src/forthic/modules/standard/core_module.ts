@@ -165,10 +165,10 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     this.interp.cur_module().add_exportable(names);
   }
 
-  @ForthicWord("( names:string[] -- )", "Imports modules by name", "USE-MODULES")
-  async USE_MODULES(names: string[]) {
+  @ForthicWord("( names:string[] [options:WordOptions] -- )", "Imports modules by name", "USE-MODULES")
+  async USE_MODULES(names: string[], options: Record<string, any>) {
     if (!names) return;
-    this.interp.use_modules(names);
+    this.interp.use_modules(names, options);
   }
 
 

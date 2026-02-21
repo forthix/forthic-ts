@@ -601,13 +601,16 @@ export class Interpreter {
   // If names is an array of strings, import each module without a prefix (empty string)
   // If names is an array of arrays, import each module using the first element as the
   // module name and the second element as the prefix
-  use_modules(names: any[]) {
+  use_modules(names: any[], options: Record<string, any> = {}) {
+    const prefixed = options.prefixed ?? false;
     for (const name of names) {
       let module_name = name;
       let prefix = "";  // Default to empty prefix (no prefix)
       if (name instanceof Array) {
         module_name = name[0];
         prefix = name[1];  // Allow explicit prefix specification
+      } else if (prefixed) {
+        prefix = name;  // Use module name as its own prefix
       }
       const module = this.find_module(module_name);
       this.get_app_module().import_module(prefix, module, this);
