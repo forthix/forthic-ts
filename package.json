@@ -81,7 +81,7 @@
   },
   "homepage": "https://github.com/forthix/forthic-ts#readme",
   "dependencies": {
-    "temporal-polyfill": "^0.2.5",
+    "temporal-polyfill": "^0.3.0",
     "yaml": "^2.8.1"
   },
   "optionalDependencies": {

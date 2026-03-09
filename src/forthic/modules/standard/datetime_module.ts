@@ -167,7 +167,7 @@ TODAY 7 ADD-DAYS
 
     // If it's a number, treat as Unix timestamp (seconds)
     if (typeof item === "number") {
-      const instant = Temporal.Instant.fromEpochSeconds(item);
+      const instant = Temporal.Instant.fromEpochMilliseconds(item * 1000);
       const zoned = instant.toZonedDateTimeISO(interp.get_timezone());
       interp.stack_push(zoned);
       return;
@@ -293,7 +293,7 @@ TODAY 7 ADD-DAYS
     }
 
     // Assume timestamp is in seconds, convert to milliseconds
-    const instant = Temporal.Instant.fromEpochSeconds(timestamp);
+    const instant = Temporal.Instant.fromEpochMilliseconds(timestamp * 1000);
     const zoned = instant.toZonedDateTimeISO(interp.get_timezone());
     interp.stack_push(zoned);
   }
