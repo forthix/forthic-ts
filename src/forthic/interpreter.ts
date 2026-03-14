@@ -1,5 +1,5 @@
 import { TokenType, Token, Tokenizer, CodeLocation } from "./tokenizer.js";
-import { Module, Word, PushValueWord, DefinitionWord } from "./module.js";
+import { Module, Word, PushValueWord, DefinitionWord, ModuleMemoWord } from "./module.js";
 import { PositionedString } from "./tokenizer.js";
 import {
   UnknownWordError,
@@ -225,6 +225,7 @@ export class Interpreter {
   private stream: boolean = false;
   private previous_delta_length: number = 0;
   private literal_handlers: LiteralHandler[];
+  on_word_defined?: (name: string) => void;
 
   constructor(modules: Module[] = [], timezone: Temporal.TimeZoneLike = "UTC") {
     this.timezone = timezone;
@@ -271,6 +272,14 @@ export class Interpreter {
 
   get_app_module(): Module {
     return this.app_module;
+  }
+
+  // Returns names of words defined via `:` or `@:` in the app module.
+  // Does NOT include words imported via USE-MODULES.
+  get_app_defined_word_names(): string[] {
+    return this.app_module.words
+      .filter((w: Word) => w instanceof DefinitionWord || w instanceof ModuleMemoWord)
+      .map((w: Word) => w.name);
   }
 
   get_top_input_string(): string {
@@ -897,6 +906,7 @@ export class Interpreter {
       this.cur_module().add_word(this.cur_definition);
     }
     this.is_compiling = false;
+    if (this.on_word_defined) this.on_word_defined(this.cur_definition.name);
   }
 
   async handle_word_token(token: Token) {
