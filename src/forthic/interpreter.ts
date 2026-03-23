@@ -23,6 +23,7 @@ import { MathModule } from "./modules/standard/math_module.js";
 import { BooleanModule } from "./modules/standard/boolean_module.js";
 import { JsonModule } from "./modules/standard/json_module.js";
 import { DateTimeModule } from "./modules/standard/datetime_module.js";
+import { serializeValue, deserializeValue, serializeStack, deserializeStack, StackValue } from "../websocket/serializer.js";
 
 type Timestamp = {
   label: string;
@@ -216,6 +217,7 @@ export class Interpreter {
   private is_compiling: boolean;
   private is_memo_definition: boolean;
   private cur_definition: DefinitionWord | null;
+  private definition_start_input_pos: number;
   private string_location?: CodeLocation;
   private word_counts: { [key: string]: number };
   private is_profiling: boolean;
@@ -242,6 +244,7 @@ export class Interpreter {
     this.is_compiling = false;
     this.is_memo_definition = false;
     this.cur_definition = null;
+    this.definition_start_input_pos = 0;
 
     // Debug support
     this.string_location = undefined;
@@ -878,6 +881,8 @@ export class Interpreter {
     this.cur_definition = new DefinitionWord(token.string);
     this.is_compiling = true;
     this.is_memo_definition = false;
+    // Record the position right after the definition name for source capture
+    this.definition_start_input_pos = this.get_tokenizer().input_pos;
   }
 
   handle_start_memo_token(token: Token) {
@@ -890,6 +895,8 @@ export class Interpreter {
     this.cur_definition = new DefinitionWord(token.string);
     this.is_compiling = true;
     this.is_memo_definition = true;
+    // Record the position right after the memo name for source capture
+    this.definition_start_input_pos = this.get_tokenizer().input_pos;
   }
 
   handle_end_definition_token(token: Token) {
@@ -900,8 +907,19 @@ export class Interpreter {
       );
     }
 
+    // Construct the source text for serialization
+    const tokenizer = this.get_tokenizer();
+    const body = tokenizer.input_string.substring(
+      this.definition_start_input_pos,
+      tokenizer.input_pos,
+    );
+    const prefix = this.is_memo_definition ? "@:" : ":";
+    const source = `${prefix} ${this.cur_definition.name} ${body}`;
+    this.cur_definition.source = source;
+
     if (this.is_memo_definition) {
-      this.cur_module().add_memo_words(this.cur_definition);
+      const memoWord = this.cur_module().add_memo_words(this.cur_definition);
+      memoWord.source = source;
     } else {
       this.cur_module().add_word(this.cur_definition);
     }
@@ -1063,6 +1081,82 @@ export function dup_interpreter(interp: Interpreter): Interpreter {
   }
 
   return result_interp;
+}
+
+/**
+ * Serializable interpreter state for preserving variables, words, and stack
+ * across interpreter instantiations (e.g., multiturn chat sessions).
+ */
+export interface InterpreterState {
+  stack: StackValue[];
+  variables: Record<string, StackValue>;
+  word_definitions: string[];
+}
+
+/**
+ * Export the app module state and stack from an interpreter as a serializable object.
+ * The caller is responsible for persisting the returned state.
+ */
+export function export_state(interp: Interpreter): InterpreterState {
+  const internal = interp as unknown as InterpreterInternal;
+
+  // Serialize the stack
+  const stack = serializeStack(internal.stack.get_items());
+
+  // Serialize variables
+  const variables: Record<string, StackValue> = {};
+  const appModule = internal.app_module;
+  for (const [name, variable] of Object.entries(appModule.variables)) {
+    variables[name] = serializeValue(variable.get_value());
+  }
+
+  // Collect source text from user-defined words
+  const word_definitions: string[] = [];
+  const seen = new Set<string>();
+  for (const word of appModule.words) {
+    if (word instanceof DefinitionWord && word.source) {
+      // For DefinitionWords, use the source directly (avoids duplicates from memo bang variants)
+      if (!seen.has(word.name)) {
+        seen.add(word.name);
+        word_definitions.push(word.source);
+      }
+    } else if (word instanceof ModuleMemoWord && word.source) {
+      if (!seen.has(word.name)) {
+        seen.add(word.name);
+        word_definitions.push(word.source);
+      }
+    }
+  }
+
+  return { stack, variables, word_definitions };
+}
+
+/**
+ * Import previously exported state into an interpreter.
+ * Replays word definitions, restores variable values, and sets the stack.
+ */
+export async function import_state(interp: Interpreter, state: InterpreterState): Promise<void> {
+  const internal = interp as unknown as InterpreterInternal;
+
+  // 1. Replay word definitions (this may also create variables via VARIABLES word)
+  for (const def of state.word_definitions) {
+    await interp.run(def);
+  }
+
+  // 2. Restore variable values (overwriting any defaults from definitions)
+  const appModule = internal.app_module;
+  for (const [name, serializedValue] of Object.entries(state.variables)) {
+    const value = deserializeValue(serializedValue);
+    if (appModule.variables[name]) {
+      appModule.variables[name].set_value(value);
+    } else {
+      appModule.add_variable(name, value);
+    }
+  }
+
+  // 3. Restore the stack
+  const stackItems = deserializeStack(state.stack);
+  internal.stack.set_raw_items(stackItems);
 }
 
 /**

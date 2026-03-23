@@ -1,5 +1,5 @@
-import { StandardInterpreter, Stack, dup_interpreter } from "../../interpreter";
-import { Module, Word, PushValueWord, DefinitionWord } from "../../module";
+import { StandardInterpreter, Stack, dup_interpreter, export_state, import_state, InterpreterState } from "../../interpreter";
+import { Module, Word, PushValueWord, DefinitionWord, ModuleMemoWord } from "../../module";
 
 describe("Interpreter - Complete End-to-End Tests", () => {
   let interp: StandardInterpreter;
@@ -248,6 +248,169 @@ describe("Interpreter - Complete End-to-End Tests", () => {
       const dup = dup_interpreter(interp);
 
       expect(dup.get_error_handler()).toBe(handler);
+    });
+  });
+
+  describe("State Export/Import", () => {
+    test("round-trip variables", async () => {
+      await interp.run("['x' 'y'] VARIABLES");
+      await interp.run("'hello' x !");
+      await interp.run("42 y !");
+
+      const state = export_state(interp);
+      const newInterp = new StandardInterpreter();
+      await import_state(newInterp, state);
+
+      await newInterp.run("x @");
+      expect(newInterp.stack_pop()).toBe("hello");
+      await newInterp.run("y @");
+      expect(newInterp.stack_pop()).toBe(42);
+    });
+
+    test("round-trip defined words", async () => {
+      await interp.run(": GREET 'hello' ;");
+      await interp.run(": ADD-ONE 1 +  ;");
+
+      const state = export_state(interp);
+      const newInterp = new StandardInterpreter();
+      await import_state(newInterp, state);
+
+      await newInterp.run("GREET");
+      expect(newInterp.stack_pop()).toBe("hello");
+
+      await newInterp.run("5 ADD-ONE");
+      expect(newInterp.stack_pop()).toBe(6);
+    });
+
+    test("round-trip memo words", async () => {
+      await interp.run("@: CACHED 42 ;");
+
+      const state = export_state(interp);
+      const newInterp = new StandardInterpreter();
+      await import_state(newInterp, state);
+
+      await newInterp.run("CACHED");
+      expect(newInterp.stack_pop()).toBe(42);
+    });
+
+    test("round-trip stack", async () => {
+      await interp.run("'a' 'b' 'c'");
+
+      const state = export_state(interp);
+      const newInterp = new StandardInterpreter();
+      await import_state(newInterp, state);
+
+      expect(newInterp.stack_pop()).toBe("c");
+      expect(newInterp.stack_pop()).toBe("b");
+      expect(newInterp.stack_pop()).toBe("a");
+    });
+
+    test("round-trip complex variable types", async () => {
+      await interp.run("['data'] VARIABLES");
+      await interp.run("[1 2 3] data !");
+
+      const state = export_state(interp);
+      const newInterp = new StandardInterpreter();
+      await import_state(newInterp, state);
+
+      await newInterp.run("data @");
+      expect(newInterp.stack_pop()).toEqual([1, 2, 3]);
+    });
+
+    test("state is serializable to JSON", async () => {
+      await interp.run("['name'] VARIABLES");
+      await interp.run("'Alice' name !");
+      await interp.run(": GREET 'hello' ;");
+      await interp.run("'stack-value'");
+
+      const state = export_state(interp);
+      const json = JSON.stringify(state);
+      const restored: InterpreterState = JSON.parse(json);
+
+      const newInterp = new StandardInterpreter();
+      await import_state(newInterp, restored);
+
+      await newInterp.run("name @");
+      expect(newInterp.stack_pop()).toBe("Alice");
+      await newInterp.run("GREET");
+      expect(newInterp.stack_pop()).toBe("hello");
+      expect(newInterp.stack_pop()).toBe("stack-value");
+    });
+
+    test("definition source text is captured", async () => {
+      await interp.run(": GREET 'hello' ;");
+
+      const defWord = interp.get_app_module().words.find(
+        (w) => w instanceof DefinitionWord && w.name === "GREET"
+      ) as DefinitionWord;
+
+      expect(defWord).toBeDefined();
+      expect(defWord.source).toContain(": GREET");
+      expect(defWord.source).toContain(";");
+    });
+
+    test("memo source text is captured", async () => {
+      await interp.run("@: CACHED 42 ;");
+
+      const memoWord = interp.get_app_module().words.find(
+        (w) => w instanceof ModuleMemoWord && w.name === "CACHED"
+      ) as ModuleMemoWord;
+
+      expect(memoWord).toBeDefined();
+      expect(memoWord.source).toContain("@: CACHED");
+      expect(memoWord.source).toContain(";");
+    });
+
+    test("new interpreter modules still work after import", async () => {
+      await interp.run("['x'] VARIABLES");
+      await interp.run("10 x !");
+
+      const state = export_state(interp);
+      const newInterp = new StandardInterpreter();
+      await import_state(newInterp, state);
+
+      // Standard library words should still work
+      await newInterp.run("[1 2 3] LENGTH");
+      expect(newInterp.stack_pop()).toBe(3);
+    });
+
+    test("independence after import", async () => {
+      await interp.run("['x'] VARIABLES");
+      await interp.run("'original' x !");
+
+      const state = export_state(interp);
+      const newInterp = new StandardInterpreter();
+      await import_state(newInterp, state);
+
+      // Modify in new interpreter
+      await newInterp.run("'modified' x !");
+      await newInterp.run("x @");
+      expect(newInterp.stack_pop()).toBe("modified");
+
+      // Original should be unchanged
+      await interp.run("x @");
+      expect(interp.stack_pop()).toBe("original");
+    });
+
+    test("VARIABLES called twice preserves existing values", async () => {
+      await interp.run("['x'] VARIABLES");
+      await interp.run("42 x !");
+      await interp.run("['x'] VARIABLES");
+      await interp.run("x @");
+      expect(interp.stack_pop()).toBe(42);
+    });
+
+    test("multiple definitions in single run", async () => {
+      await interp.run(": FOO 'foo' ;  : BAR 'bar' ;");
+
+      const state = export_state(interp);
+      const newInterp = new StandardInterpreter();
+      await import_state(newInterp, state);
+
+      await newInterp.run("FOO");
+      expect(newInterp.stack_pop()).toBe("foo");
+      await newInterp.run("BAR");
+      expect(newInterp.stack_pop()).toBe("bar");
     });
   });
 
