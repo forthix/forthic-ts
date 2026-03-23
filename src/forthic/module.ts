@@ -173,10 +173,12 @@ export class PushValueWord extends Word {
  */
 export class DefinitionWord extends Word {
   words: Word[];
+  source: string;
 
   constructor(name: string) {
     super(name);
     this.words = [];
+    this.source = "";
   }
 
   add_word(word: Word): void {
@@ -269,12 +271,14 @@ export class ModuleMemoWord extends Word {
   word: Word;
   has_value: boolean;
   value: any;
+  source: string;
 
   constructor(word: Word) {
     super(word.name);
     this.word = word;
     this.has_value = false;
     this.value = null;
+    this.source = "";
   }
 
   async refresh(interp: Interpreter): Promise<void> {
