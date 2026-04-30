@@ -431,7 +431,7 @@ export class Interpreter {
         if (e instanceof IntentionalStopError) {
           throw e;
         }
-        /** Preserve subclass identity; fill in missing location/word from dispatch context. */
+        // Preserve subclass identity; fill in missing location/word from dispatch context.
         if (e instanceof ForthicError) {
           if (!e.location) e.location = token.location;
           if (!e.word) e.word = word.name;
@@ -485,7 +485,7 @@ export class Interpreter {
             if (e instanceof IntentionalStopError) {
               throw e;
             }
-            /** Preserve subclass identity (for `instanceof`); fill in missing location/word from dispatch context. */
+            // Preserve subclass identity (for `instanceof`); fill in missing location/word from dispatch context.
             if (e instanceof ForthicError) {
               if (!e.location) e.location = word.get_location() || undefined;
               if (!e.word) e.word = word.name;
