@@ -1,6 +1,7 @@
 import { StandardInterpreter } from "../../interpreter";
 import {
   InvalidVariableNameError,
+  UnknownVariableError,
   UnknownWordError,
   UnknownModuleError,
   StackUnderflowError,
@@ -134,10 +135,10 @@ test("Bang at (!@)", async () => {
   expect(interp.stack_pop()).toBe(24);
 });
 
-test("Auto-create variables with string names", async () => {
-  // Test ! with string variable name (auto-creates variable)
+test("String-name ! and !@ auto-create variables", async () => {
+  // ! with string variable name auto-creates the variable
   await interp.run('"hello" "autovar1" !');
-  await interp.run('autovar1 @');
+  await interp.run("autovar1 @");
   expect(interp.stack_pop()).toBe("hello");
 
   // Verify variable was created in app module
@@ -145,16 +146,7 @@ test("Auto-create variables with string names", async () => {
   expect(autovar1).toBeDefined();
   expect(autovar1.get_value()).toBe("hello");
 
-  // Test @ with string variable name (auto-creates with null)
-  await interp.run('"autovar2" @');
-  expect(interp.stack_pop()).toBe(null);
-
-  // Verify variable was created
-  const autovar2 = (interp as any).app_module.variables["autovar2"];
-  expect(autovar2).toBeDefined();
-  expect(autovar2.get_value()).toBe(null);
-
-  // Test !@ with string variable name (auto-creates and returns value)
+  // Test !@ with string variable name auto-creates and returns value
   await interp.run('"world" "autovar3" !@');
   expect(interp.stack_pop()).toBe("world");
 
@@ -167,6 +159,23 @@ test("Auto-create variables with string names", async () => {
   await interp.run('"updated" "autovar1" !');
   await interp.run('"autovar1" @');
   expect(interp.stack_pop()).toBe("updated");
+});
+
+test("@ on undeclared dot-symbol throws UnknownVariableError", async () => {
+  let caught: any = null;
+  try {
+    await interp.run(".extracted_content @");
+  } catch (e) {
+    caught = e;
+  }
+  expect(caught).toBeInstanceOf(UnknownVariableError);
+  expect(caught.getVarname()).toBe("extracted_content");
+});
+
+test("@ on declared-but-unset variable returns null (does not throw)", async () => {
+  await interp.run("['declared_unset'] VARIABLES");
+  await interp.run('"declared_unset" @');
+  expect(interp.stack_pop()).toBe(null);
 });
 
 test("Auto-create variables validation", async () => {

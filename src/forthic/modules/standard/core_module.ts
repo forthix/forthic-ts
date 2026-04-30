@@ -1,6 +1,6 @@
 import { Variable } from "../../module.js";
 import { Interpreter } from "../../interpreter.js";
-import { InvalidVariableNameError, IntentionalStopError } from "../../errors.js";
+import { InvalidVariableNameError, IntentionalStopError, UnknownVariableError } from "../../errors.js";
 import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 import { WordOptions } from "../../word_options.js";
 
@@ -67,6 +67,18 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     return variable;
   }
 
+  private static get_existing_variable(interp: Interpreter, name: string): Variable {
+    const variable = interp.find_variable(name);
+    if (!variable) {
+      throw new UnknownVariableError(
+        interp.get_top_input_string(),
+        name,
+        interp.get_string_location(),
+      );
+    }
+    return variable;
+  }
+
 
   @ForthicWord("( a:any -- )", "Removes top item from stack")
   async POP(a: any) {
@@ -130,11 +142,11 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     var_obj.set_value(value);
   }
 
-  @ForthicWord("( variable:any -- value:any )", "Gets variable value (auto-creates if string name)")
+  @ForthicWord("( variable:any -- value:any )", "Gets variable value (throws UnknownVariableError if string name is undeclared)")
   async ["@"](variable: any) {
     let var_obj: Variable;
     if (typeof variable === 'string') {
-      var_obj = CoreModule.get_or_create_variable(this.interp, variable);
+      var_obj = CoreModule.get_existing_variable(this.interp, variable);
     } else {
       var_obj = variable;
     }

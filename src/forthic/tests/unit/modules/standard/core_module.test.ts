@@ -1,7 +1,8 @@
 import { StandardInterpreter } from "../../../../interpreter";
 import {
   InvalidVariableNameError,
-  WordExecutionError
+  UnknownVariableError,
+  WordExecutionError,
 } from "../../../../errors";
 import { CoreModule } from "../../../../modules/standard/core_module";
 import { WordOptions } from "../../../../word_options";
@@ -47,25 +48,16 @@ test("Bang at (!@)", async () => {
   expect(interp.stack_pop()).toBe(24);
 });
 
-test("Auto-create variables with string names", async () => {
-  // Test ! with string variable name (auto-creates variable)
+test("String-name ! auto-creates variable", async () => {
+  // ! with string variable name auto-creates the variable
   await interp.run('"hello" "autovar1" !');
-  await interp.run('autovar1 @');
+  await interp.run("autovar1 @");
   expect(interp.stack_pop()).toBe("hello");
 
   // Verify variable was created in app module
   const autovar1 = (interp as any).app_module.variables["autovar1"];
   expect(autovar1).toBeDefined();
   expect(autovar1.get_value()).toBe("hello");
-
-  // Test @ with string variable name (auto-creates with null)
-  await interp.run('"autovar2" @');
-  expect(interp.stack_pop()).toBe(null);
-
-  // Verify variable was created
-  const autovar2 = (interp as any).app_module.variables["autovar2"];
-  expect(autovar2).toBeDefined();
-  expect(autovar2.get_value()).toBe(null);
 
   // Test !@ with string variable name (auto-creates and returns value)
   await interp.run('"world" "autovar3" !@');
@@ -80,6 +72,43 @@ test("Auto-create variables with string names", async () => {
   await interp.run('"updated" "autovar1" !');
   await interp.run('"autovar1" @');
   expect(interp.stack_pop()).toBe("updated");
+});
+
+test("@ on undeclared variable (string name) throws UnknownVariableError", async () => {
+  let caught: any = null;
+  try {
+    await interp.run('"never_declared" @');
+  } catch (e) {
+    caught = e;
+  }
+  expect(caught).toBeInstanceOf(UnknownVariableError);
+  expect(caught.getVarname()).toBe("never_declared");
+
+  // The variable should NOT have been auto-created as a side effect.
+  expect(
+    (interp as any).app_module.variables["never_declared"],
+  ).toBeUndefined();
+});
+
+test("@ on undeclared dot-symbol throws UnknownVariableError", async () => {
+  // Real-world repro: .extracted_content @ pushes the string "extracted_content"
+  // via the dot-symbol path, then @ should throw.
+  let caught: any = null;
+  try {
+    await interp.run(".extracted_content @");
+  } catch (e) {
+    caught = e;
+  }
+  expect(caught).toBeInstanceOf(UnknownVariableError);
+  expect(caught.getVarname()).toBe("extracted_content");
+});
+
+test("@ on declared-but-unset variable returns null (does not throw)", async () => {
+  // Declared via VARIABLES but never set: reading is allowed, value is null.
+  // Only *undeclared* access throws; uninitialized is fine.
+  await interp.run("['declared_unset'] VARIABLES");
+  await interp.run('"declared_unset" @');
+  expect(interp.stack_pop()).toBe(null);
 });
 
 test("Auto-create variables validation", async () => {

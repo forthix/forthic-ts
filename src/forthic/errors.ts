@@ -61,6 +61,21 @@ export class UnknownWordError extends ForthicError {
   }
 }
 
+export class UnknownVariableError extends ForthicError {
+  private varname: string;
+
+  constructor(forthic: string, varname: string, location?: CodeLocationData, cause?: Error) {
+    const note = `Unknown variable: ${varname}`;
+    super(forthic, note, location, cause);
+    this.varname = varname;
+    this.name = "UnknownVariableError";
+  }
+
+  getVarname(): string {
+    return this.varname;
+  }
+}
+
 export class WordExecutionError extends ForthicError {
   private innerError: Error;
   private definition_location?: CodeLocationData;
