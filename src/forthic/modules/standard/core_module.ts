@@ -73,7 +73,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
       throw new UnknownVariableError(
         interp.get_top_input_string(),
         name,
-        interp.get_string_location(),
+        interp.get_token_location(),
       );
     }
     return variable;

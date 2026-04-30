@@ -298,6 +298,16 @@ export class Interpreter {
     return this.string_location;
   }
 
+  // Returns the location of the token currently being processed by the
+  // active tokenizer. Prefer this over get_string_location() when reporting
+  // errors against the dispatched word/token; string_location reflects the
+  // most recently popped PositionedString and is unrelated to the current token.
+  get_token_location(): CodeLocation | undefined {
+    return this.tokenizer_stack.length > 0
+      ? this.get_tokenizer().get_token_location()
+      : undefined;
+  }
+
   set_max_attempts(maxAttempts: number) {
     this.maxAttempts = maxAttempts;
   }
@@ -557,7 +567,7 @@ export class Interpreter {
       throw new UnknownModuleError(
         this.get_top_input_string(),
         name,
-        this.string_location,
+        this.get_token_location(),
       );
     }
     return result;
@@ -748,7 +758,7 @@ export class Interpreter {
       throw new UnknownWordError(
         this.get_top_input_string(),
         name,
-        this.get_string_location(),
+        this.get_token_location(),
       );
     }
 
@@ -833,7 +843,7 @@ export class Interpreter {
       throw new UnknownTokenError(
         this.get_top_input_string(),
         token.string,
-        this.string_location,
+        this.get_token_location(),
       );
     }
   }
