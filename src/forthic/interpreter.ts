@@ -421,7 +421,7 @@ export class Interpreter {
     // Look up and execute each word one at a time
     // This ensures words defined during execution are available for later words
     for (const token of tokens) {
-      const word = this.find_word(token.string);
+      const word = this.find_word(token.string, token.location);
       word.set_location(token.location);
       this.count_word(word);
       try {
@@ -431,8 +431,10 @@ export class Interpreter {
         if (e instanceof IntentionalStopError) {
           throw e;
         }
-        // Don't wrap ForthicError subclasses - they already have location context
+        // Preserve subclass identity; fill in missing location/word from dispatch context.
         if (e instanceof ForthicError) {
+          if (!e.location) e.location = token.location;
+          if (!e.word) e.word = word.name;
           throw e;
         }
         // Wrap generic errors in WordExecutionError to add location context
@@ -440,7 +442,8 @@ export class Interpreter {
           throw new WordExecutionError(
             e.message,
             e,
-            this.get_tokenizer()?.get_token_location(),
+            word.name,
+            token.location,
             word.get_location() || undefined
           );
         }
@@ -482,8 +485,10 @@ export class Interpreter {
             if (e instanceof IntentionalStopError) {
               throw e;
             }
-            // Don't wrap ForthicError subclasses - they already have location context
+            // Preserve subclass identity (for `instanceof`); fill in missing location/word from dispatch context.
             if (e instanceof ForthicError) {
+              if (!e.location) e.location = word.get_location() || undefined;
+              if (!e.word) e.word = word.name;
               throw e;
             }
             // Wrap generic errors in WordExecutionError to add location context
@@ -491,7 +496,8 @@ export class Interpreter {
               throw new WordExecutionError(
                 e.message,
                 e,
-                this.get_tokenizer()?.get_token_location(),
+                word.name,
+                word.get_location() || undefined,
                 word.get_location() || undefined
               );
             }
@@ -554,11 +560,9 @@ export class Interpreter {
   find_module(name: string): Module {
     const result = this.registered_modules[name];
     if (result === undefined) {
-      throw new UnknownModuleError(
-        this.get_top_input_string(),
-        name,
-        this.string_location,
-      );
+      // Location is filled in by the executeBatchedWordTokens catch site,
+      // which has the correct dispatching token in scope.
+      throw new UnknownModuleError(this.get_top_input_string(), name);
     }
     return result;
   }
@@ -578,11 +582,10 @@ export class Interpreter {
 
   stack_pop(): any {
     if (this.stack.length == 0) {
-      const tokenizer = this.tokenizer_stack.length > 0 ? this.get_tokenizer() : undefined;
-      throw new StackUnderflowError(
-        this.get_top_input_string(),
-        tokenizer?.get_token_location(),
-      );
+      // Location is filled in by the dispatch catch site, which has the
+      // dispatching token in scope. Reading the tokenizer here would return
+      // a stale token whose end_pos has collapsed to start_pos.
+      throw new StackUnderflowError(this.get_top_input_string());
     }
     let result = this.stack.pop();
 
@@ -729,7 +732,7 @@ export class Interpreter {
   // ======================
   // Find Word
 
-  find_word(name: string): Word {
+  find_word(name: string, location?: CodeLocation): Word {
     // 1. Check module stack (dictionary words + variables)
     let result = null;
     for (let i = this.module_stack.length - 1; i >= 0; i--) {
@@ -748,7 +751,7 @@ export class Interpreter {
       throw new UnknownWordError(
         this.get_top_input_string(),
         name,
-        this.get_string_location(),
+        location ?? this.get_tokenizer()?.get_token_location(),
       );
     }
 
@@ -833,7 +836,7 @@ export class Interpreter {
       throw new UnknownTokenError(
         this.get_top_input_string(),
         token.string,
-        this.string_location,
+        token.location,
       );
     }
   }
