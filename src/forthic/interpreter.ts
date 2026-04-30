@@ -431,7 +431,7 @@ export class Interpreter {
     // Look up and execute each word one at a time
     // This ensures words defined during execution are available for later words
     for (const token of tokens) {
-      const word = this.find_word(token.string);
+      const word = this.find_word(token.string, token.location);
       word.set_location(token.location);
       this.count_word(word);
       try {
@@ -441,9 +441,16 @@ export class Interpreter {
         if (e instanceof IntentionalStopError) {
           throw e;
         }
-        /** Preserve subclass identity; fill in missing location/word from dispatch context. */
+        /**
+         * Preserve subclass identity (so `instanceof` checks still work) and
+         * stamp the dispatching token's location. We overwrite an existing
+         * location because throw sites inside module words typically read
+         * `tokenizer.get_token_location()`, which has moved on by the time
+         * the throw fires (collapsing end_pos to start_pos). The dispatch
+         * token's location is the user-relevant one.
+         */
         if (e instanceof ForthicError) {
-          if (!e.location) e.location = this.get_tokenizer()?.get_token_location();
+          e.location = token.location;
           if (!e.word) e.word = word.name;
           throw e;
         }
@@ -453,7 +460,7 @@ export class Interpreter {
             e.message,
             e,
             word.name,
-            this.get_tokenizer()?.get_token_location(),
+            token.location,
             word.get_location() || undefined
           );
         }
@@ -497,7 +504,7 @@ export class Interpreter {
             }
             /** Preserve subclass identity (for `instanceof`); fill in missing location/word from dispatch context. */
             if (e instanceof ForthicError) {
-              if (!e.location) e.location = this.get_tokenizer()?.get_token_location();
+              if (!e.location) e.location = word.get_location() || undefined;
               if (!e.word) e.word = word.name;
               throw e;
             }
@@ -507,7 +514,7 @@ export class Interpreter {
                 e.message,
                 e,
                 word.name,
-                this.get_tokenizer()?.get_token_location(),
+                word.get_location() || undefined,
                 word.get_location() || undefined
               );
             }
@@ -745,7 +752,7 @@ export class Interpreter {
   // ======================
   // Find Word
 
-  find_word(name: string): Word {
+  find_word(name: string, location?: CodeLocation): Word {
     // 1. Check module stack (dictionary words + variables)
     let result = null;
     for (let i = this.module_stack.length - 1; i >= 0; i--) {
@@ -764,7 +771,7 @@ export class Interpreter {
       throw new UnknownWordError(
         this.get_top_input_string(),
         name,
-        this.get_token_location(),
+        location ?? this.get_token_location(),
       );
     }
 

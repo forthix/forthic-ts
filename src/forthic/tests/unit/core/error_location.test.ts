@@ -19,6 +19,10 @@ describe("error context: source location", () => {
     expect(captured!.location!.line).toBe(1);
     // GARBAGE starts at column 5 (1-indexed) in "1 2 GARBAGE"
     expect(captured!.location!.column).toBe(5);
+    // Span must cover the whole token, not collapse to start_pos.
+    // (Regression: tokenizer state had moved on by the time of the throw.)
+    expect(captured!.location!.start_pos).toBe(4);
+    expect(captured!.location!.end_pos).toBe(4 + "GARBAGE".length);
   });
 
   test("UnknownModuleError carries token location", async () => {
@@ -47,5 +51,12 @@ describe("error context: source location", () => {
     expect(captured).toBeInstanceOf(UnknownVariableError);
     expect(captured!.location).toBeDefined();
     expect(captured!.location!.line).toBe(1);
+    // UnknownVariableError is thrown from the `@` module word during dispatch.
+    // tokenizer.get_token_location() at throw time returns stale state; the
+    // catch site stamps the dispatch token's location instead.
+    // `@` is at column 18 (1-indexed), start_pos 17, length 1.
+    expect(captured!.location!.column).toBe(18);
+    expect(captured!.location!.start_pos).toBe(17);
+    expect(captured!.location!.end_pos).toBe(18);
   });
 });
