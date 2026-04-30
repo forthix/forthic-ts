@@ -1,5 +1,5 @@
 import { TokenType, Token, Tokenizer, CodeLocation } from "./tokenizer.js";
-import { Module, Word, PushValueWord, DefinitionWord, ModuleMemoWord } from "./module.js";
+import { Module, Variable, Word, PushValueWord, DefinitionWord, ModuleMemoWord } from "./module.js";
 import { PositionedString } from "./tokenizer.js";
 import {
   UnknownWordError,
@@ -541,6 +541,14 @@ export class Interpreter {
   cur_module(): Module {
     const result = this.module_stack[this.module_stack.length - 1];
     return result;
+  }
+
+  find_variable(name: string): Variable | null {
+    for (let i = this.module_stack.length - 1; i >= 0; i--) {
+      const m = this.module_stack[i];
+      if (m.variables[name]) return m.variables[name];
+    }
+    return null;
   }
 
   find_module(name: string): Module {
