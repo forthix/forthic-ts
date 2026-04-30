@@ -441,8 +441,10 @@ export class Interpreter {
         if (e instanceof IntentionalStopError) {
           throw e;
         }
-        // Don't wrap ForthicError subclasses - they already have location context
+        /** Preserve subclass identity; fill in missing location/word from dispatch context. */
         if (e instanceof ForthicError) {
+          if (!e.location) e.location = this.get_tokenizer()?.get_token_location();
+          if (!e.word) e.word = word.name;
           throw e;
         }
         // Wrap generic errors in WordExecutionError to add location context
@@ -450,6 +452,7 @@ export class Interpreter {
           throw new WordExecutionError(
             e.message,
             e,
+            word.name,
             this.get_tokenizer()?.get_token_location(),
             word.get_location() || undefined
           );
@@ -492,8 +495,10 @@ export class Interpreter {
             if (e instanceof IntentionalStopError) {
               throw e;
             }
-            // Don't wrap ForthicError subclasses - they already have location context
+            /** Preserve subclass identity (for `instanceof`); fill in missing location/word from dispatch context. */
             if (e instanceof ForthicError) {
+              if (!e.location) e.location = this.get_tokenizer()?.get_token_location();
+              if (!e.word) e.word = word.name;
               throw e;
             }
             // Wrap generic errors in WordExecutionError to add location context
@@ -501,6 +506,7 @@ export class Interpreter {
               throw new WordExecutionError(
                 e.message,
                 e,
+                word.name,
                 this.get_tokenizer()?.get_token_location(),
                 word.get_location() || undefined
               );

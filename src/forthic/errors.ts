@@ -12,14 +12,16 @@ export class ForthicError extends Error {
   private forthic: string;
   private note: string;
   location?: CodeLocationData;
+  word?: string;
   cause?: Error;
 
-  constructor(forthic: string, note: string, location?: CodeLocationData, cause?: Error) {
+  constructor(forthic: string, note: string, location?: CodeLocationData, cause?: Error, word?: string) {
     super(note);
     this.name = this.constructor.name;
     this.forthic = forthic;
     this.note = note;
     this.location = location;
+    this.word = word;
     if (cause) {
       this.cause = cause;
     }
@@ -44,15 +46,18 @@ export class ForthicError extends Error {
   getMessage(): string {
     return this.note;
   }
+
+  getWord(): string | undefined {
+    return this.word;
+  }
 }
 
 export class UnknownWordError extends ForthicError {
-  private word: string;
+  declare word: string; // override optionality on ForthicError
 
   constructor(forthic: string, word: string, location?: CodeLocationData, cause?: Error) {
     const note = `Unknown word: ${word}`;
-    super(forthic, note, location, cause);
-    this.word = word;
+    super(forthic, note, location, cause, word);
     this.name = "UnknownWordError";
   }
 
@@ -77,17 +82,20 @@ export class UnknownVariableError extends ForthicError {
 }
 
 export class WordExecutionError extends ForthicError {
+  declare word: string; // override optionality on ForthicError
+
   private innerError: Error;
   private definition_location?: CodeLocationData;
 
   constructor(
     message: string,
     error: Error,
+    word: string,
     call_location?: CodeLocationData,
     definition_location?: CodeLocationData
   ) {
     // Pass the error as cause to maintain compatibility with code that checks .cause
-    super("", message, call_location, error);
+    super("", message, call_location, error, word);
     this.innerError = error;
     this.definition_location = definition_location;
   }
@@ -106,6 +114,10 @@ export class WordExecutionError extends ForthicError {
 
   getDefinitionLocation(): CodeLocationData | undefined {
     return this.definition_location;
+  }
+
+  getWord(): string {
+    return this.word;
   }
 }
 
@@ -283,7 +295,8 @@ export function get_error_description(forthic: string, forthicError: ForthicErro
         call_location_info += ` in ${location.source}`;
       }
 
-      return `${forthicError.getNote()} ${def_location_info}:\n\`\`\`\n${def_lines.map((line) => `${line}`).join("\n")}\n${def_error_line}\n\`\`\`\nCalled from ${call_location_info}:\n\`\`\`\n${call_lines.map((line) => `${line}`).join("\n")}\n${call_error_line}\n\`\`\``;
+      const word_hint = ` at \`${forthicError.word}\``;
+      return `${forthicError.getNote()}${word_hint} ${def_location_info}:\n\`\`\`\n${def_lines.map((line) => `${line}`).join("\n")}\n${def_error_line}\n\`\`\`\nCalled from ${call_location_info}:\n\`\`\`\n${call_lines.map((line) => `${line}`).join("\n")}\n${call_error_line}\n\`\`\``;
     }
   }
 
@@ -297,7 +310,8 @@ export function get_error_description(forthic: string, forthicError: ForthicErro
     location_info += ` in ${location.source}`;
   }
 
-  const error_message = `${forthicError.getNote()} ${location_info}:\n\`\`\`\n${lines.map((line) => `${line}`).join("\n")}\n${error_line}\n\`\`\``;
+  const word_hint = forthicError.word ? ` at \`${forthicError.word}\`` : "";
+  const error_message = `${forthicError.getNote()}${word_hint} ${location_info}:\n\`\`\`\n${lines.map((line) => `${line}`).join("\n")}\n${error_line}\n\`\`\``;
   return error_message;
 }
 
