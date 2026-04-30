@@ -42,9 +42,8 @@ describe("error context: word name annotation", () => {
     expect(captured).toBeInstanceOf(StackUnderflowError);
     expect(captured!.word).toBe("+");
     expect(captured!.location).toBeDefined();
-    // Span must cover the whole token, not collapse to start_pos.
-    // Regression: catch-site used tokenizer.get_token_location() which had
-    // moved on by the time of the throw, collapsing end_pos to start_pos.
+
+    // Span must cover the whole + token
     expect(captured!.location!.start_pos).toBe(2);
     expect(captured!.location!.end_pos).toBe(2 + 1);
   });

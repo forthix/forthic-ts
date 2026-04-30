@@ -202,12 +202,15 @@ export class DefinitionWord extends Word {
           try {
             await word.execute(interp);
           } catch (e) {
-            const tokenizer = interp.get_tokenizer();
+            // call_location: use this DefinitionWord's own location (set by
+            // dispatch via word.set_location(token.location)). Reading
+            // tokenizer.get_token_location() here would return a stale token
+            // whose end_pos has collapsed to start_pos.
             throw new WordExecutionError(
               `Error executing ${this.name}`,
               e as Error,
               word.name,
-              tokenizer.get_token_location(),
+              this.get_location() || undefined,
               word.get_location() || undefined
             );
           }
@@ -217,12 +220,11 @@ export class DefinitionWord extends Word {
         try {
           await this.executeBatch(batch, interp, runtimeManager);
         } catch (e) {
-          const tokenizer = interp.get_tokenizer();
           throw new WordExecutionError(
             `Error executing ${this.name} (batched remote execution)`,
             e as Error,
             batch.words[0]?.name ?? this.name,
-            tokenizer.get_token_location(),
+            this.get_location() || undefined,
             batch.words[0]?.get_location() || undefined
           );
         }

@@ -298,16 +298,6 @@ export class Interpreter {
     return this.string_location;
   }
 
-  // Returns the location of the token currently being processed by the
-  // active tokenizer. Prefer this over get_string_location() when reporting
-  // errors against the dispatched word/token; string_location reflects the
-  // most recently popped PositionedString and is unrelated to the current token.
-  get_token_location(): CodeLocation | undefined {
-    return this.tokenizer_stack.length > 0
-      ? this.get_tokenizer().get_token_location()
-      : undefined;
-  }
-
   set_max_attempts(maxAttempts: number) {
     this.maxAttempts = maxAttempts;
   }
@@ -441,16 +431,9 @@ export class Interpreter {
         if (e instanceof IntentionalStopError) {
           throw e;
         }
-        /**
-         * Preserve subclass identity (so `instanceof` checks still work) and
-         * stamp the dispatching token's location. We overwrite an existing
-         * location because throw sites inside module words typically read
-         * `tokenizer.get_token_location()`, which has moved on by the time
-         * the throw fires (collapsing end_pos to start_pos). The dispatch
-         * token's location is the user-relevant one.
-         */
+        /** Preserve subclass identity; fill in missing location/word from dispatch context. */
         if (e instanceof ForthicError) {
-          e.location = token.location;
+          if (!e.location) e.location = token.location;
           if (!e.word) e.word = word.name;
           throw e;
         }
@@ -577,11 +560,9 @@ export class Interpreter {
   find_module(name: string): Module {
     const result = this.registered_modules[name];
     if (result === undefined) {
-      throw new UnknownModuleError(
-        this.get_top_input_string(),
-        name,
-        this.get_token_location(),
-      );
+      // Location is filled in by the executeBatchedWordTokens catch site,
+      // which has the correct dispatching token in scope.
+      throw new UnknownModuleError(this.get_top_input_string(), name);
     }
     return result;
   }
@@ -601,11 +582,10 @@ export class Interpreter {
 
   stack_pop(): any {
     if (this.stack.length == 0) {
-      const tokenizer = this.tokenizer_stack.length > 0 ? this.get_tokenizer() : undefined;
-      throw new StackUnderflowError(
-        this.get_top_input_string(),
-        tokenizer?.get_token_location(),
-      );
+      // Location is filled in by the dispatch catch site, which has the
+      // dispatching token in scope. Reading the tokenizer here would return
+      // a stale token whose end_pos has collapsed to start_pos.
+      throw new StackUnderflowError(this.get_top_input_string());
     }
     let result = this.stack.pop();
 
@@ -771,7 +751,7 @@ export class Interpreter {
       throw new UnknownWordError(
         this.get_top_input_string(),
         name,
-        location ?? this.get_token_location(),
+        location ?? this.get_tokenizer()?.get_token_location(),
       );
     }
 
@@ -856,7 +836,7 @@ export class Interpreter {
       throw new UnknownTokenError(
         this.get_top_input_string(),
         token.string,
-        this.get_token_location(),
+        token.location,
       );
     }
   }
