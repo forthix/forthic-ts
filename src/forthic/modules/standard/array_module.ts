@@ -11,7 +11,7 @@ Array and collection operations for manipulating arrays and records.
 - Transform: MAP, REVERSE
 - Combine: APPEND, ZIP, ZIP_WITH, CONCAT
 - Filter: SELECT, UNIQUE, DIFFERENCE, INTERSECTION, UNION
-- Sort: SORT, SHUFFLE, ROTATE
+- Sort: SORT
 - Group: BY_FIELD, GROUP-BY-FIELD, GROUP_BY, GROUPS_OF
 - Utility: <REPEAT, FOREACH, REDUCE, UNPACK, FLATTEN
 
@@ -391,35 +391,6 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-
-  @ForthicWord("( array:any[] -- array:any[] )", "Shuffle array randomly")
-  async SHUFFLE(array: any[]) {
-    if (!array) return array;
-
-    const result = [...array];
-    for (let i = result.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [result[i], result[j]] = [result[j], result[i]];
-    }
-
-    return result;
-  }
-
-  @ForthicWord("( container:any -- container:any )", "Rotate container by moving last element to front")
-  async ROTATE(container: any) {
-    if (!container) return container;
-
-    let result = container;
-    if (container instanceof Array) {
-      if (container.length > 0) {
-        result = [...container];
-        const val = result.pop();
-        result.unshift(val);
-      }
-    }
-
-    return result;
-  }
 
   @ForthicWord("( container:any -- elements:any )", "Unpack array or record elements onto stack")
   async UNPACK(container: any) {
