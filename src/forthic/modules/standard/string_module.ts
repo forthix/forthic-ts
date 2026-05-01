@@ -8,9 +8,10 @@ String manipulation and processing operations with regex and URL encoding suppor
 
 ## Categories
 - Conversion: >STR
-- Transform: LOWERCASE, UPPERCASE, STRIP, ASCII
+- Transform: LOWERCASE, UPPERCASE, STRIP, ASCII, TRIM-PREFIX, TRIM-SUFFIX
 - Split/Join: SPLIT, JOIN, CONCAT
-- Pattern: REPLACE, RE-MATCH, RE-MATCH-ALL
+- Pattern: REPLACE, RE-MATCH, RE-MATCH-ALL, RE-MATCH?
+- Predicates: STARTS-WITH?, ENDS-WITH?, RE-MATCH?
 - Constants: /N, /T
 
 ## Examples
@@ -26,18 +27,44 @@ String manipulation and processing operations with regex and URL encoding suppor
     super("string");
   }
 
-  @ForthicDirectWord("( str1:string str2:string -- result:string ) OR ( strings:string[] -- result:string )", "Concatenate two strings or array of strings", "CONCAT")
+  @ForthicDirectWord(
+    "( str1:string str2:string -- result:string ) OR ( arr1:any[] arr2:any[] -- result:any[] ) OR ( strings:string[] -- result:string )",
+    "Concatenate two strings, two arrays, or an array of strings. Dispatches on top-of-stack type.",
+    "CONCAT",
+  )
   async CONCAT(interp: Interpreter) {
-    const str2 = interp.stack_pop();
-    let array: string[];
-    if (str2 instanceof Array) {
-      array = str2;
-    } else {
-      const str1 = interp.stack_pop();
-      array = [str1, str2];
+    const top = interp.stack_pop();
+
+    // Case 1: Top is an array. Could be either:
+    //   (a) [arr1, arr2] form — join all arrays into one
+    //   (b) [str1, str2, ...] strings form — join into a single string
+    // Disambiguate: if there's another array immediately below, treat as the
+    // (arr1 arr2 -- result) two-array form. Otherwise treat as the array-of-things form.
+    if (top instanceof Array) {
+      // Check whether the value below is also an array → two-array concat
+      if (interp.stack_peek() instanceof Array) {
+        const below = interp.stack_pop();
+        interp.stack_push([...below, ...top]);
+        return;
+      }
+
+      // Else: array-of-things. If it's all strings, join into a string;
+      // if it's an array of arrays, flatten one level.
+      if (top.length > 0 && top.every((x: any) => Array.isArray(x))) {
+        const result: any[] = [];
+        for (const sub of top) result.push(...sub);
+        interp.stack_push(result);
+        return;
+      }
+
+      const result = top.join("");
+      interp.stack_push(result);
+      return;
     }
-    const result = array.join("");
-    interp.stack_push(result);
+
+    // Case 2: Two strings on the stack.
+    const str1 = interp.stack_pop();
+    interp.stack_push(`${str1 ?? ""}${top ?? ""}`);
   }
 
   @ForthicWord("( item:any -- string:string )", "Convert item to string", ">STR")
@@ -65,6 +92,58 @@ String manipulation and processing operations with regex and URL encoding suppor
   @ForthicWord("( -- char:string )", "Tab character", "/T")
   async slash_T() {
     return "\t";
+  }
+
+  @ForthicWord(
+    "( str:string prefix:string -- bool:boolean )",
+    "Returns true if str begins with prefix.",
+    "STARTS-WITH?",
+  )
+  async STARTS_WITH(str: any, prefix: any) {
+    if (typeof str !== "string" || typeof prefix !== "string") return false;
+    return str.startsWith(prefix);
+  }
+
+  @ForthicWord(
+    "( str:string suffix:string -- bool:boolean )",
+    "Returns true if str ends with suffix.",
+    "ENDS-WITH?",
+  )
+  async ENDS_WITH(str: any, suffix: any) {
+    if (typeof str !== "string" || typeof suffix !== "string") return false;
+    return str.endsWith(suffix);
+  }
+
+  @ForthicWord(
+    "( str:string prefix:string -- result:string )",
+    "Strip prefix from start of str if present (otherwise return str unchanged).",
+    "TRIM-PREFIX",
+  )
+  async TRIM_PREFIX(str: any, prefix: any) {
+    if (typeof str !== "string") return str;
+    if (typeof prefix !== "string" || prefix.length === 0) return str;
+    return str.startsWith(prefix) ? str.slice(prefix.length) : str;
+  }
+
+  @ForthicWord(
+    "( str:string suffix:string -- result:string )",
+    "Strip suffix from end of str if present (otherwise return str unchanged).",
+    "TRIM-SUFFIX",
+  )
+  async TRIM_SUFFIX(str: any, suffix: any) {
+    if (typeof str !== "string") return str;
+    if (typeof suffix !== "string" || suffix.length === 0) return str;
+    return str.endsWith(suffix) ? str.slice(0, str.length - suffix.length) : str;
+  }
+
+  @ForthicWord(
+    "( str:string pattern:string -- bool:boolean )",
+    "Returns true if str matches the regex pattern. Predicate-only — does not return the match. (jq's `test`.)",
+    "RE-MATCH?",
+  )
+  async RE_MATCH_TEST(str: any, pattern: any) {
+    if (typeof str !== "string" || typeof pattern !== "string") return false;
+    return new RegExp(pattern).test(str);
   }
 
 

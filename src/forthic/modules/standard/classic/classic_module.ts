@@ -478,6 +478,23 @@ in the sibling standard modules.
   }
 
   @ForthicWord(
+    "( record:any key_vals:any[] -- record:any )",
+    "Set default values for missing/empty fields. Modern path is `defaults_rec input_rec MERGE`.",
+    "REC-DEFAULTS",
+  )
+  async REC_DEFAULTS(record: any, key_vals: any[]) {
+    key_vals.forEach((key_val) => {
+      const key = key_val[0];
+      const value = record[key];
+      if (value === undefined || value === null || value === "") {
+        record[key] = key_val[1];
+      }
+    });
+
+    return record;
+  }
+
+  @ForthicWord(
     "( date1:Temporal.PlainDate date2:Temporal.PlainDate -- num_days:number )",
     "Get difference in days between dates (date1 - date2). Surfaced as DAYS-BETWEEN in datetime_module.",
     "SUBTRACT-DATES",

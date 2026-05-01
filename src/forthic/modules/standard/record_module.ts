@@ -7,7 +7,12 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
 ## Categories
 - Core: REC, REC@, |REC@, <REC!
-- Transform: REC-DEFAULTS, DELETE
+- Construct: ENTRIES>REC
+- Disassemble: REC>ENTRIES
+- Combine: MERGE
+- Subset: PICK, OMIT
+- Predicate: HAS-KEY?
+- Transform: DELETE
 - Access: KEYS, VALUES
 `);
   }
@@ -104,17 +109,91 @@ Record (object/dictionary) manipulation operations for working with key-value da
   }
 
 
-  @ForthicWord("( record:any key_vals:any[] -- record:any )", "Set default values for missing/empty fields", "REC-DEFAULTS")
-  async REC_DEFAULTS(record: any, key_vals: any[]) {
-    key_vals.forEach((key_val) => {
-      const key = key_val[0];
-      const value = record[key];
-      if (value === undefined || value === null || value === "") {
-        record[key] = key_val[1];
+  @ForthicWord(
+    "( pairs:any[] -- rec:any )",
+    "Build a record from an array of [key, value] pairs. Alias of REC, surfaced for symmetry with REC>ENTRIES.",
+    "ENTRIES>REC",
+  )
+  async ENTRIES_to_REC(pairs: any[]) {
+    let _key_vals = pairs;
+    if (!_key_vals) _key_vals = [];
+
+    const result: any = {};
+    _key_vals.forEach((pair) => {
+      let key = null;
+      let val = null;
+      if (pair) {
+        if (pair.length >= 1) key = pair[0];
+        if (pair.length >= 2) val = pair[1];
       }
+      result[key] = val;
     });
 
-    return record;
+    return result;
+  }
+
+  @ForthicWord(
+    "( rec:any -- pairs:any[] )",
+    "Convert a record to an array of [key, value] pairs (sorted by key for stability). Inverse of ENTRIES>REC / REC.",
+    "REC>ENTRIES",
+  )
+  async REC_to_ENTRIES(rec: any) {
+    if (!rec || typeof rec !== "object" || Array.isArray(rec)) return [];
+    const keys = Object.keys(rec).sort();
+    return keys.map((k) => [k, rec[k]]);
+  }
+
+  @ForthicWord(
+    "( rec1:any rec2:any -- merged:any )",
+    "Shallow merge two records. Keys present in rec2 override rec1.",
+    "MERGE",
+  )
+  async MERGE(rec1: any, rec2: any) {
+    const a = rec1 && typeof rec1 === "object" && !Array.isArray(rec1) ? rec1 : {};
+    const b = rec2 && typeof rec2 === "object" && !Array.isArray(rec2) ? rec2 : {};
+    return { ...a, ...b };
+  }
+
+  @ForthicWord(
+    "( rec:any keys:any[] -- rec:any )",
+    "Return a new record containing only the listed keys (missing keys are skipped).",
+    "PICK",
+  )
+  async PICK(rec: any, keys: any[]) {
+    if (!rec || typeof rec !== "object" || Array.isArray(rec)) return {};
+    const ks = Array.isArray(keys) ? keys : [];
+    const result: Record<string, any> = {};
+    for (const k of ks) {
+      if (Object.prototype.hasOwnProperty.call(rec, k)) {
+        result[k] = rec[k];
+      }
+    }
+    return result;
+  }
+
+  @ForthicWord(
+    "( rec:any keys:any[] -- rec:any )",
+    "Return a new record without the listed keys.",
+    "OMIT",
+  )
+  async OMIT(rec: any, keys: any[]) {
+    if (!rec || typeof rec !== "object" || Array.isArray(rec)) return {};
+    const drop = new Set(Array.isArray(keys) ? keys : []);
+    const result: Record<string, any> = {};
+    for (const k of Object.keys(rec)) {
+      if (!drop.has(k)) result[k] = rec[k];
+    }
+    return result;
+  }
+
+  @ForthicWord(
+    "( rec:any key:any -- bool:boolean )",
+    "Returns true if rec has the given key (own property). Distinct from REC@ NULL == — handles intentional null values correctly.",
+    "HAS-KEY?",
+  )
+  async HAS_KEY(rec: any, key: any) {
+    if (!rec || typeof rec !== "object" || Array.isArray(rec)) return false;
+    return Object.prototype.hasOwnProperty.call(rec, key);
   }
 
   @ForthicWord("( container:any key:any -- container:any )", "Delete key from record or index from array", "DELETE")
