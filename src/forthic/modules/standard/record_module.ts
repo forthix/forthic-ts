@@ -7,7 +7,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
 ## Categories
 - Core: REC, REC@, |REC@, <REC!
-- Transform: RELABEL, INVERT-KEYS, REC-DEFAULTS, <DEL
+- Transform: REC-DEFAULTS, <DEL
 - Access: KEYS, VALUES
 `);
   }
@@ -103,48 +103,6 @@ Record (object/dictionary) manipulation operations for working with key-value da
     return _rec;
   }
 
-
-  @ForthicWord("( container:any old_keys:any[] new_keys:any[] -- container:any )", "Rename record keys")
-  async RELABEL(container: any, old_keys: any[], new_keys: any[]) {
-    if (!container) return container;
-
-    if (old_keys.length !== new_keys.length) {
-      throw new Error("RELABEL: old_keys and new_keys must be same length");
-    }
-
-    const new_to_old: any = {};
-    for (let i = 0; i < old_keys.length; i++) {
-      new_to_old[new_keys[i]] = old_keys[i];
-    }
-
-    let result: any;
-    if (container instanceof Array) {
-      result = [];
-      Object.keys(new_to_old)
-        .sort()
-        .forEach((k) => result.push(container[new_to_old[k]]));
-    } else {
-      result = {};
-      Object.keys(new_to_old).forEach((k) => (result[k] = container[new_to_old[k]]));
-    }
-
-    return result;
-  }
-
-  @ForthicWord("( record:any -- inverted:any )", "Invert two-level nested record structure", "INVERT-KEYS")
-  async INVERT_KEYS(record: any) {
-    const result: any = {};
-    Object.keys(record).forEach((first_key) => {
-      const sub_record = record[first_key];
-      Object.keys(sub_record).forEach((second_key) => {
-        const value = sub_record[second_key];
-        if (!result[second_key]) result[second_key] = {};
-        result[second_key][first_key] = value;
-      });
-    });
-
-    return result;
-  }
 
   @ForthicWord("( record:any key_vals:any[] -- record:any )", "Set default values for missing/empty fields", "REC-DEFAULTS")
   async REC_DEFAULTS(record: any, key_vals: any[]) {

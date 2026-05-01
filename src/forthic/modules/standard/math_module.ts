@@ -10,7 +10,6 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
 - Arithmetic: +, -, *, /, MOD
 - Aggregates: MEAN, MAX, MIN, SUM
 - Type conversion: >INT, >FLOAT, >FIXED, ROUND
-- Special values: INFINITY, UNIFORM-RANDOM
 - Math functions: ABS, SQRT, FLOOR, CEIL, CLAMP
 
 ## Examples
@@ -296,17 +295,6 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     }
 
     return Math.round(num);
-  }
-
-
-  @ForthicWord("( -- infinity:number )", "Push Infinity value")
-  async INFINITY() {
-    return Infinity;
-  }
-
-  @ForthicWord("( low:number high:number -- random:number )", "Generate random number in range [low, high)")
-  async ["UNIFORM-RANDOM"](low: number, high: number) {
-    return Math.random() * (high - low) + low;
   }
 
 

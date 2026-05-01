@@ -10,7 +10,7 @@ Date and time operations using the Temporal API for timezone-aware datetime mani
 - Current: TODAY, NOW
 - Time adjustment: AM, PM
 - Conversion to: >TIME, >DATE, >DATETIME, AT
-- Conversion from: TIME>STR, DATE>STR, DATE>INT
+- Conversion from: TIME>STR, DATE>STR
 - Timestamps: >TIMESTAMP, TIMESTAMP>DATETIME
 - Date math: ADD-DAYS, SUBTRACT-DATES
 
@@ -239,17 +239,6 @@ TODAY 7 ADD-DAYS
     return date.toString();
   }
 
-  @ForthicWord("( date:Temporal.PlainDate -- int:number )", "Convert date to integer (YYYYMMDD)", "DATE>INT")
-  async DATE_to_INT(date: any) {
-    if (!date || typeof date.year !== "number") {
-      return null;
-    }
-
-    const year = date.year;
-    const month = String(date.month).padStart(2, "0");
-    const day = String(date.day).padStart(2, "0");
-    return parseInt(`${year}${month}${day}`, 10);
-  }
 
 
   @ForthicDirectWord("( datetime:Temporal.ZonedDateTime -- timestamp:number )", "Convert datetime to Unix timestamp (seconds)", ">TIMESTAMP")

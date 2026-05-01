@@ -8,7 +8,7 @@ Comparison, logic, and membership operations for boolean values and conditions.
 
 ## Categories
 - Comparison: ==, !=, <, <=, >, >=
-- Logic: OR, AND, NOT, XOR, NAND
+- Logic: OR, AND, NOT
 - Membership: IN, ANY, ALL
 - Conversion: >BOOL
 
@@ -102,17 +102,6 @@ Comparison, logic, and membership operations for boolean values and conditions.
   async NOT(bool: boolean) {
     return !bool;
   }
-
-  @ForthicWord("( a:boolean b:boolean -- result:boolean )", "Logical XOR (exclusive or)")
-  async XOR(a: boolean, b: boolean) {
-    return (a || b) && !(a && b);
-  }
-
-  @ForthicWord("( a:boolean b:boolean -- result:boolean )", "Logical NAND (not and)")
-  async NAND(a: boolean, b: boolean) {
-    return !(a && b);
-  }
-
 
   @ForthicWord("( item:any array:any[] -- in:boolean )", "Check if item is in array")
   async IN(item: any, array: any[]) {

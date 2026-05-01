@@ -7,11 +7,11 @@ export class StringModule extends DecoratedModule {
 String manipulation and processing operations with regex and URL encoding support.
 
 ## Categories
-- Conversion: >STR, URL-ENCODE, URL-DECODE
+- Conversion: >STR
 - Transform: LOWERCASE, UPPERCASE, STRIP, ASCII
 - Split/Join: SPLIT, JOIN, CONCAT
-- Pattern: REPLACE, RE-MATCH, RE-MATCH-ALL, RE-MATCH-GROUP
-- Constants: /N, /R, /T
+- Pattern: REPLACE, RE-MATCH, RE-MATCH-ALL
+- Constants: /N, /T
 
 ## Examples
 "hello" "world" CONCAT
@@ -19,7 +19,6 @@ String manipulation and processing operations with regex and URL encoding suppor
 "hello world" " " SPLIT
 ["hello" "world"] " " JOIN
 "Hello" LOWERCASE
-"test@example.com" "(@.+)" RE-MATCH 1 RE-MATCH-GROUP
 `);
   }
 
@@ -63,15 +62,11 @@ String manipulation and processing operations with regex and URL encoding suppor
     return "\n";
   }
 
-  @ForthicWord("( -- char:string )", "Carriage return character", "/R")
-  async slash_R() {
-    return "\r";
-  }
-
   @ForthicWord("( -- char:string )", "Tab character", "/T")
   async slash_T() {
     return "\t";
   }
+
 
   @ForthicWord("( string:string -- result:string )", "Convert string to lowercase")
   async LOWERCASE(string: string) {
@@ -133,24 +128,4 @@ String manipulation and processing operations with regex and URL encoding suppor
     return result;
   }
 
-  @ForthicWord("( match:any num:number -- result:any )", "Get capture group from regex match", "RE-MATCH-GROUP")
-  async RE_MATCH_GROUP(match: any, num: number) {
-    let result = null;
-    if (match) result = match[num];
-    return result;
-  }
-
-  @ForthicWord("( str:string -- encoded:string )", "URL encode string", "URL-ENCODE")
-  async URL_ENCODE(str: string) {
-    let result = "";
-    if (str) result = encodeURIComponent(str);
-    return result;
-  }
-
-  @ForthicWord("( urlencoded:string -- decoded:string )", "URL decode string", "URL-DECODE")
-  async URL_DECODE(urlencoded: string) {
-    let result = "";
-    if (urlencoded) result = decodeURIComponent(urlencoded);
-    return result;
-  }
 }

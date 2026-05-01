@@ -12,12 +12,10 @@ Essential interpreter operations for stack manipulation, variables, control flow
 ## Categories
 - Stack: POP, DUP, SWAP
 - Variables: VARIABLES, !, @, !@
-- Module: EXPORT, USE-MODULES
+- Module: USE-MODULES
 - Execution: INTERPRET
-- Control: NOP, DEFAULT, *DEFAULT, NULL, ARRAY?
+- Control: NOP, DEFAULT, NULL, ARRAY?
 - Options: ~> (converts array to WordOptions)
-- Profiling: PROFILE-START, PROFILE-TIMESTAMP, PROFILE-END, PROFILE-DATA
-- Logging: START-LOG, END-LOG
 - String: INTERPOLATE, PRINT
 - Debug: PEEK!, STACK!
 
@@ -168,11 +166,6 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     if (string) await this.interp.run(string, string_location);
   }
 
-  @ForthicWord("( names:string[] -- )", "Exports words from current module")
-  async EXPORT(names: string[]) {
-    this.interp.cur_module().add_exportable(names);
-  }
-
   @ForthicWord("( names:string[] [options:WordOptions] -- )", "Imports modules by name", "USE-MODULES")
   async USE_MODULES(names: string[], options: Record<string, any>) {
     if (!names) return;
@@ -203,77 +196,11 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     return value;
   }
 
-  @ForthicWord("( value:any default_forthic:string -- result:any )", "Returns value or executes Forthic if value is null/undefined/empty string")
-  async ["*DEFAULT"](value: any, default_forthic: string) {
-    if (value === undefined || value === null || value === "") {
-      const string_location = this.interp.get_string_location();
-      await this.interp.run(default_forthic, string_location);
-      return this.interp.stack_pop();
-    }
-    return value;
-  }
-
-
   @ForthicWord("( array:any[] -- options:WordOptions )", "Convert options array to WordOptions. Format: [.key1 val1 .key2 val2]")
   async ["~>"](array: any[]) {
     return new WordOptions(array);
   }
 
-
-  @ForthicWord("( -- )", "Starts profiling word execution")
-  async ["PROFILE-START"]() {
-    this.interp.start_profiling();
-  }
-
-  @ForthicWord("( -- )", "Stops profiling word execution")
-  async ["PROFILE-END"]() {
-    this.interp.stop_profiling();
-  }
-
-  @ForthicWord("( label:string -- )", "Records profiling timestamp with label")
-  async ["PROFILE-TIMESTAMP"](label: string) {
-    this.interp.add_timestamp(label);
-  }
-
-  @ForthicWord("( -- profile_data:object )", "Returns profiling data (word counts and timestamps)")
-  async ["PROFILE-DATA"]() {
-    const histogram = this.interp.word_histogram();
-    const timestamps = this.interp.profile_timestamps();
-
-    const result: { word_counts: any[]; timestamps: any[] } = {
-      word_counts: [],
-      timestamps: [],
-    };
-
-    histogram.forEach((val) => {
-      const rec = { word: val["word"], count: val["count"] };
-      result["word_counts"].push(rec);
-    });
-
-    let prev_time = 0.0;
-    timestamps.forEach((t) => {
-      const rec = {
-        label: t["label"],
-        time_ms: t["time_ms"],
-        delta: t["time_ms"] - prev_time,
-      };
-      prev_time = t["time_ms"];
-      result["timestamps"].push(rec);
-    });
-
-    return result;
-  }
-
-
-  @ForthicWord("( -- )", "Starts logging interpreter stream", "START-LOG")
-  async START_LOG() {
-    this.interp.startStream();
-  }
-
-  @ForthicWord("( -- )", "Ends logging interpreter stream", "END-LOG")
-  async END_LOG() {
-    this.interp.endStream();
-  }
 
 
   @ForthicWord("( string:string [options:WordOptions] -- result:string )", "Interpolate variables (.name) and return result string. Use \\. to escape literal dots.")
