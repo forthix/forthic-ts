@@ -1,5 +1,6 @@
 import { Interpreter, dup_interpreter } from "../../interpreter.js";
 import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
+import { WordOptions } from "../../word_options.js";
 
 export class ArrayModule extends DecoratedModule {
   static {
@@ -13,6 +14,7 @@ Array and collection operations for manipulating arrays and records.
 - Filter: SELECT, UNIQUE, DIFFERENCE, INTERSECTION, UNION
 - Sort: SORT
 - Access: NTH, FIRST, LAST
+- Iteration aliases: MAP-WITH-KEY, FOREACH-WITH-KEY, FILTER-WITH-KEY, GROUP-BY-WITH-KEY, MAP-AT
 - Group: BY_FIELD, GROUP-BY-FIELD, GROUP_BY, GROUPS_OF
 - Utility: TIMES-RUN, FOREACH, REDUCE, UNPACK, FLATTEN
 
@@ -886,6 +888,100 @@ Several words support options via the ~> operator using syntax: [.option_name va
     await map_word.execute(this.interp);
 
     return undefined; // MapWord pushes result directly
+  }
+
+  // ========================================
+  // Convenience aliases. Each desugars to the option form on the canonical
+  // word: e.g. MAP-WITH-KEY === MAP { .with_key TRUE }. Implemented as direct
+  // words that pop their args, push them back along with a WordOptions, and
+  // delegate to the wrapped canonical method.
+  // ========================================
+
+  @ForthicDirectWord(
+    "( items:any forthic:string -- mapped:any )",
+    "MAP with key/index pushed to forthic before value. Alias for MAP { .with_key TRUE }.",
+    "MAP-WITH-KEY",
+  )
+  async MAP_WITH_KEY(interp: Interpreter) {
+    const forthic = interp.stack_pop();
+    const items = interp.stack_pop();
+    interp.stack_push(items);
+    interp.stack_push(forthic);
+    interp.stack_push(new WordOptions(["with_key", true]));
+    await (this.MAP as unknown as (interp: Interpreter) => Promise<void>).call(this, interp);
+  }
+
+  @ForthicDirectWord(
+    "( items:any forthic:string -- ? )",
+    "FOREACH with key/index pushed to forthic before value. Alias for FOREACH { .with_key TRUE }.",
+    "FOREACH-WITH-KEY",
+  )
+  async FOREACH_WITH_KEY(interp: Interpreter) {
+    const forthic = interp.stack_pop();
+    const items = interp.stack_pop();
+    interp.stack_push(items);
+    interp.stack_push(forthic);
+    interp.stack_push(new WordOptions(["with_key", true]));
+    await (this.FOREACH as unknown as (interp: Interpreter) => Promise<void>).call(this, interp);
+  }
+
+  @ForthicDirectWord(
+    "( container:any forthic:string -- filtered:any )",
+    "FILTER with key/index pushed to forthic before value. Alias for FILTER { .with_key TRUE }.",
+    "FILTER-WITH-KEY",
+  )
+  async FILTER_WITH_KEY(interp: Interpreter) {
+    const forthic = interp.stack_pop();
+    const container = interp.stack_pop();
+    interp.stack_push(container);
+    interp.stack_push(forthic);
+    interp.stack_push(new WordOptions(["with_key", true]));
+    await (this.FILTER as unknown as (interp: Interpreter) => Promise<void>).call(this, interp);
+  }
+
+  @ForthicDirectWord(
+    "( items:any forthic:string -- grouped:any )",
+    "GROUP-BY with key/index pushed to forthic before value. Alias for GROUP-BY { .with_key TRUE }.",
+    "GROUP-BY-WITH-KEY",
+  )
+  async GROUP_BY_WITH_KEY(interp: Interpreter) {
+    const forthic = interp.stack_pop();
+    const items = interp.stack_pop();
+    interp.stack_push(items);
+    interp.stack_push(forthic);
+    interp.stack_push(new WordOptions(["with_key", true]));
+    await (this.GROUP_BY as unknown as (interp: Interpreter) => Promise<void>).call(this, interp);
+  }
+
+  @ForthicWord(
+    "( container:any key:any forthic:string -- container:any )",
+    "Apply forthic to the value at key/index, returning a new container with that slot transformed. Polymorphic over arrays and records. Equivalent of jq's |= operator.",
+    "MAP-AT",
+  )
+  async MAP_AT(container: any, key: any, forthic: string) {
+    if (container === null || container === undefined) return container;
+    const string_location = this.interp.get_string_location();
+
+    if (container instanceof Array) {
+      const idx = typeof key === "number" ? key : Number(key);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= container.length) return container;
+      const result = [...container];
+      this.interp.stack_push(result[idx]);
+      await this.interp.run(forthic, string_location);
+      result[idx] = this.interp.stack_pop();
+      return result;
+    }
+
+    if (typeof container === "object") {
+      if (!Object.prototype.hasOwnProperty.call(container, key)) return container;
+      const result: Record<string, any> = { ...container };
+      this.interp.stack_push(result[key]);
+      await this.interp.run(forthic, string_location);
+      result[key] = this.interp.stack_pop();
+      return result;
+    }
+
+    return container;
   }
 
   @ForthicWord(
