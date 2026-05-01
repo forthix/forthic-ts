@@ -12,6 +12,7 @@ Array and collection operations for manipulating arrays and records.
 - Combine: APPEND, ZIP, ZIP_WITH, CONCAT
 - Filter: SELECT, UNIQUE, DIFFERENCE, INTERSECTION, UNION
 - Sort: SORT
+- Access: NTH, FIRST, LAST
 - Group: BY_FIELD, GROUP-BY-FIELD, GROUP_BY, GROUPS_OF
 - Utility: <REPEAT, FOREACH, REDUCE, UNPACK, FLATTEN
 
@@ -98,6 +99,20 @@ Several words support options via the ~> operator using syntax: [.option_name va
       if (n < 0 || n >= keys.length) return null;
       const key = keys[n];
       return container[key];
+    }
+  }
+
+  @ForthicWord("( container:any -- item:any )", "Get first element from array or record (sorted-key order for records)")
+  async FIRST(container: any) {
+    if (!container) return null;
+
+    if (container instanceof Array) {
+      if (container.length === 0) return null;
+      return container[0];
+    } else {
+      const keys = Object.keys(container).sort();
+      if (keys.length === 0) return null;
+      return container[keys[0]];
     }
   }
 

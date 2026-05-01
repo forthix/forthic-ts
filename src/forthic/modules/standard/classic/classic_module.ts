@@ -114,6 +114,12 @@ in the sibling standard modules.
   // Module / control niche
   // ========================================
 
+  @ForthicWord("( string:string -- )", "Interprets Forthic string in current context. Surfaced as RUN in core.")
+  async INTERPRET(string: string) {
+    const string_location = this.interp.get_string_location();
+    if (string) await this.interp.run(string, string_location);
+  }
+
   @ForthicWord("( names:string[] -- )", "Exports words from current module")
   async EXPORT(names: string[]) {
     this.interp.cur_module().add_exportable(names);
