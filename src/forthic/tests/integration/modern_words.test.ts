@@ -609,6 +609,86 @@ describe("Date getters (PR 6)", () => {
   });
 });
 
+describe("REPLACE / RE-REPLACE (PR 7 footgun fix)", () => {
+  test("REPLACE does literal substitution", async () => {
+    await interp.run("'a.b.c.d' '.' '_' REPLACE");
+    expect(interp.stack_pop()).toBe("a_b_c_d");
+  });
+
+  test("REPLACE does not interpret regex metacharacters", async () => {
+    await interp.run("'hello world' '.' 'X' REPLACE");
+    expect(interp.stack_pop()).toBe("hello world");
+  });
+
+  test("RE-REPLACE does regex substitution", async () => {
+    await interp.run("'abc123def' '[0-9]+' 'NUM' RE-REPLACE");
+    expect(interp.stack_pop()).toBe("abcNUMdef");
+  });
+
+  test("RE-REPLACE supports anchors", async () => {
+    await interp.run("'foo bar' '^foo' 'baz' RE-REPLACE");
+    expect(interp.stack_pop()).toBe("baz bar");
+  });
+});
+
+describe("Bash-flavored layer (PR 7)", () => {
+  test("LINES splits on newline", async () => {
+    // Build "a\nb\nc" via /N JOIN, then exercise LINES on it
+    await interp.run("['a' 'b' 'c'] /N JOIN LINES");
+    expect(interp.stack_pop()).toEqual(["a", "b", "c"]);
+  });
+
+  test("UNLINES joins with newline", async () => {
+    await interp.run("['a' 'b' 'c'] UNLINES");
+    expect(interp.stack_pop()).toBe("a\nb\nc");
+  });
+
+  test("LINES and UNLINES roundtrip", async () => {
+    await interp.run("['foo' 'bar' 'baz'] UNLINES LINES");
+    expect(interp.stack_pop()).toEqual(["foo", "bar", "baz"]);
+  });
+
+  test("GREP keeps matching lines", async () => {
+    await interp.run("['apple' 'banana' 'cherry' 'avocado'] '^a' GREP");
+    expect(interp.stack_pop()).toEqual(["apple", "avocado"]);
+  });
+
+  test("GREP-V keeps non-matching lines", async () => {
+    await interp.run("['apple' 'banana' 'cherry' 'avocado'] '^a' GREP-V");
+    expect(interp.stack_pop()).toEqual(["banana", "cherry"]);
+  });
+
+  test("SED replaces in each line", async () => {
+    await interp.run("['hello world' 'hello there'] 'hello' 'hi' SED");
+    expect(interp.stack_pop()).toEqual(["hi world", "hi there"]);
+  });
+
+  test("SED uses regex semantics", async () => {
+    await interp.run("['abc123' 'def456'] '[0-9]+' 'X' SED");
+    expect(interp.stack_pop()).toEqual(["abcX", "defX"]);
+  });
+
+  test("CUT picks the field-th column", async () => {
+    await interp.run("['a,b,c' 'd,e,f' 'g,h,i'] ',' 1 CUT");
+    expect(interp.stack_pop()).toEqual(["b", "e", "h"]);
+  });
+
+  test("CUT returns null for out-of-range field", async () => {
+    await interp.run("['a,b' 'c,d,e'] ',' 2 CUT");
+    expect(interp.stack_pop()).toEqual([null, "e"]);
+  });
+
+  test("SORT-U sorts and dedupes", async () => {
+    await interp.run("[3 1 2 1 3 2] SORT-U");
+    expect(interp.stack_pop()).toEqual([1, 2, 3]);
+  });
+
+  test("SORT-U on strings", async () => {
+    await interp.run("['banana' 'apple' 'banana' 'cherry' 'apple'] SORT-U");
+    expect(interp.stack_pop()).toEqual(["apple", "banana", "cherry"]);
+  });
+});
+
 describe("Classic words still resolve", () => {
   test("ADD still works", async () => {
     await interp.run("3 4 ADD");

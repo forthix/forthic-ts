@@ -12,7 +12,7 @@ Array and collection operations for manipulating arrays and records.
 - Transform: MAP, REVERSE
 - Combine: APPEND, ZIP, ZIP_WITH, CONCAT
 - Filter: SELECT, UNIQUE, DIFFERENCE, INTERSECTION, UNION
-- Sort: SORT, SORT-BY
+- Sort: SORT, SORT-BY, SORT-U
 - Access: NTH, FIRST, LAST, TAKE-LAST
 - Iteration aliases: MAP-WITH-KEY, FOREACH-WITH-KEY, FILTER-WITH-KEY, GROUP-BY-WITH-KEY, MAP-AT
 - Search: FIND, COUNT
@@ -1248,6 +1248,30 @@ Several words support options via the ~> operator using syntax: [.option_name va
       if (this.interp.stack_pop()) return true;
     }
     return false;
+  }
+
+  // ========================================
+  // Bash/shell-flavored array additions (PR 7)
+  // ========================================
+
+  @ForthicWord(
+    "( strings:any[] -- strings:any[] )",
+    "Sort an array and remove duplicates (bash sort -u).",
+    "SORT-U",
+  )
+  async SORT_U(strings: any) {
+    if (!Array.isArray(strings)) return strings;
+    const sorted = [...strings].sort();
+    const seen = new Set<string>();
+    const result: any[] = [];
+    for (const s of sorted) {
+      const key = JSON.stringify(s);
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(s);
+      }
+    }
+    return result;
   }
 }
 
