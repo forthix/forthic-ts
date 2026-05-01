@@ -8,7 +8,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
 
 ## Categories
 - Arithmetic: +, -, *, /, MOD, RANGE
-- Aggregates: MEAN, MAX, MIN, SUM
+- Aggregates: MEAN, MAX, MIN, SUM, PRODUCT, MAX-OF, MIN-OF
 - Type conversion: >INT, >FLOAT, FORMAT-FIXED, ROUND
 - Math functions: ABS, SQRT, FLOOR, CEIL, CLAMP
 
@@ -246,6 +246,51 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     // Case 2: Two values
     const a = interp.stack_pop();
     interp.stack_push(Math.min(a, b));
+  }
+
+  @ForthicWord(
+    "( numbers:number[] -- product:number )",
+    "Product of array of numbers (1 if empty). Null/undefined elements yield null.",
+    "PRODUCT",
+  )
+  async PRODUCT(numbers: number[]) {
+    if (!Array.isArray(numbers)) return null;
+    let result = 1;
+    for (const num of numbers) {
+      if (num === null || num === undefined) return null;
+      result *= num;
+    }
+    return result;
+  }
+
+  @ForthicWord(
+    "( numbers:number[] -- max:number )",
+    "Maximum of array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.",
+    "MAX-OF",
+  )
+  async MAX_OF(numbers: number[]) {
+    if (!Array.isArray(numbers)) return null;
+    let result: number | null = null;
+    for (const num of numbers) {
+      if (num === null || num === undefined) continue;
+      if (result === null || num > result) result = num;
+    }
+    return result;
+  }
+
+  @ForthicWord(
+    "( numbers:number[] -- min:number )",
+    "Minimum of array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.",
+    "MIN-OF",
+  )
+  async MIN_OF(numbers: number[]) {
+    if (!Array.isArray(numbers)) return null;
+    let result: number | null = null;
+    for (const num of numbers) {
+      if (num === null || num === undefined) continue;
+      if (result === null || num < result) result = num;
+    }
+    return result;
   }
 
   @ForthicWord("( numbers:number[] -- sum:number )", "Sum of array (explicit)")

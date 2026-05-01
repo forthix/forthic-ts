@@ -11,6 +11,7 @@ Date and time operations using the Temporal API for timezone-aware datetime mani
 - Time adjustment: AM, PM
 - Conversion to: >TIME, >DATE, >DATETIME, AT
 - Conversion from: TIME>STR, DATE>STR
+- Getters: YEAR, MONTH, DAY-OF-WEEK
 - Timestamps: >TIMESTAMP, TIMESTAMP>DATETIME
 - Date math: ADD-DAYS, SUBTRACT-DATES
 
@@ -308,5 +309,35 @@ TODAY 7 ADD-DAYS
     // until() gives us date1 → date2, but we want date2 → date1 (negative of until)
     const duration = date2.until(date1, { largestUnit: "days" });
     return duration.days;
+  }
+
+  @ForthicWord(
+    "( date:Temporal.PlainDate -- year:number )",
+    "Get the calendar year of a date.",
+    "YEAR",
+  )
+  async YEAR(date: any) {
+    if (!date || typeof date.year !== "number") return null;
+    return date.year;
+  }
+
+  @ForthicWord(
+    "( date:Temporal.PlainDate -- month:number )",
+    "Get the calendar month of a date (1=January, 12=December).",
+    "MONTH",
+  )
+  async MONTH(date: any) {
+    if (!date || typeof date.month !== "number") return null;
+    return date.month;
+  }
+
+  @ForthicWord(
+    "( date:Temporal.PlainDate -- day:number )",
+    "Get the day-of-week (1=Monday, 7=Sunday, ISO 8601).",
+    "DAY-OF-WEEK",
+  )
+  async DAY_OF_WEEK(date: any) {
+    if (!date || typeof date.dayOfWeek !== "number") return null;
+    return date.dayOfWeek;
   }
 }
