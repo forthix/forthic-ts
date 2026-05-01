@@ -7,7 +7,7 @@ export class MathModule extends DecoratedModule {
 Mathematical operations and utilities including arithmetic, aggregation, and conversions.
 
 ## Categories
-- Arithmetic: +, -, *, /, MOD
+- Arithmetic: +, -, *, /, MOD, RANGE
 - Aggregates: MEAN, MAX, MIN, SUM
 - Type conversion: >INT, >FLOAT, >FIXED, ROUND
 - Math functions: ABS, SQRT, FLOOR, CEIL, CLAMP
@@ -105,6 +105,21 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
       return null;
     }
     return m % n;
+  }
+
+  @ForthicWord(
+    "( start:number end:number -- numbers:number[] )",
+    "Generate inclusive integer range from start to end (e.g. 1 5 RANGE -> [1,2,3,4,5]). Empty if start > end.",
+  )
+  async RANGE(start: number, end: number) {
+    if (start === null || start === undefined || end === null || end === undefined) {
+      return [];
+    }
+    const result: number[] = [];
+    for (let i = start; i <= end; i++) {
+      result.push(i);
+    }
+    return result;
   }
 
 
