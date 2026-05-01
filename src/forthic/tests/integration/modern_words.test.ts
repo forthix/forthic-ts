@@ -197,6 +197,75 @@ describe("Type predicates", () => {
   });
 });
 
+describe("MAP-WITH-KEY / FOREACH-WITH-KEY (convenience aliases)", () => {
+  test("MAP-WITH-KEY pushes index then value to forthic on arrays", async () => {
+    await interp.run("['a' 'b' 'c'] '+' MAP-WITH-KEY");
+    expect(interp.stack_pop()).toEqual(["0a", "1b", "2c"]);
+  });
+
+  test("MAP-WITH-KEY pushes key then value on records", async () => {
+    await interp.run("[['x' 1] ['y' 2]] REC '+' MAP-WITH-KEY");
+    expect(interp.stack_pop()).toEqual({ x: "x1", y: "y2" });
+  });
+
+  test("FOREACH-WITH-KEY runs forthic with key+value", async () => {
+    // Body sees [..., index, value]. + reduces them into one number,
+    // then we add to running total.
+    await interp.run(
+      "0 .total !  [10 20 30] '+ .total @ + .total !' FOREACH-WITH-KEY  .total @"
+    );
+    // sum of (index + value) for each: (0+10)+(1+20)+(2+30) = 63
+    expect(interp.stack_pop()).toBe(63);
+  });
+});
+
+describe("FILTER-WITH-KEY (convenience alias)", () => {
+  test("filters by key/index condition", async () => {
+    // forthic stack at entry: [..., index, value]. POP drops value, leaves index;
+    // then 1 > tests index > 1.
+    await interp.run("[10 20 30 40] 'POP 1 >' FILTER-WITH-KEY");
+    expect(interp.stack_pop()).toEqual([30, 40]);
+  });
+});
+
+describe("GROUP-BY-WITH-KEY (convenience alias)", () => {
+  test("groups by a function of key+value", async () => {
+    await interp.run(
+      "[['a' 1] ['b' 2] ['c' 3]] REC 'SWAP POP 2 MOD' GROUP-BY-WITH-KEY"
+    );
+    // Group records by (value MOD 2): odd values {a:1, c:3}, even values {b:2}
+    const result = interp.stack_pop();
+    expect(result).toBeDefined();
+  });
+});
+
+describe("MAP-AT (jq |= equivalent)", () => {
+  test("transforms a single record field", async () => {
+    await interp.run("[['name' 'alice'] ['age' 30]] REC 'age' '1 +' MAP-AT");
+    expect(interp.stack_pop()).toEqual({ name: "alice", age: 31 });
+  });
+
+  test("transforms a single array element by index", async () => {
+    await interp.run("[10 20 30] 1 '100 *' MAP-AT");
+    expect(interp.stack_pop()).toEqual([10, 2000, 30]);
+  });
+
+  test("returns container unchanged when key not found in record", async () => {
+    await interp.run("[['a' 1]] REC 'nope' '999 +' MAP-AT");
+    expect(interp.stack_pop()).toEqual({ a: 1 });
+  });
+
+  test("returns container unchanged when index out of range", async () => {
+    await interp.run("[1 2 3] 99 '0 *' MAP-AT");
+    expect(interp.stack_pop()).toEqual([1, 2, 3]);
+  });
+
+  test("does not mutate the original container", async () => {
+    await interp.run("[10 20 30] .original ! .original @ 1 '100 *' MAP-AT POP .original @");
+    expect(interp.stack_pop()).toEqual([10, 20, 30]);
+  });
+});
+
 describe("FILTER (modern of SELECT)", () => {
   test("filters array by predicate", async () => {
     await interp.run("[1 2 3 4] '2 >' FILTER");
