@@ -7,7 +7,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
 ## Categories
 - Core: REC, REC@, |REC@, <REC!
-- Transform: REC-DEFAULTS, <DEL
+- Transform: REC-DEFAULTS, DELETE
 - Access: KEYS, VALUES
 `);
   }
@@ -117,8 +117,8 @@ Record (object/dictionary) manipulation operations for working with key-value da
     return record;
   }
 
-  @ForthicWord("( container:any key:any -- container:any )", "Delete key from record or index from array", "<DEL")
-  async l_DEL(container: any, key: any) {
+  @ForthicWord("( container:any key:any -- container:any )", "Delete key from record or index from array", "DELETE")
+  async DELETE(container: any, key: any) {
     if (!container) return container;
 
     if (container instanceof Array) {

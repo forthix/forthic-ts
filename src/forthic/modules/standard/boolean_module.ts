@@ -103,12 +103,16 @@ Comparison, logic, and membership operations for boolean values and conditions.
     return !bool;
   }
 
-  @ForthicWord("( item:any array:any[] -- in:boolean )", "Check if item is in array")
-  async IN(item: any, array: any[]) {
-    if (!Array.isArray(array)) {
+  @ForthicWord(
+    "( haystack:any[] needle:any -- bool:boolean )",
+    "Check if haystack array contains needle. Container-first arg order.",
+    "CONTAINS?",
+  )
+  async CONTAINS(haystack: any[], needle: any) {
+    if (!Array.isArray(haystack)) {
       return false;
     }
-    return array.includes(item);
+    return haystack.includes(needle);
   }
 
   @ForthicWord("( items1:any[] items2:any[] -- any:boolean )", "Check if any item from items1 is in items2")

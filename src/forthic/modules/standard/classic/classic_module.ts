@@ -358,4 +358,135 @@ in the sibling standard modules.
     const day = String(date.day).padStart(2, "0");
     return parseInt(`${year}${month}${day}`, 10);
   }
+
+  // ========================================
+  // Superseded by modern variants (PR 4)
+  // SELECT  -> FILTER (array_module)
+  // IN      -> CONTAINS? (boolean_module, container-first arg order)
+  // <REPEAT -> TIMES-RUN (array_module, simpler semantics)
+  // <DEL    -> DELETE (record_module)
+  // >FIXED  -> FORMAT-FIXED (math_module)
+  // SUBTRACT-DATES -> DAYS-BETWEEN (datetime_module)
+  // ========================================
+
+  @ForthicWord(
+    "( container:any forthic:string [options:WordOptions] -- filtered:any )",
+    "Filter items with predicate. Surfaced as FILTER in array_module.",
+    "SELECT",
+  )
+  async SELECT(container: any, forthic: string, options: Record<string, any>) {
+    const interp = this.interp;
+    const string_location = interp.get_string_location();
+
+    const flags = {
+      with_key: options.with_key ?? null,
+    };
+
+    if (!container) {
+      interp.stack_push(container);
+      return;
+    }
+
+    let result;
+    if (container instanceof Array) {
+      result = [];
+      for (let i = 0; i < container.length; i++) {
+        const item = container[i];
+        if (flags.with_key) interp.stack_push(i);
+        interp.stack_push(item);
+        await interp.run(forthic, string_location);
+        const should_select = interp.stack_pop();
+        if (should_select) result.push(item);
+      }
+    } else {
+      result = {};
+      const keys = Object.keys(container);
+      for (let i = 0; i < keys.length; i++) {
+        const k = keys[i];
+        const v = container[k];
+        if (flags.with_key) interp.stack_push(k);
+        interp.stack_push(v);
+        await interp.run(forthic, string_location);
+        const should_select = interp.stack_pop();
+        if (should_select) result[k] = v;
+      }
+    }
+
+    return result;
+  }
+
+  @ForthicWord(
+    "( item:any array:any[] -- in:boolean )",
+    "Check if item is in array. Surfaced as CONTAINS? in boolean_module (with reversed args: haystack-first).",
+  )
+  async IN(item: any, array: any[]) {
+    if (!Array.isArray(array)) {
+      return false;
+    }
+    return array.includes(item);
+  }
+
+  @ForthicDirectWord(
+    "( item:any forthic:string num_times:number -- )",
+    "Repeat execution of forthic num_times. Surfaced as TIMES-RUN in array_module (simpler ( num forthic -- ) semantics).",
+    "<REPEAT",
+  )
+  async l_REPEAT(interp: Interpreter) {
+    const num_times = interp.stack_pop();
+    const forthic = interp.stack_pop();
+    const string_location = interp.get_string_location();
+
+    for (let i = 0; i < num_times; i++) {
+      const item = interp.stack_pop();
+      interp.stack_push(item);
+
+      await interp.run(forthic, string_location);
+      const res = interp.stack_pop();
+
+      interp.stack_push(item);
+      interp.stack_push(res);
+    }
+  }
+
+  @ForthicWord(
+    "( container:any key:any -- container:any )",
+    "Delete key from record or index from array. Surfaced as DELETE in record_module.",
+    "<DEL",
+  )
+  async l_DEL(container: any, key: any) {
+    if (!container) return container;
+
+    if (container instanceof Array) {
+      container.splice(key, 1);
+    } else {
+      delete container[key];
+    }
+
+    return container;
+  }
+
+  @ForthicWord(
+    "( num:number digits:number -- result:string )",
+    "Format number with fixed decimal places. Surfaced as FORMAT-FIXED in math_module.",
+    ">FIXED",
+  )
+  async to_FIXED(num: number, digits: number) {
+    if (num === null || num === undefined) {
+      return null;
+    }
+    return num.toFixed(digits);
+  }
+
+  @ForthicWord(
+    "( date1:Temporal.PlainDate date2:Temporal.PlainDate -- num_days:number )",
+    "Get difference in days between dates (date1 - date2). Surfaced as DAYS-BETWEEN in datetime_module.",
+    "SUBTRACT-DATES",
+  )
+  async SUBTRACT_DATES(date1: any, date2: any) {
+    if (!date1 || !date2 || typeof date1.year !== "number" || typeof date2.year !== "number") {
+      return null;
+    }
+    const duration = date2.until(date1, { largestUnit: "days" });
+    return duration.days;
+  }
 }
