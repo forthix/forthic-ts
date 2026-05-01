@@ -14,7 +14,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - Variables: VARIABLES, !, @, !@
 - Module: EXPORT, USE-MODULES
 - Execution: INTERPRET
-- Control: IDENTITY, NOP, DEFAULT, *DEFAULT, NULL, ARRAY?
+- Control: NOP, DEFAULT, *DEFAULT, NULL, ARRAY?
 - Options: ~> (converts array to WordOptions)
 - Profiling: PROFILE-START, PROFILE-TIMESTAMP, PROFILE-END, PROFILE-DATA
 - Logging: START-LOG, END-LOG
@@ -179,11 +179,6 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     this.interp.use_modules(names, options);
   }
 
-
-  @ForthicWord("( -- )", "Does nothing (identity operation)")
-  async IDENTITY() {
-    // No-op
-  }
 
   @ForthicWord("( -- )", "Does nothing (no operation)")
   async NOP() {

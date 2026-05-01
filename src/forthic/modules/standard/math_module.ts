@@ -7,7 +7,7 @@ export class MathModule extends DecoratedModule {
 Mathematical operations and utilities including arithmetic, aggregation, and conversions.
 
 ## Categories
-- Arithmetic: +, -, *, /, ADD, SUBTRACT, MULTIPLY, DIVIDE, MOD
+- Arithmetic: +, -, *, /, MOD
 - Aggregates: MEAN, MAX, MIN, SUM
 - Type conversion: >INT, >FLOAT, >FIXED, ROUND
 - Special values: INFINITY, UNIFORM-RANDOM
@@ -53,21 +53,8 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     interp.stack_push(num_a + num_b);
   }
 
-  @ForthicDirectWord("( a:number b:number -- sum:number ) OR ( numbers:number[] -- sum:number )", "Add two numbers or sum array", "ADD")
-  async plus_ADD(interp: Interpreter) {
-    return this.plus(interp);
-  }
-
   @ForthicWord("( a:number b:number -- difference:number )", "Subtract b from a", "-")
   async minus(a: number, b: number) {
-    if (a === null || a === undefined || b === null || b === undefined) {
-      return null;
-    }
-    return a - b;
-  }
-
-  @ForthicWord("( a:number b:number -- difference:number )", "Subtract b from a", "SUBTRACT")
-  async minus_SUBTRACT(a: number, b: number) {
     if (a === null || a === undefined || b === null || b === undefined) {
       return null;
     }
@@ -101,24 +88,8 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     interp.stack_push(a * b);
   }
 
-  @ForthicDirectWord("( a:number b:number -- product:number ) OR ( numbers:number[] -- product:number )", "Multiply two numbers or product of array", "MULTIPLY")
-  async times_MULTIPLY(interp: Interpreter) {
-    return this.times(interp);
-  }
-
   @ForthicWord("( a:number b:number -- quotient:number )", "Divide a by b", "/")
   async divide_by(a: number, b: number) {
-    if (a === null || a === undefined || b === null || b === undefined) {
-      return null;
-    }
-    if (b === 0) {
-      return null;
-    }
-    return a / b;
-  }
-
-  @ForthicWord("( a:number b:number -- quotient:number )", "Divide a by b", "DIVIDE")
-  async divide_by_DIVIDE(a: number, b: number) {
     if (a === null || a === undefined || b === null || b === undefined) {
       return null;
     }
