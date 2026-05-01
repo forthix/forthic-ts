@@ -98,7 +98,7 @@ export class Tokenizer {
     this.input_string = this.unescape_string(string);
     this.input_pos = 0;
     this.whitespace = [" ", "\t", "\n", "\r", "(", ")", ","];
-    this.quote_chars = ['"', "'", "^"];
+    this.quote_chars = ['"', "'"];
 
     // Token info
     this.token_start_pos = 0;
@@ -443,9 +443,40 @@ export class Tokenizer {
       end: this.input_pos,
     };
 
+    // Whitelist of escape sequences interpreted in regular (single-delimiter)
+    // strings. Anything else after a backslash (e.g., \d, \w, \U) stays as
+    // the literal pair — preserves regex patterns and Windows-style paths.
+    // Triple-quoted strings ('''...''', """...""") are gathered by a
+    // separate state and remain fully raw.
+    const escape_map: Record<string, string> = {
+      n: "\n",
+      t: "\t",
+      r: "\r",
+      "0": "\0",
+      "\\": "\\",
+      '"': '"',
+      "'": "'",
+    };
+
     while (this.input_pos < this.input_string.length) {
       const char = this.input_string[this.input_pos];
       this.advance_position(1);
+
+      if (char === "\\" && this.input_pos < this.input_string.length) {
+        const next_char = this.input_string[this.input_pos];
+        if (Object.prototype.hasOwnProperty.call(escape_map, next_char)) {
+          this.advance_position(1);
+          this.token_string += escape_map[next_char];
+          this.string_delta.end = this.input_pos;
+          continue;
+        }
+        // Unrecognized escape: leave both characters literal so regex
+        // patterns like '\d+' and Windows paths like 'C:\Users' keep working.
+        this.token_string += char;
+        this.string_delta.end = this.input_pos;
+        continue;
+      }
+
       if (char === string_delimiter) {
         const token = new Token(
           TokenType.STRING,
