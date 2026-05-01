@@ -14,7 +14,7 @@ Array and collection operations for manipulating arrays and records.
 - Sort: SORT
 - Access: NTH, FIRST, LAST
 - Group: BY_FIELD, GROUP-BY-FIELD, GROUP_BY, GROUPS_OF
-- Utility: <REPEAT, FOREACH, REDUCE, UNPACK, FLATTEN
+- Utility: TIMES-RUN, FOREACH, REDUCE, UNPACK, FLATTEN
 
 ## Options
 Several words support options via the ~> operator using syntax: [.option_name value ...] ~> WORD
@@ -641,8 +641,8 @@ Several words support options via the ~> operator using syntax: [.option_name va
   }
 
 
-  @ForthicWord("( container:any forthic:string [options:WordOptions] -- filtered:any )", "Filter items with predicate. Options: with_key (bool)")
-  async SELECT(container: any, forthic: string, options: Record<string, any>) {
+  @ForthicWord("( container:any forthic:string [options:WordOptions] -- filtered:any )", "Filter items with predicate. Options: with_key (bool)", "FILTER")
+  async FILTER(container: any, forthic: string, options: Record<string, any>) {
     const interp = this.interp
     const string_location = interp.get_string_location();
 
@@ -888,23 +888,16 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return undefined; // MapWord pushes result directly
   }
 
-  @ForthicDirectWord("( item:any forthic:string num_times:number -- )", "Repeat execution of forthic num_times", "<REPEAT")
-  async l_REPEAT(interp: Interpreter) {
-    const num_times = interp.stack_pop();
-    const forthic = interp.stack_pop();
-    const string_location = interp.get_string_location();
-
+  @ForthicWord(
+    "( num_times:number forthic:string -- )",
+    "Run forthic num_times. Each invocation runs in the current stack — no automatic per-iteration value passing.",
+    "TIMES-RUN",
+  )
+  async TIMES_RUN(num_times: number, forthic: string) {
+    if (num_times === null || num_times === undefined || !forthic) return;
+    const string_location = this.interp.get_string_location();
     for (let i = 0; i < num_times; i++) {
-      // Store item so we can push it back later
-      const item = interp.stack_pop();
-      interp.stack_push(item);
-
-      await interp.run(forthic, string_location);
-      const res = interp.stack_pop();
-
-      // Push original item and result
-      interp.stack_push(item);
-      interp.stack_push(res);
+      await this.interp.run(forthic, string_location);
     }
   }
 }

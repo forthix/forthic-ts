@@ -197,6 +197,78 @@ describe("Type predicates", () => {
   });
 });
 
+describe("FILTER (modern of SELECT)", () => {
+  test("filters array by predicate", async () => {
+    await interp.run("[1 2 3 4] '2 >' FILTER");
+    expect(interp.stack_pop()).toEqual([3, 4]);
+  });
+
+  test("filters record values by predicate", async () => {
+    await interp.run("[['a' 1] ['b' 2] ['c' 3]] REC '1 >' FILTER");
+    expect(interp.stack_pop()).toEqual({ b: 2, c: 3 });
+  });
+});
+
+describe("CONTAINS? (modern of IN, container-first args)", () => {
+  test("returns true when needle present", async () => {
+    await interp.run("[1 2 3] 2 CONTAINS?");
+    expect(interp.stack_pop()).toBe(true);
+  });
+
+  test("returns false when needle absent", async () => {
+    await interp.run("[1 2 3] 99 CONTAINS?");
+    expect(interp.stack_pop()).toBe(false);
+  });
+
+  test("returns false when haystack is not an array", async () => {
+    await interp.run("NULL 'x' CONTAINS?");
+    expect(interp.stack_pop()).toBe(false);
+  });
+});
+
+describe("TIMES-RUN (modern of <REPEAT)", () => {
+  test("runs forthic the given number of times", async () => {
+    await interp.run("0 .count !  3 '.count @ 1 + .count !' TIMES-RUN  .count @");
+    expect(interp.stack_pop()).toBe(3);
+  });
+
+  test("zero iterations does nothing", async () => {
+    await interp.run("0 'NEVER-CALLED' TIMES-RUN  42");
+    expect(interp.stack_pop()).toBe(42);
+  });
+});
+
+describe("DELETE (modern of <DEL)", () => {
+  test("deletes a record key", async () => {
+    await interp.run("[['a' 1] ['b' 2]] REC 'a' DELETE");
+    expect(interp.stack_pop()).toEqual({ b: 2 });
+  });
+
+  test("deletes an array index", async () => {
+    await interp.run("[10 20 30] 1 DELETE");
+    expect(interp.stack_pop()).toEqual([10, 30]);
+  });
+});
+
+describe("FORMAT-FIXED (modern of >FIXED)", () => {
+  test("formats with two decimal places", async () => {
+    await interp.run("3.14159 2 FORMAT-FIXED");
+    expect(interp.stack_pop()).toBe("3.14");
+  });
+
+  test("returns null for null input", async () => {
+    await interp.run("NULL 2 FORMAT-FIXED");
+    expect(interp.stack_pop()).toBeNull();
+  });
+});
+
+describe("DAYS-BETWEEN (modern of SUBTRACT-DATES)", () => {
+  test("computes day difference", async () => {
+    await interp.run("2026-01-10 2026-01-01 DAYS-BETWEEN");
+    expect(interp.stack_pop()).toBe(9);
+  });
+});
+
 describe("Classic words still resolve", () => {
   test("ADD still works", async () => {
     await interp.run("3 4 ADD");
@@ -221,5 +293,30 @@ describe("Classic words still resolve", () => {
   test("INTERPRET still works (now in classic, RUN is the surface name)", async () => {
     await interp.run("'10 20 +' INTERPRET");
     expect(interp.stack_pop()).toBe(30);
+  });
+
+  test("SELECT still works (now in classic, FILTER is the surface name)", async () => {
+    await interp.run("[1 2 3 4] '2 >' SELECT");
+    expect(interp.stack_pop()).toEqual([3, 4]);
+  });
+
+  test("IN still works (now in classic, CONTAINS? is the surface name)", async () => {
+    await interp.run("2 [1 2 3] IN");
+    expect(interp.stack_pop()).toBe(true);
+  });
+
+  test("<DEL still works", async () => {
+    await interp.run("[['a' 1] ['b' 2]] REC 'a' <DEL");
+    expect(interp.stack_pop()).toEqual({ b: 2 });
+  });
+
+  test(">FIXED still works", async () => {
+    await interp.run("3.14159 2 >FIXED");
+    expect(interp.stack_pop()).toBe("3.14");
+  });
+
+  test("SUBTRACT-DATES still works", async () => {
+    await interp.run("2026-01-10 2026-01-01 SUBTRACT-DATES");
+    expect(interp.stack_pop()).toBe(9);
   });
 });

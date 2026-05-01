@@ -9,7 +9,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
 ## Categories
 - Arithmetic: +, -, *, /, MOD, RANGE
 - Aggregates: MEAN, MAX, MIN, SUM
-- Type conversion: >INT, >FLOAT, >FIXED, ROUND
+- Type conversion: >INT, >FLOAT, FORMAT-FIXED, ROUND
 - Math functions: ABS, SQRT, FLOOR, CEIL, CLAMP
 
 ## Examples
@@ -294,8 +294,8 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     }
   }
 
-  @ForthicWord("( num:number digits:number -- result:string )", "Format number with fixed decimal places")
-  async [">FIXED"](num: number, digits: number) {
+  @ForthicWord("( num:number digits:number -- result:string )", "Format number with fixed decimal places", "FORMAT-FIXED")
+  async FORMAT_FIXED(num: number, digits: number) {
     if (num === null || num === undefined) {
       return null;
     }

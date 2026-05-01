@@ -298,8 +298,8 @@ TODAY 7 ADD-DAYS
   }
 
   // ( date1 date2 -- num_days )
-  @ForthicWord("( date1:Temporal.PlainDate date2:Temporal.PlainDate -- num_days:number )", "Get difference in days between dates (date1 - date2)", "SUBTRACT-DATES")
-  async SUBTRACT_DATES(date1: any, date2: any) {
+  @ForthicWord("( date1:Temporal.PlainDate date2:Temporal.PlainDate -- num_days:number )", "Get number of days between two dates (date1 - date2)", "DAYS-BETWEEN")
+  async DAYS_BETWEEN(date1: any, date2: any) {
     if (!date1 || !date2 || typeof date1.year !== "number" || typeof date2.year !== "number") {
       return null;
     }
