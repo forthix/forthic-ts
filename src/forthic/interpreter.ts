@@ -23,6 +23,7 @@ import { MathModule } from "./modules/standard/math_module.js";
 import { BooleanModule } from "./modules/standard/boolean_module.js";
 import { JsonModule } from "./modules/standard/json_module.js";
 import { DateTimeModule } from "./modules/standard/datetime_module.js";
+import { ClassicModule } from "./modules/standard/classic/classic_module.js";
 import { serializeValue, deserializeValue, serializeStack, deserializeStack, StackValue } from "../websocket/serializer.js";
 
 type Timestamp = {
@@ -1209,6 +1210,7 @@ export class StandardInterpreter extends Interpreter {
       new BooleanModule(),
       new JsonModule(),
       new DateTimeModule(),
+      new ClassicModule(),
     ];
 
     // Import unprefixed at the BOTTOM of module stack
