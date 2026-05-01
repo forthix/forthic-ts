@@ -9,9 +9,10 @@ String manipulation and processing operations with regex and URL encoding suppor
 ## Categories
 - Conversion: >STR
 - Transform: LOWERCASE, UPPERCASE, STRIP, ASCII, TRIM-PREFIX, TRIM-SUFFIX
-- Split/Join: SPLIT, JOIN, CONCAT
-- Pattern: REPLACE, RE-MATCH, RE-MATCH-ALL, RE-MATCH?
+- Split/Join: SPLIT, JOIN, CONCAT, LINES, UNLINES
+- Pattern: REPLACE, RE-REPLACE, RE-MATCH, RE-MATCH-ALL, RE-MATCH?
 - Predicates: STARTS-WITH?, ENDS-WITH?, RE-MATCH?
+- Bash-flavored: GREP, GREP-V, SED, CUT
 - Constants: /N, /T
 
 ## Examples
@@ -180,14 +181,26 @@ String manipulation and processing operations with regex and URL encoding suppor
     return result;
   }
 
-  @ForthicWord("( string:string text:string replace:string -- result:string )", "Replace all occurrences of text with replace")
+  @ForthicWord(
+    "( string:string text:string replace:string -- result:string )",
+    "Replace all literal occurrences of text with replace. For regex matching use RE-REPLACE.",
+    "REPLACE",
+  )
   async REPLACE(string: string, text: string, replace: string) {
-    let result = string;
-    if (string) {
-      const pattern = new RegExp(text, "g");
-      result = string.replace(pattern, replace);
-    }
-    return result;
+    if (string === null || string === undefined) return string;
+    if (text === null || text === undefined || text === "") return string;
+    return string.split(text).join(replace ?? "");
+  }
+
+  @ForthicWord(
+    "( string:string pattern:string replace:string -- result:string )",
+    "Replace all regex matches of pattern with replace. Same as classic REPLACE behavior.",
+    "RE-REPLACE",
+  )
+  async RE_REPLACE(string: string, pattern: string, replace: string) {
+    if (string === null || string === undefined) return string;
+    if (pattern === null || pattern === undefined) return string;
+    return string.replace(new RegExp(pattern, "g"), replace ?? "");
   }
 
   @ForthicWord("( string:string pattern:string -- match:any )", "Match string against regex pattern", "RE-MATCH")
@@ -205,6 +218,86 @@ String manipulation and processing operations with regex and URL encoding suppor
     if (string !== null) matches = string.matchAll(re_pattern);
     const result = Array.from(matches).map((v) => v[1]);
     return result;
+  }
+
+  // ========================================
+  // Bash/shell-flavored additions (PR 7)
+  // ========================================
+
+  @ForthicWord(
+    "( str:string -- lines:string[] )",
+    "Split string on newline. Equivalent to /N SPLIT.",
+    "LINES",
+  )
+  async LINES(str: any) {
+    if (str === null || str === undefined) return [];
+    if (typeof str !== "string") return [];
+    return str.split("\n");
+  }
+
+  @ForthicWord(
+    "( lines:string[] -- str:string )",
+    "Join an array of lines with newlines. Equivalent to /N JOIN.",
+    "UNLINES",
+  )
+  async UNLINES(lines: any) {
+    if (!Array.isArray(lines)) return "";
+    return lines.join("\n");
+  }
+
+  @ForthicWord(
+    "( strings:string[] pattern:string -- matches:string[] )",
+    "Keep only strings matching the regex pattern (bash grep).",
+    "GREP",
+  )
+  async GREP(strings: any, pattern: any) {
+    if (!Array.isArray(strings)) return [];
+    if (typeof pattern !== "string") return [];
+    const re = new RegExp(pattern);
+    return strings.filter((s: any) => typeof s === "string" && re.test(s));
+  }
+
+  @ForthicWord(
+    "( strings:string[] pattern:string -- non_matches:string[] )",
+    "Keep only strings NOT matching the regex pattern (bash grep -v).",
+    "GREP-V",
+  )
+  async GREP_V(strings: any, pattern: any) {
+    if (!Array.isArray(strings)) return [];
+    if (typeof pattern !== "string") return strings;
+    const re = new RegExp(pattern);
+    return strings.filter((s: any) => typeof s !== "string" || !re.test(s));
+  }
+
+  @ForthicWord(
+    "( strings:string[] pattern:string repl:string -- strings:string[] )",
+    "Apply RE-REPLACE to each string in the array (bash sed s/pattern/repl/g).",
+    "SED",
+  )
+  async SED(strings: any, pattern: any, repl: any) {
+    if (!Array.isArray(strings)) return [];
+    if (typeof pattern !== "string") return strings;
+    const re = new RegExp(pattern, "g");
+    return strings.map((s: any) =>
+      typeof s === "string" ? s.replace(re, repl ?? "") : s,
+    );
+  }
+
+  @ForthicWord(
+    "( strings:string[] sep:string field:number -- field_values:any[] )",
+    "Split each string on sep and pick the field-th column (bash cut). Out-of-range yields null.",
+    "CUT",
+  )
+  async CUT(strings: any, sep: any, field: any) {
+    if (!Array.isArray(strings)) return [];
+    if (typeof sep !== "string") return [];
+    const idx = typeof field === "number" ? field : Number(field);
+    if (!Number.isInteger(idx)) return [];
+    return strings.map((s: any) => {
+      if (typeof s !== "string") return null;
+      const parts = s.split(sep);
+      return idx >= 0 && idx < parts.length ? parts[idx] : null;
+    });
   }
 
 }
