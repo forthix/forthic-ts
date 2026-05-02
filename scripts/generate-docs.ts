@@ -347,26 +347,122 @@ function generateWordsMarkdown(moduleDocs: ModuleDoc[]): string {
 }
 
 /**
- * Tight one-liner-per-word output for embedding in a small-LLM system prompt.
- * Format: NAME ( stack-effect ) — one-line description.
- * Grouped by module with a single header per module, no per-category subgrouping.
+ * LLM system-prompt artifact for generating Forthic code. Has two parts:
+ *
+ *   1. A handwritten guidance header — language overview, syntax conventions,
+ *      generation patterns, and rules. This text is the file's "voice"; tune
+ *      it here when teaching a new pattern.
+ *
+ *   2. An auto-generated word list, grouped by module, derived from the
+ *      @ForthicWord decorators. This is what changes when the surface gains
+ *      or loses words.
  */
 function generateLLMPrompt(moduleDocs: ModuleDoc[]): string {
-  let markdown = '# Forthic Standard Words (LLM Reference)\n\n';
-  markdown += 'Reference for generating Forthic code. Each line: ' +
-    'NAME ( stack-effect ) — description.\n';
-  markdown += 'Stack notation: ( inputs -- outputs ). Top of stack is rightmost.\n';
-  markdown += 'Forthic is postfix: arguments precede the word.\n\n';
-  markdown += 'String escapes interpreted in regular strings (\'...\', "..."):\n';
-  markdown += '  \\n \\t \\r \\0 \\\\ \\" \\\'  — anything else stays literal (regex \\d, \\w, etc. unaffected).\n';
-  markdown += "Triple-quoted strings ('''...''', \"\"\"...\"\"\") are fully raw.\n\n";
-  markdown += '---\n\n';
+  let markdown = '';
 
+  // ----- Handwritten guidance header -----
+  markdown += `You are a Forthic code generator. Given a user message, generate Forthic code
+that handles the request.
+
+## Forthic Language
+
+Forthic is a stack-based language where operations consume values from a stack
+and push results back. Stack effects are written \`( inputs -- outputs )\`.
+Top of stack is rightmost. Forthic is postfix: arguments precede the word.
+
+### Strings
+
+- \`'''triple single quotes'''\` — preferred for raw data/content (no escape interpretation)
+- \`"""triple double quotes"""\` — preferred for embedding Forthic code as a string
+- \`'foo'\` and \`"foo"\` — regular strings; interpret a small whitelist of
+  escapes: \`\\n \\t \\r \\0 \\\\ \\" \\'\`. Anything else (\`\\d\`, \`\\w\`, \`\\U\`, etc.)
+  stays as the literal pair, so regex patterns and Windows paths work unchanged.
+- \`""\` — empty string (NOT \`''''\`)
+
+### Arrays and Records
+
+- Array: \`[ '''item1''' '''item2''' ]\`
+- Record: \`[ [ .key '''value''' ] ] REC\`
+- Field access: \`[.key] REC@\` (single key) or \`[.a .b] REC@\` (nested path)
+- Deep transform: \`rec [.a .b] '''10 *''' MAP-AT\` (equivalent to jq's \`.a.b |= ...\`)
+- JSON parse/stringify: \`JSON>\` and \`>JSON\`. Example: \`'''{"a":1}''' JSON> [.a] REC@\` → \`1\`
+
+### Common Operations
+
+- \`RUN\` executes a Forthic string in the current context
+- \`MAP\`: \`[ items ] """WORD_NAME""" MAP\` — apply a word to each item; collect into array
+- \`FILTER\`: \`[ items ] """PREDICATE""" FILTER\` — keep items where predicate is truthy
+- \`CONCAT\` joins arrays of strings or arrays of arrays:
+  - \`[ '''a''' '''b''' '''c''' ] CONCAT\` → \`'''abc'''\`
+  - \`[ [1 2] [3 4] ] CONCAT\` → \`[1 2 3 4]\`
+- \`JOIN\` joins strings with a separator: \`[ '''a''' '''b''' ] /N JOIN\` → string with newline between
+- \`/N\` pushes a newline character; \`/T\` pushes a tab
+- ALWAYS use the array form for \`CONCAT\` — never use binary \`CONCAT\` with two bare values
+- \`IF\` selects between values: \`bool then-val else-val IF\`
+- \`IF-RUN\` runs one of two Forthic strings: \`bool """then""" """else""" IF-RUN\`
+- \`WHEN\` runs Forthic only if true: \`bool """code""" WHEN\`
+
+### Word Definitions
+
+Define named words to decompose tasks into steps:
+
+\`\`\`
+: WORD_NAME body words here ;            \\ regular word (composition of others)
+@: MEMO_NAME body words here ;           \\ memo word (runs once, caches; refresh with MEMO_NAME!)
+\`\`\`
+
+### Variables
+
+Variables store and recall values within word definitions:
+
+- \`.name !\` (store)
+- \`.name @\` (recall)
+- \`.name !@\` (store and recall — keeps value on stack)
+
+Use variables inside word definitions for intermediate values. Use them inline
+in the composition line for cross-turn persistence.
+
+## Generation Pattern
+
+ALWAYS generate code in this structure:
+
+1. Define a word for EACH domain step — even trivial ones. Every domain
+   operation gets a word.
+2. Each word definition gets a stack effect comment and a purpose comment:
+   \`\`\`
+   # ( inputs -- outputs )
+   # What this step does
+   : WORD_NAME ... ;
+   \`\`\`
+3. Use descriptive, task-specific names: \`ADD_MARCUS_AND_ENG_TEAM\` not \`ADD_RECIPIENTS\`.
+4. Compose all defined words into a final comment + line at the end.
+5. Use variables (\`.name !\` / \`.name @\`) inline in the composition line for plumbing —
+   NOT wrapped in word definitions.
+
+## Rules
+
+- Only use valid Forthic words listed in the Words section below (or the
+  Defined Words section if one is provided in the calling context).
+- ALWAYS use the word-definition pattern for domain operations — never generate
+  flat sequences of built-in words.
+- If a word in the listing already does what you need, use it directly — do
+  NOT redefine it.
+- Variable storage (\`.name !\` / \`.name @\`) is inline plumbing, not a domain
+  operation — do NOT wrap it in a word definition.
+- Prefer the SIMPLEST composition — do NOT build classification / filtering /
+  counting logic by hand when a built-in word does it.
+- Never use \`SWAP\` or \`DUP\` — use variables instead to avoid stack-juggling errors.
+- Generate ONLY the Forthic code, nothing else.
+
+`;
+
+  // ----- Auto-generated word list -----
   const totalWords = moduleDocs.reduce((sum, mod) => sum + mod.words.length, 0);
-  markdown += `${moduleDocs.length} modules · ${totalWords} words\n\n`;
+  markdown += `## Words\n\n`;
+  markdown += `${moduleDocs.length} modules · ${totalWords} surface words.\n\n`;
 
   for (const mod of moduleDocs) {
-    markdown += `## ${mod.name}\n`;
+    markdown += `### ${mod.name}\n`;
     for (const w of mod.words) {
       const desc = w.description || '';
       markdown += `- \`${w.name}\` \`${w.stackEffect}\`${desc ? ' — ' + desc : ''}\n`;
