@@ -9,7 +9,7 @@ Comparison, logic, and membership operations for boolean values and conditions.
 ## Categories
 - Comparison: ==, !=, <, <=, >, >=
 - Logic: OR, AND, NOT
-- Membership: IN, ANY, ALL
+- Membership: CONTAINS?
 - Conversion: >BOOL
 
 ## Examples

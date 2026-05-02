@@ -4,14 +4,13 @@
 
 Mathematical operations and utilities including arithmetic, aggregation, and conversions.
 
-**24 words**
+**22 words**
 
 ## Categories
 
-- **Arithmetic**: +, -, *, /, ADD, SUBTRACT, MULTIPLY, DIVIDE, MOD
-- **Aggregates**: MEAN, MAX, MIN, SUM
-- **Type conversion**: >INT, >FLOAT, >FIXED, ROUND
-- **Special values**: INFINITY, UNIFORM-RANDOM
+- **Arithmetic**: +, -, *, /, MOD, RANGE
+- **Aggregates**: MEAN, MAX, MIN, SUM, PRODUCT, MAX-OF, MIN-OF
+- **Type conversion**: >INT, >FLOAT, FORMAT-FIXED, ROUND
 - **Math functions**: ABS, SQRT, FLOOR, CEIL, CLAMP
 
 ## Examples
@@ -58,11 +57,19 @@ Add two numbers or sum array
 
 ---
 
-### ABS
+### >FLOAT
 
-**Stack Effect:** `( low:number high:number -- random:number )`
+**Stack Effect:** `( a:any -- float:number )`
 
-Generate random number in range [low, high)
+Convert to float
+
+---
+
+### >INT
+
+**Stack Effect:** `( a:any -- int:number )`
+
+Convert to integer (returns length for arrays/objects, 0 for null)
 
 ---
 
@@ -71,14 +78,6 @@ Generate random number in range [low, high)
 **Stack Effect:** `( n:number -- abs:number )`
 
 Absolute value
-
----
-
-### ADD
-
-**Stack Effect:** `( a:number b:number -- sum:number ) OR ( numbers:number[] -- sum:number )`
-
-Add two numbers or sum array
 
 ---
 
@@ -98,14 +97,6 @@ Constrain value to range [min, max]
 
 ---
 
-### DIVIDE
-
-**Stack Effect:** `( a:number b:number -- quotient:number )`
-
-Divide a by b
-
----
-
 ### FLOOR
 
 **Stack Effect:** `( n:number -- floor:number )`
@@ -114,11 +105,11 @@ Round down to integer
 
 ---
 
-### INFINITY
+### FORMAT-FIXED
 
-**Stack Effect:** `( -- infinity:number )`
+**Stack Effect:** `( num:number digits:number -- result:string )`
 
-Push Infinity value
+Format number with fixed decimal places
 
 ---
 
@@ -127,6 +118,14 @@ Push Infinity value
 **Stack Effect:** `( a:number b:number -- max:number ) OR ( items:number[] -- max:number )`
 
 Maximum of two numbers or array
+
+---
+
+### MAX-OF
+
+**Stack Effect:** `( numbers:number[] -- max:number )`
+
+Maximum of array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.
 
 ---
 
@@ -146,6 +145,14 @@ Minimum of two numbers or array
 
 ---
 
+### MIN-OF
+
+**Stack Effect:** `( numbers:number[] -- min:number )`
+
+Minimum of array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.
+
+---
+
 ### MOD
 
 **Stack Effect:** `( m:number n:number -- remainder:number )`
@@ -154,35 +161,19 @@ Modulo operation (m % n)
 
 ---
 
-### MULTIPLY
+### PRODUCT
 
-**Stack Effect:** `( a:number b:number -- product:number ) OR ( numbers:number[] -- product:number )`
+**Stack Effect:** `( numbers:number[] -- product:number )`
 
-Multiply two numbers or product of array
-
----
-
-### ROUND
-
-**Stack Effect:** `( a:any -- int:number )`
-
-Convert to integer (returns length for arrays/objects, 0 for null)
+Product of array of numbers (1 if empty). Null/undefined elements yield null.
 
 ---
 
-### ROUND
+### RANGE
 
-**Stack Effect:** `( a:any -- float:number )`
+**Stack Effect:** `( start:number end:number -- numbers:number[] )`
 
-Convert to float
-
----
-
-### ROUND
-
-**Stack Effect:** `( num:number digits:number -- result:string )`
-
-Format number with fixed decimal places
+Generate inclusive integer range from start to end (e.g. 1 5 RANGE -> [1,2,3,4,5]). Empty if start > end.
 
 ---
 
@@ -199,14 +190,6 @@ Round to nearest integer
 **Stack Effect:** `( n:number -- sqrt:number )`
 
 Square root
-
----
-
-### SUBTRACT
-
-**Stack Effect:** `( a:number b:number -- difference:number )`
-
-Subtract b from a
 
 ---
 

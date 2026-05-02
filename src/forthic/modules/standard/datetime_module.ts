@@ -13,7 +13,7 @@ Date and time operations using the Temporal API for timezone-aware datetime mani
 - Conversion from: TIME>STR, DATE>STR
 - Getters: YEAR, MONTH, DAY-OF-WEEK
 - Timestamps: >TIMESTAMP, TIMESTAMP>DATETIME
-- Date math: ADD-DAYS, SUBTRACT-DATES
+- Date math: ADD-DAYS, DAYS-BETWEEN
 
 ## Examples
 TODAY

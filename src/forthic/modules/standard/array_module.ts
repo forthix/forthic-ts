@@ -8,20 +8,17 @@ export class ArrayModule extends DecoratedModule {
 Array and collection operations for manipulating arrays and records.
 
 ## Categories
-- Access: NTH, LAST, SLICE, TAKE, DROP, LENGTH, INDEX, KEY-OF
-- Transform: MAP, REVERSE
-- Combine: APPEND, ZIP, ZIP_WITH, CONCAT
-- Filter: SELECT, UNIQUE, DIFFERENCE, INTERSECTION, UNION
+- Access: NTH, FIRST, LAST, SLICE, TAKE, TAKE-LAST, DROP, LENGTH, INDEX, KEY-OF
+- Transform: MAP, MAP-WITH-KEY, MAP-AT, REVERSE
+- Combine: APPEND, ZIP, ZIP-WITH
+- Filter: FILTER, FILTER-WITH-KEY, UNIQUE, UNIQUE-BY, DIFFERENCE, INTERSECTION, UNION
 - Sort: SORT, SORT-BY, SORT-U
-- Access: NTH, FIRST, LAST, TAKE-LAST
-- Iteration aliases: MAP-WITH-KEY, FOREACH-WITH-KEY, FILTER-WITH-KEY, GROUP-BY-WITH-KEY, MAP-AT
 - Search: FIND, COUNT
 - Extrema: MIN-BY, MAX-BY
-- Dedup: UNIQUE-BY
 - Indexing: NUMBERED
 - Quantifiers: ALL?, ANY?
-- Group: BY_FIELD, GROUP-BY-FIELD, GROUP_BY, GROUPS_OF
-- Utility: TIMES-RUN, FOREACH, REDUCE, UNPACK, FLATTEN
+- Group: BY-FIELD, GROUP-BY, GROUP-BY-WITH-KEY, GROUP-BY-FIELD, GROUPS-OF
+- Iteration: FOREACH, FOREACH-WITH-KEY, REDUCE, UNPACK, FLATTEN, TIMES-RUN
 
 ## Options
 Several words support options via the ~> operator using syntax: [.option_name value ...] ~> WORD

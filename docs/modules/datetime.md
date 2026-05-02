@@ -4,16 +4,17 @@
 
 Date and time operations using the Temporal API for timezone-aware datetime manipulation.
 
-**15 words**
+**17 words**
 
 ## Categories
 
 - **Current**: TODAY, NOW
 - **Time adjustment**: AM, PM
 - **Conversion to**: >TIME, >DATE, >DATETIME, AT
-- **Conversion from**: TIME>STR, DATE>STR, DATE>INT
+- **Conversion from**: TIME>STR, DATE>STR
+- **Getters**: YEAR, MONTH, DAY-OF-WEEK
 - **Timestamps**: >TIMESTAMP, TIMESTAMP>DATETIME
-- **Date math**: ADD-DAYS, SUBTRACT-DATES
+- **Date math**: ADD-DAYS, DAYS-BETWEEN
 
 ## Examples
 
@@ -84,19 +85,35 @@ Combine date and time into datetime
 
 ---
 
-### DATE>INT
-
-**Stack Effect:** `( date:Temporal.PlainDate -- int:number )`
-
-Convert date to integer (YYYYMMDD)
-
----
-
 ### DATE>STR
 
 **Stack Effect:** `( date:Temporal.PlainDate -- str:string )`
 
 Convert date to YYYY-MM-DD string
+
+---
+
+### DAY-OF-WEEK
+
+**Stack Effect:** `( date:Temporal.PlainDate -- day:number )`
+
+Get the day-of-week (1=Monday, 7=Sunday, ISO 8601).
+
+---
+
+### DAYS-BETWEEN
+
+**Stack Effect:** `( date1:Temporal.PlainDate date2:Temporal.PlainDate -- num_days:number )`
+
+Get number of days between two dates (date1 - date2)
+
+---
+
+### MONTH
+
+**Stack Effect:** `( date:Temporal.PlainDate -- month:number )`
+
+Get the calendar month of a date (1=January, 12=December).
 
 ---
 
@@ -113,14 +130,6 @@ Get current datetime
 **Stack Effect:** `( time:Temporal.PlainTime -- time:Temporal.PlainTime )`
 
 Convert time to PM (add 12 to hour if < 12)
-
----
-
-### SUBTRACT-DATES
-
-**Stack Effect:** `( date1:Temporal.PlainDate date2:Temporal.PlainDate -- num_days:number )`
-
-Get difference in days between dates (date1 - date2)
 
 ---
 
@@ -145,6 +154,14 @@ Convert Unix timestamp (seconds) to datetime
 **Stack Effect:** `( -- date:Temporal.PlainDate )`
 
 Get current date
+
+---
+
+### YEAR
+
+**Stack Effect:** `( date:Temporal.PlainDate -- year:number )`
+
+Get the calendar year of a date.
 
 ---
 

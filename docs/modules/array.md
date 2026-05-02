@@ -4,17 +4,21 @@
 
 Array and collection operations for manipulating arrays and records.
 
-**29 words**
+**44 words**
 
 ## Categories
 
-- **Access**: NTH, LAST, SLICE, TAKE, DROP, LENGTH, INDEX, KEY-OF
-- **Transform**: MAP, REVERSE
-- **Combine**: APPEND, ZIP, ZIP_WITH, CONCAT
-- **Filter**: SELECT, UNIQUE, DIFFERENCE, INTERSECTION, UNION
-- **Sort**: SORT, SHUFFLE, ROTATE
-- **Group**: BY_FIELD, GROUP-BY-FIELD, GROUP_BY, GROUPS_OF
-- **Utility**: <REPEAT, FOREACH, REDUCE, UNPACK, FLATTEN
+- **Access**: NTH, FIRST, LAST, SLICE, TAKE, TAKE-LAST, DROP, LENGTH, INDEX, KEY-OF
+- **Transform**: MAP, MAP-WITH-KEY, MAP-AT, REVERSE
+- **Combine**: APPEND, ZIP, ZIP-WITH
+- **Filter**: FILTER, FILTER-WITH-KEY, UNIQUE, UNIQUE-BY, DIFFERENCE, INTERSECTION, UNION
+- **Sort**: SORT, SORT-BY, SORT-U
+- **Search**: FIND, COUNT
+- **Extrema**: MIN-BY, MAX-BY
+- **Indexing**: NUMBERED
+- **Quantifiers**: ALL?, ANY?
+- **Group**: BY-FIELD, GROUP-BY, GROUP-BY-WITH-KEY, GROUP-BY-FIELD, GROUPS-OF
+- **Iteration**: FOREACH, FOREACH-WITH-KEY, REDUCE, UNPACK, FLATTEN, TIMES-RUN
 
 ## Options
 
@@ -37,11 +41,19 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
 ## Words
 
-### <REPEAT
+### ALL?
 
-**Stack Effect:** `( item:any forthic:string num_times:number -- )`
+**Stack Effect:** `( items:any forthic:string -- bool:boolean )`
 
-Repeat execution of forthic num_times
+Returns true if forthic returns truthy for every item. True for empty.
+
+---
+
+### ANY?
+
+**Stack Effect:** `( items:any forthic:string -- bool:boolean )`
+
+Returns true if forthic returns truthy for any item. False for empty.
 
 ---
 
@@ -61,6 +73,14 @@ Index records by field value
 
 ---
 
+### COUNT
+
+**Stack Effect:** `( items:any forthic:string -- n:number )`
+
+Count items where forthic returns truthy.
+
+---
+
 ### DIFFERENCE
 
 **Stack Effect:** `( lcontainer:any rcontainer:any -- result:any )`
@@ -74,6 +94,38 @@ Set difference between two containers
 **Stack Effect:** `( container:any n:number -- result:any )`
 
 Drop first n elements from array or record
+
+---
+
+### FILTER
+
+**Stack Effect:** `( container:any forthic:string [options:WordOptions] -- filtered:any )`
+
+Filter items with predicate. Options: with_key (bool)
+
+---
+
+### FILTER-WITH-KEY
+
+**Stack Effect:** `( container:any forthic:string -- filtered:any )`
+
+FILTER with key/index pushed to forthic before value. Alias for FILTER { .with_key TRUE }.
+
+---
+
+### FIND
+
+**Stack Effect:** `( items:any forthic:string -- item:any )`
+
+Return the first item where forthic returns truthy, or null if none.
+
+---
+
+### FIRST
+
+**Stack Effect:** `( container:any -- item:any )`
+
+Get first element from array or record (sorted-key order for records)
 
 ---
 
@@ -93,6 +145,14 @@ Execute forthic for each item. Options: with_key (bool), push_error (bool). Exam
 
 ---
 
+### FOREACH-WITH-KEY
+
+**Stack Effect:** `( items:any forthic:string -- ? )`
+
+FOREACH with key/index pushed to forthic before value. Alias for FOREACH { .with_key TRUE }.
+
+---
+
 ### GROUP-BY
 
 **Stack Effect:** `( items:any forthic:string [options:WordOptions] -- grouped:any )`
@@ -106,6 +166,14 @@ Group items by function result. Options: with_key (bool). Example: [5 15 25] '10
 **Stack Effect:** `( container:any[] field:string -- grouped:any )`
 
 Group records by field value
+
+---
+
+### GROUP-BY-WITH-KEY
+
+**Stack Effect:** `( items:any forthic:string -- grouped:any )`
+
+GROUP-BY with key/index pushed to forthic before value. Alias for GROUP-BY { .with_key TRUE }.
 
 ---
 
@@ -165,11 +233,51 @@ Map function over items. Options: with_key (bool), push_error (bool), depth (num
 
 ---
 
+### MAP-AT
+
+**Stack Effect:** `( container:any key:any|any[] forthic:string -- container:any )`
+
+Apply forthic to the value at key/index, returning a new container with that slot transformed. The key arg may be a single key (one-level update) or a path-array for deep updates. Polymorphic over arrays and records. Equivalent of jq's |= operator.
+
+---
+
+### MAP-WITH-KEY
+
+**Stack Effect:** `( items:any forthic:string -- mapped:any )`
+
+MAP with key/index pushed to forthic before value. Alias for MAP { .with_key TRUE }.
+
+---
+
+### MAX-BY
+
+**Stack Effect:** `( items:any[] forthic:string -- item:any )`
+
+Return the item with the largest value produced by forthic. Null on empty input.
+
+---
+
+### MIN-BY
+
+**Stack Effect:** `( items:any[] forthic:string -- item:any )`
+
+Return the item with the smallest value produced by forthic. Null on empty input.
+
+---
+
 ### NTH
 
 **Stack Effect:** `( container:any n:number -- item:any )`
 
 Get nth element from array or record
+
+---
+
+### NUMBERED
+
+**Stack Effect:** `( items:any[] -- pairs:any[] )`
+
+Pair each item with its index: [v0 v1 v2] -> [[0 v0] [1 v1] [2 v2]]. (Python's enumerate.)
 
 ---
 
@@ -189,30 +297,6 @@ Reverse array
 
 ---
 
-### ROTATE
-
-**Stack Effect:** `( container:any -- container:any )`
-
-Rotate container by moving last element to front
-
----
-
-### SELECT
-
-**Stack Effect:** `( container:any forthic:string [options:WordOptions] -- filtered:any )`
-
-Filter items with predicate. Options: with_key (bool)
-
----
-
-### SHUFFLE
-
-**Stack Effect:** `( array:any[] -- array:any[] )`
-
-Shuffle array randomly
-
----
-
 ### SLICE
 
 **Stack Effect:** `( container:any start:number end:number -- result:any )`
@@ -221,11 +305,43 @@ Extract slice from array or record
 
 ---
 
+### SORT-BY
+
+**Stack Effect:** `( items:any[] forthic:string -- sorted:any[] )`
+
+Sort items by the value forthic produces (ascending).
+
+---
+
+### SORT-U
+
+**Stack Effect:** `( strings:any[] -- strings:any[] )`
+
+Sort an array and remove duplicates (bash sort -u).
+
+---
+
 ### TAKE
 
 **Stack Effect:** `( container:any[] n:number [options:WordOptions] -- result:any[] )`
 
 Take first n elements
+
+---
+
+### TAKE-LAST
+
+**Stack Effect:** `( container:any n:number -- result:any )`
+
+Take last n elements from array or record (sorted-key order for records).
+
+---
+
+### TIMES-RUN
+
+**Stack Effect:** `( num_times:number forthic:string -- )`
+
+Run forthic num_times. Each invocation runs in the current stack — no automatic per-iteration value passing.
 
 ---
 
@@ -242,6 +358,14 @@ Set union between two containers
 **Stack Effect:** `( array:any[] -- array:any[] )`
 
 Remove duplicates from array
+
+---
+
+### UNIQUE-BY
+
+**Stack Effect:** `( items:any[] forthic:string -- items:any[] )`
+
+Dedupe items by the key forthic produces (keeps first occurrence).
 
 ---
 
