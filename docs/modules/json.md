@@ -4,19 +4,17 @@
 
 JSON serialization, parsing, and formatting operations.
 
-**3 words**
+**2 words**
 
 ## Categories
 
 - **Conversion**: >JSON, JSON>
-- **Formatting**: JSON-PRETTIFY
 
 ## Examples
 
 ```forthic
 {name: "Alice", age: 30} >JSON
 '{"name":"Alice"}' JSON>
-'{"a":1}' JSON-PRETTIFY
 ```
 
 ## Words
@@ -26,14 +24,6 @@ JSON serialization, parsing, and formatting operations.
 **Stack Effect:** `( object:any -- json:string )`
 
 Convert object to JSON string
-
----
-
-### JSON-PRETTIFY
-
-**Stack Effect:** `( json:string -- pretty:string )`
-
-Format JSON with 2-space indentation
 
 ---
 

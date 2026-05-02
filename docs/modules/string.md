@@ -4,15 +4,17 @@
 
 String manipulation and processing operations with regex and URL encoding support.
 
-**17 words**
+**25 words**
 
 ## Categories
 
-- **Conversion**: >STR, URL-ENCODE, URL-DECODE
-- **Transform**: LOWERCASE, UPPERCASE, STRIP, ASCII
-- **Split/Join**: SPLIT, JOIN, CONCAT
-- **Pattern**: REPLACE, RE-MATCH, RE-MATCH-ALL, RE-MATCH-GROUP
-- **Constants**: /N, /R, /T
+- **Conversion**: >STR
+- **Transform**: LOWERCASE, UPPERCASE, STRIP, ASCII, TRIM-PREFIX, TRIM-SUFFIX
+- **Split/Join**: SPLIT, JOIN, CONCAT, LINES, UNLINES
+- **Pattern**: REPLACE, RE-REPLACE, RE-MATCH, RE-MATCH-ALL, RE-MATCH?
+- **Predicates**: STARTS-WITH?, ENDS-WITH?, RE-MATCH?
+- **Bash-flavored**: GREP, GREP-V, SED, CUT
+- **Constants**: /N, /T
 
 ## Examples
 
@@ -22,7 +24,6 @@ String manipulation and processing operations with regex and URL encoding suppor
 "hello world" " " SPLIT
 ["hello" "world"] " " JOIN
 "Hello" LOWERCASE
-"test@example.com" "(@.+)" RE-MATCH 1 RE-MATCH-GROUP
 ```
 
 ## Words
@@ -32,14 +33,6 @@ String manipulation and processing operations with regex and URL encoding suppor
 **Stack Effect:** `( -- char:string )`
 
 Newline character
-
----
-
-### /R
-
-**Stack Effect:** `( -- char:string )`
-
-Carriage return character
 
 ---
 
@@ -69,9 +62,41 @@ Keep only ASCII characters (< 256)
 
 ### CONCAT
 
-**Stack Effect:** `( str1:string str2:string -- result:string ) OR ( strings:string[] -- result:string )`
+**Stack Effect:** `( str1:string str2:string -- result:string ) OR ( arr1:any[] arr2:any[] -- result:any[] ) OR ( strings:string[] -- result:string )`
 
-Concatenate two strings or array of strings
+Concatenate two strings, two arrays, or an array of strings. Dispatches on top-of-stack type.
+
+---
+
+### CUT
+
+**Stack Effect:** `( strings:string[] sep:string field:number -- field_values:any[] )`
+
+Split each string on sep and pick the field-th column (bash cut). Out-of-range yields null.
+
+---
+
+### ENDS-WITH?
+
+**Stack Effect:** `( str:string suffix:string -- bool:boolean )`
+
+Returns true if str ends with suffix.
+
+---
+
+### GREP
+
+**Stack Effect:** `( strings:string[] pattern:string -- matches:string[] )`
+
+Keep only strings matching the regex pattern (bash grep).
+
+---
+
+### GREP-V
+
+**Stack Effect:** `( strings:string[] pattern:string -- non_matches:string[] )`
+
+Keep only strings NOT matching the regex pattern (bash grep -v).
 
 ---
 
@@ -80,6 +105,14 @@ Concatenate two strings or array of strings
 **Stack Effect:** `( strings:string[] sep:string -- result:string )`
 
 Join strings with separator
+
+---
+
+### LINES
+
+**Stack Effect:** `( str:string -- lines:string[] )`
+
+Split string on newline. Equivalent to /N SPLIT.
 
 ---
 
@@ -107,11 +140,19 @@ Find all regex matches in string
 
 ---
 
-### RE-MATCH-GROUP
+### RE-MATCH?
 
-**Stack Effect:** `( match:any num:number -- result:any )`
+**Stack Effect:** `( str:string pattern:string -- bool:boolean )`
 
-Get capture group from regex match
+Returns true if str matches the regex pattern. Predicate-only — does not return the match. (jq's `test`.)
+
+---
+
+### RE-REPLACE
+
+**Stack Effect:** `( string:string pattern:string replace:string -- result:string )`
+
+Replace all regex matches of pattern with replace. Same as classic REPLACE behavior.
 
 ---
 
@@ -119,7 +160,15 @@ Get capture group from regex match
 
 **Stack Effect:** `( string:string text:string replace:string -- result:string )`
 
-Replace all occurrences of text with replace
+Replace all literal occurrences of text with replace. For regex matching use RE-REPLACE.
+
+---
+
+### SED
+
+**Stack Effect:** `( strings:string[] pattern:string repl:string -- strings:string[] )`
+
+Apply RE-REPLACE to each string in the array (bash sed s/pattern/repl/g).
 
 ---
 
@@ -131,6 +180,14 @@ Split string by separator
 
 ---
 
+### STARTS-WITH?
+
+**Stack Effect:** `( str:string prefix:string -- bool:boolean )`
+
+Returns true if str begins with prefix.
+
+---
+
 ### STRIP
 
 **Stack Effect:** `( string:string -- result:string )`
@@ -139,27 +196,35 @@ Trim whitespace from string
 
 ---
 
+### TRIM-PREFIX
+
+**Stack Effect:** `( str:string prefix:string -- result:string )`
+
+Strip prefix from start of str if present (otherwise return str unchanged).
+
+---
+
+### TRIM-SUFFIX
+
+**Stack Effect:** `( str:string suffix:string -- result:string )`
+
+Strip suffix from end of str if present (otherwise return str unchanged).
+
+---
+
+### UNLINES
+
+**Stack Effect:** `( lines:string[] -- str:string )`
+
+Join an array of lines with newlines. Equivalent to /N JOIN.
+
+---
+
 ### UPPERCASE
 
 **Stack Effect:** `( string:string -- result:string )`
 
 Convert string to uppercase
-
----
-
-### URL-DECODE
-
-**Stack Effect:** `( urlencoded:string -- decoded:string )`
-
-URL decode string
-
----
-
-### URL-ENCODE
-
-**Stack Effect:** `( str:string -- encoded:string )`
-
-URL encode string
 
 ---
 

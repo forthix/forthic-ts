@@ -10,12 +10,11 @@ Essential interpreter operations for stack manipulation, variables, control flow
 
 - **Stack**: POP, DUP, SWAP
 - **Variables**: VARIABLES, !, @, !@
-- **Module**: EXPORT, USE-MODULES
-- **Execution**: INTERPRET
-- **Control**: IDENTITY, NOP, DEFAULT, *DEFAULT, NULL, ARRAY?
+- **Module**: USE-MODULES
+- **Execution**: RUN
+- **Control**: NOP, DEFAULT, DEFAULT-RUN, NULL, IF, IF-RUN, WHEN
+- **Predicates**: ARRAY?, NULL?, EMPTY?, STRING?, NUMBER?, RECORD?
 - **Options**: ~> (converts array to WordOptions)
-- **Profiling**: PROFILE-START, PROFILE-TIMESTAMP, PROFILE-END, PROFILE-DATA
-- **Logging**: START-LOG, END-LOG
 - **String**: INTERPOLATE, PRINT
 - **Debug**: PEEK!, STACK!
 
@@ -40,7 +39,39 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
 
 ## Words
 
-### DEFAULT
+### !
+
+**Stack Effect:** `( value:any variable:any -- )`
+
+Sets variable value (auto-creates if string name)
+
+---
+
+### !@
+
+**Stack Effect:** `( value:any variable:any -- value:any )`
+
+Sets variable and returns value
+
+---
+
+### @
+
+**Stack Effect:** `( variable:any -- value:any )`
+
+Gets variable value (throws UnknownVariableError if string name is undeclared)
+
+---
+
+### ~>
+
+**Stack Effect:** `( array:any[] -- options:WordOptions )`
+
+Convert options array to WordOptions. Format: [.key1 val1 .key2 val2]
+
+---
+
+### ARRAY?
 
 **Stack Effect:** `( value:any -- boolean:boolean )`
 
@@ -56,6 +87,14 @@ Returns value or default if value is null/undefined/empty string
 
 ---
 
+### DEFAULT-RUN
+
+**Stack Effect:** `( value:any forthic:string -- result:any )`
+
+Lazy default: returns value if non-empty, otherwise runs forthic and uses its result. The forthic is only evaluated when needed.
+
+---
+
 ### DUP
 
 **Stack Effect:** `( a:any -- a:any a:any )`
@@ -64,27 +103,27 @@ Duplicates top stack item
 
 ---
 
-### END-LOG
+### EMPTY?
 
-**Stack Effect:** `( -- )`
+**Stack Effect:** `( value:any -- boolean:boolean )`
 
-Ends logging interpreter stream
-
----
-
-### EXPORT
-
-**Stack Effect:** `( names:string[] -- )`
-
-Exports words from current module
+Returns true if value is null/undefined, an empty string, or a container (array/record) with no entries
 
 ---
 
-### IDENTITY
+### IF
 
-**Stack Effect:** `( -- )`
+**Stack Effect:** `( bool:boolean then_value:any else_value:any -- chosen:any )`
 
-Does nothing (identity operation)
+Pure value selection: push then_value if bool is truthy, else push else_value. For lazy code execution use IF-RUN; for one-sided side effects use WHEN.
+
+---
+
+### IF-RUN
+
+**Stack Effect:** `( bool:boolean then_forthic:string else_forthic:string -- ? )`
+
+Conditional code execution: if bool is truthy run then_forthic, otherwise run else_forthic. Branches are Forthic strings.
 
 ---
 
@@ -93,38 +132,6 @@ Does nothing (identity operation)
 **Stack Effect:** `( string:string [options:WordOptions] -- result:string )`
 
 Interpolate variables (.name) and return result string. Use \\. to escape literal dots.
-
----
-
-### INTERPRET
-
-**Stack Effect:** `( value:any variable:any -- )`
-
-Sets variable value (auto-creates if string name)
-
----
-
-### INTERPRET
-
-**Stack Effect:** `( variable:any -- value:any )`
-
-Gets variable value (auto-creates if string name)
-
----
-
-### INTERPRET
-
-**Stack Effect:** `( value:any variable:any -- value:any )`
-
-Sets variable and returns value
-
----
-
-### INTERPRET
-
-**Stack Effect:** `( string:string -- )`
-
-Interprets Forthic string in current context
 
 ---
 
@@ -144,6 +151,30 @@ Pushes null onto stack
 
 ---
 
+### NULL?
+
+**Stack Effect:** `( value:any -- boolean:boolean )`
+
+Returns true if value is null or undefined
+
+---
+
+### NUMBER?
+
+**Stack Effect:** `( value:any -- boolean:boolean )`
+
+Returns true if value is a finite number
+
+---
+
+### PEEK!
+
+**Stack Effect:** `( -- )`
+
+Prints top of stack and stops execution
+
+---
+
 ### POP
 
 **Stack Effect:** `( a:any -- )`
@@ -160,59 +191,35 @@ Print value to stdout. Strings interpolate variables (.name). Non-strings format
 
 ---
 
-### START_LOG
+### RECORD?
 
-**Stack Effect:** `( value:any default_forthic:string -- result:any )`
+**Stack Effect:** `( value:any -- boolean:boolean )`
 
-Returns value or executes Forthic if value is null/undefined/empty string
-
----
-
-### START_LOG
-
-**Stack Effect:** `( array:any[] -- options:WordOptions )`
-
-Convert options array to WordOptions. Format: [.key1 val1 .key2 val2]
+Returns true if value is a plain record (object that is not an array and not null)
 
 ---
 
-### START_LOG
+### RUN
+
+**Stack Effect:** `( forthic:string -- ? )`
+
+Run a Forthic string in the current context. Whatever the forthic produces is left on the stack.
+
+---
+
+### STACK!
 
 **Stack Effect:** `( -- )`
 
-Starts profiling word execution
+Prints entire stack (reversed) and stops execution
 
 ---
 
-### START_LOG
+### STRING?
 
-**Stack Effect:** `( -- )`
+**Stack Effect:** `( value:any -- boolean:boolean )`
 
-Stops profiling word execution
-
----
-
-### START_LOG
-
-**Stack Effect:** `( label:string -- )`
-
-Records profiling timestamp with label
-
----
-
-### START_LOG
-
-**Stack Effect:** `( -- profile_data:object )`
-
-Returns profiling data (word counts and timestamps)
-
----
-
-### START-LOG
-
-**Stack Effect:** `( -- )`
-
-Starts logging interpreter stream
+Returns true if value is a string
 
 ---
 
@@ -226,25 +233,9 @@ Swaps top two stack items
 
 ### USE-MODULES
 
-**Stack Effect:** `( names:string[] -- )`
+**Stack Effect:** `( names:string[] [options:WordOptions] -- )`
 
 Imports modules by name
-
----
-
-### VARIABLES
-
-**Stack Effect:** `( -- )`
-
-Prints top of stack and stops execution
-
----
-
-### VARIABLES
-
-**Stack Effect:** `( -- )`
-
-Prints entire stack (reversed) and stops execution
 
 ---
 
@@ -253,6 +244,14 @@ Prints entire stack (reversed) and stops execution
 **Stack Effect:** `( varnames:string[] -- )`
 
 Creates variables in current module
+
+---
+
+### WHEN
+
+**Stack Effect:** `( bool:boolean forthic:string -- ? )`
+
+If bool is truthy run forthic, otherwise do nothing. The forthic argument is always treated as code (executed in current context).
 
 ---
 
