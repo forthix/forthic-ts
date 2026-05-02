@@ -1,6 +1,6 @@
 # Forthic — Standard Words
 
-Generated: 2026-05-02T00:04:24.695Z
+Generated: 2026-05-02T00:14:51.374Z
 
 **8 modules · 163 surface words**
 
