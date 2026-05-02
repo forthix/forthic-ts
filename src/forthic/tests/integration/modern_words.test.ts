@@ -197,45 +197,28 @@ describe("Type predicates", () => {
   });
 });
 
-describe("MAP-WITH-KEY / FOREACH-WITH-KEY (convenience aliases)", () => {
-  test("MAP-WITH-KEY pushes index then value to forthic on arrays", async () => {
-    await interp.run("['a' 'b' 'c'] '+' MAP-WITH-KEY");
+describe("Iteration with .with_key option (substrate; no convenience aliases)", () => {
+  test("MAP { .with_key TRUE } pushes index then value to forthic on arrays", async () => {
+    await interp.run("['a' 'b' 'c'] '+' [.with_key TRUE] ~> MAP");
     expect(interp.stack_pop()).toEqual(["0a", "1b", "2c"]);
   });
 
-  test("MAP-WITH-KEY pushes key then value on records", async () => {
-    await interp.run("[['x' 1] ['y' 2]] REC '+' MAP-WITH-KEY");
+  test("MAP { .with_key TRUE } pushes key then value on records", async () => {
+    await interp.run("[['x' 1] ['y' 2]] REC '+' [.with_key TRUE] ~> MAP");
     expect(interp.stack_pop()).toEqual({ x: "x1", y: "y2" });
   });
 
-  test("FOREACH-WITH-KEY runs forthic with key+value", async () => {
-    // Body sees [..., index, value]. + reduces them into one number,
-    // then we add to running total.
+  test("FOREACH with .with_key TRUE runs forthic with key+value", async () => {
     await interp.run(
-      "0 .total !  [10 20 30] '+ .total @ + .total !' FOREACH-WITH-KEY  .total @"
+      "0 .total !  [10 20 30] '+ .total @ + .total !' [.with_key TRUE] ~> FOREACH  .total @"
     );
     // sum of (index + value) for each: (0+10)+(1+20)+(2+30) = 63
     expect(interp.stack_pop()).toBe(63);
   });
-});
 
-describe("FILTER-WITH-KEY (convenience alias)", () => {
-  test("filters by key/index condition", async () => {
-    // forthic stack at entry: [..., index, value]. POP drops value, leaves index;
-    // then 1 > tests index > 1.
-    await interp.run("[10 20 30 40] 'POP 1 >' FILTER-WITH-KEY");
+  test("FILTER with .with_key TRUE filters by key/index condition", async () => {
+    await interp.run("[10 20 30 40] 'POP 1 >' [.with_key TRUE] ~> FILTER");
     expect(interp.stack_pop()).toEqual([30, 40]);
-  });
-});
-
-describe("GROUP-BY-WITH-KEY (convenience alias)", () => {
-  test("groups by a function of key+value", async () => {
-    await interp.run(
-      "[['a' 1] ['b' 2] ['c' 3]] REC 'SWAP POP 2 MOD' GROUP-BY-WITH-KEY"
-    );
-    // Group records by (value MOD 2): odd values {a:1, c:3}, even values {b:2}
-    const result = interp.stack_pop();
-    expect(result).toBeDefined();
   });
 });
 

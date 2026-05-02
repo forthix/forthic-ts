@@ -1,14 +1,14 @@
 # Forthic Module Documentation
 
-Generated: 2026-05-02T00:14:51.372Z
+Generated: 2026-05-02T00:18:30.332Z
 
-**10 modules** with **207 words** total
+**10 modules** with **203 words** total
 
 ## Modules
 
 | Module | Words | Description |
 |--------|-------|-------------|
-| [array](./modules/array.md) | 44 | Array and collection operations for manipulating arrays and records. |
+| [array](./modules/array.md) | 40 | Array and collection operations for manipulating arrays and records. |
 | [boolean](./modules/boolean.md) | 13 | Comparison, logic, and membership operations for boolean values and conditions. |
 | [classic](./modules/classic.md) | 35 | Module operations |
 | [core](./modules/core.md) | 27 | Essential interpreter operations for stack manipulation, variables, control flow, and module system. |
@@ -21,7 +21,7 @@ Generated: 2026-05-02T00:14:51.372Z
 
 ## Quick Links
 
-- **[array](./modules/array.md)**: ALL?, ANY?, APPEND, BY-FIELD, COUNT, ... (39 more)
+- **[array](./modules/array.md)**: ALL?, ANY?, APPEND, BY-FIELD, COUNT, ... (35 more)
 - **[boolean](./modules/boolean.md)**: !=, <, <=, ==, >, ... (8 more)
 - **[classic](./modules/classic.md)**: *DEFAULT, /R, <DEL, <REPEAT, >FIXED, ... (30 more)
 - **[core](./modules/core.md)**: !, !@, @, ~>, ARRAY?, ... (22 more)

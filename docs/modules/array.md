@@ -4,21 +4,21 @@
 
 Array and collection operations for manipulating arrays and records.
 
-**44 words**
+**40 words**
 
 ## Categories
 
 - **Access**: NTH, FIRST, LAST, SLICE, TAKE, TAKE-LAST, DROP, LENGTH, INDEX, KEY-OF
-- **Transform**: MAP, MAP-WITH-KEY, MAP-AT, REVERSE
+- **Transform**: MAP, MAP-AT, REVERSE
 - **Combine**: APPEND, ZIP, ZIP-WITH
-- **Filter**: FILTER, FILTER-WITH-KEY, UNIQUE, UNIQUE-BY, DIFFERENCE, INTERSECTION, UNION
+- **Filter**: FILTER, UNIQUE, UNIQUE-BY, DIFFERENCE, INTERSECTION, UNION
 - **Sort**: SORT, SORT-BY, SORT-U
 - **Search**: FIND, COUNT
 - **Extrema**: MIN-BY, MAX-BY
 - **Indexing**: NUMBERED
 - **Quantifiers**: ALL?, ANY?
-- **Group**: BY-FIELD, GROUP-BY, GROUP-BY-WITH-KEY, GROUP-BY-FIELD, GROUPS-OF
-- **Iteration**: FOREACH, FOREACH-WITH-KEY, REDUCE, UNPACK, FLATTEN, TIMES-RUN
+- **Group**: BY-FIELD, GROUP-BY, GROUP-BY-FIELD, GROUPS-OF
+- **Iteration**: FOREACH, REDUCE, UNPACK, FLATTEN, TIMES-RUN
 
 ## Options
 
@@ -105,14 +105,6 @@ Filter items with predicate. Options: with_key (bool)
 
 ---
 
-### FILTER-WITH-KEY
-
-**Stack Effect:** `( container:any forthic:string -- filtered:any )`
-
-FILTER with key/index pushed to forthic before value. Alias for FILTER { .with_key TRUE }.
-
----
-
 ### FIND
 
 **Stack Effect:** `( items:any forthic:string -- item:any )`
@@ -145,14 +137,6 @@ Execute forthic for each item. Options: with_key (bool), push_error (bool). Exam
 
 ---
 
-### FOREACH-WITH-KEY
-
-**Stack Effect:** `( items:any forthic:string -- ? )`
-
-FOREACH with key/index pushed to forthic before value. Alias for FOREACH { .with_key TRUE }.
-
----
-
 ### GROUP-BY
 
 **Stack Effect:** `( items:any forthic:string [options:WordOptions] -- grouped:any )`
@@ -166,14 +150,6 @@ Group items by function result. Options: with_key (bool). Example: [5 15 25] '10
 **Stack Effect:** `( container:any[] field:string -- grouped:any )`
 
 Group records by field value
-
----
-
-### GROUP-BY-WITH-KEY
-
-**Stack Effect:** `( items:any forthic:string -- grouped:any )`
-
-GROUP-BY with key/index pushed to forthic before value. Alias for GROUP-BY { .with_key TRUE }.
 
 ---
 
@@ -238,14 +214,6 @@ Map function over items. Options: with_key (bool), push_error (bool), depth (num
 **Stack Effect:** `( container:any key:any|any[] forthic:string -- container:any )`
 
 Apply forthic to the value at key/index, returning a new container with that slot transformed. The key arg may be a single key (one-level update) or a path-array for deep updates. Polymorphic over arrays and records. Equivalent of jq's |= operator.
-
----
-
-### MAP-WITH-KEY
-
-**Stack Effect:** `( items:any forthic:string -- mapped:any )`
-
-MAP with key/index pushed to forthic before value. Alias for MAP { .with_key TRUE }.
 
 ---
 
