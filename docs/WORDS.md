@@ -1,8 +1,8 @@
 # Forthic — Standard Words
 
-Generated: 2026-05-02T00:14:51.374Z
+Generated: 2026-05-02T00:18:30.334Z
 
-**8 modules · 163 surface words**
+**8 modules · 159 surface words**
 
 Classic/back-compat words live in `classic/classic_module.ts` and are
 intentionally omitted from this index.
@@ -29,7 +29,6 @@ Array and collection operations for manipulating arrays and records.
 ### Transform
 
 - **MAP** `( items:any forthic:string [options:WordOptions] -- mapped:any )` — Map function over items. Options: with_key (bool), push_error (bool), depth (num), push_rest (bool). Example: [1 2 3] '2 *' [.with_key TRUE] ~> MAP
-- **MAP-WITH-KEY** `( items:any forthic:string -- mapped:any )` — MAP with key/index pushed to forthic before value. Alias for MAP { .with_key TRUE }.
 - **MAP-AT** `( container:any key:any|any[] forthic:string -- container:any )` — Apply forthic to the value at key/index, returning a new container with that slot transformed. The key arg may be a single key (one-level update) or a path-array for deep updates. Polymorphic over arrays and records. Equivalent of jq's |= operator.
 - **REVERSE** `( container:any -- container:any )` — Reverse array
 
@@ -42,7 +41,6 @@ Array and collection operations for manipulating arrays and records.
 ### Filter
 
 - **FILTER** `( container:any forthic:string [options:WordOptions] -- filtered:any )` — Filter items with predicate. Options: with_key (bool)
-- **FILTER-WITH-KEY** `( container:any forthic:string -- filtered:any )` — FILTER with key/index pushed to forthic before value. Alias for FILTER { .with_key TRUE }.
 - **UNIQUE** `( array:any[] -- array:any[] )` — Remove duplicates from array
 - **UNIQUE-BY** `( items:any[] forthic:string -- items:any[] )` — Dedupe items by the key forthic produces (keeps first occurrence).
 - **DIFFERENCE** `( lcontainer:any rcontainer:any -- result:any )` — Set difference between two containers
@@ -78,14 +76,12 @@ Array and collection operations for manipulating arrays and records.
 
 - **BY-FIELD** `( container:any[] field:string -- indexed:any )` — Index records by field value
 - **GROUP-BY** `( items:any forthic:string [options:WordOptions] -- grouped:any )` — Group items by function result. Options: with_key (bool). Example: [5 15 25] '10 /' [.with_key TRUE] ~> GROUP-BY
-- **GROUP-BY-WITH-KEY** `( items:any forthic:string -- grouped:any )` — GROUP-BY with key/index pushed to forthic before value. Alias for GROUP-BY { .with_key TRUE }.
 - **GROUP-BY-FIELD** `( container:any[] field:string -- grouped:any )` — Group records by field value
 - **GROUPS-OF** `( container:any[] n:number -- groups:any[] )` — Split array into groups of size n
 
 ### Iteration
 
 - **FOREACH** `( items:any forthic:string [options:WordOptions] -- ? )` — Execute forthic for each item. Options: with_key (bool), push_error (bool). Example: ['a' 'b'] 'PROCESS' [.with_key TRUE] ~> FOREACH
-- **FOREACH-WITH-KEY** `( items:any forthic:string -- ? )` — FOREACH with key/index pushed to forthic before value. Alias for FOREACH { .with_key TRUE }.
 - **REDUCE** `( container:any initial:any forthic:string -- result:any )` — Reduce array or record with accumulator
 - **UNPACK** `( container:any -- elements:any )` — Unpack array or record elements onto stack
 - **FLATTEN** `( container:any [options:WordOptions] -- flat:any )` — Flatten nested arrays or records. Options: depth (number). Example: [[[1 2]]] [.depth 1] ~> FLATTEN

@@ -93,7 +93,7 @@ ALWAYS generate code in this structure:
 
 ## Words
 
-8 modules · 163 surface words.
+8 modules · 159 surface words.
 
 ### array
 - `ALL?` `( items:any forthic:string -- bool:boolean )` — Returns true if forthic returns truthy for every item. True for empty.
@@ -104,15 +104,12 @@ ALWAYS generate code in this structure:
 - `DIFFERENCE` `( lcontainer:any rcontainer:any -- result:any )` — Set difference between two containers
 - `DROP` `( container:any n:number -- result:any )` — Drop first n elements from array or record
 - `FILTER` `( container:any forthic:string [options:WordOptions] -- filtered:any )` — Filter items with predicate. Options: with_key (bool)
-- `FILTER-WITH-KEY` `( container:any forthic:string -- filtered:any )` — FILTER with key/index pushed to forthic before value. Alias for FILTER { .with_key TRUE }.
 - `FIND` `( items:any forthic:string -- item:any )` — Return the first item where forthic returns truthy, or null if none.
 - `FIRST` `( container:any -- item:any )` — Get first element from array or record (sorted-key order for records)
 - `FLATTEN` `( container:any [options:WordOptions] -- flat:any )` — Flatten nested arrays or records. Options: depth (number). Example: [[[1 2]]] [.depth 1] ~> FLATTEN
 - `FOREACH` `( items:any forthic:string [options:WordOptions] -- ? )` — Execute forthic for each item. Options: with_key (bool), push_error (bool). Example: ['a' 'b'] 'PROCESS' [.with_key TRUE] ~> FOREACH
-- `FOREACH-WITH-KEY` `( items:any forthic:string -- ? )` — FOREACH with key/index pushed to forthic before value. Alias for FOREACH { .with_key TRUE }.
 - `GROUP-BY` `( items:any forthic:string [options:WordOptions] -- grouped:any )` — Group items by function result. Options: with_key (bool). Example: [5 15 25] '10 /' [.with_key TRUE] ~> GROUP-BY
 - `GROUP-BY-FIELD` `( container:any[] field:string -- grouped:any )` — Group records by field value
-- `GROUP-BY-WITH-KEY` `( items:any forthic:string -- grouped:any )` — GROUP-BY with key/index pushed to forthic before value. Alias for GROUP-BY { .with_key TRUE }.
 - `GROUPS-OF` `( container:any[] n:number -- groups:any[] )` — Split array into groups of size n
 - `INDEX` `( items:any[] forthic:string -- indexed:any )` — Create index mapping from array indices to values
 - `INTERSECTION` `( lcontainer:any rcontainer:any -- result:any )` — Set intersection between two containers
@@ -121,7 +118,6 @@ ALWAYS generate code in this structure:
 - `LENGTH` `( container:any -- length:number )` — Get length of array or record
 - `MAP` `( items:any forthic:string [options:WordOptions] -- mapped:any )` — Map function over items. Options: with_key (bool), push_error (bool), depth (num), push_rest (bool). Example: [1 2 3] '2 *' [.with_key TRUE] ~> MAP
 - `MAP-AT` `( container:any key:any|any[] forthic:string -- container:any )` — Apply forthic to the value at key/index, returning a new container with that slot transformed. The key arg may be a single key (one-level update) or a path-array for deep updates. Polymorphic over arrays and records. Equivalent of jq's |= operator.
-- `MAP-WITH-KEY` `( items:any forthic:string -- mapped:any )` — MAP with key/index pushed to forthic before value. Alias for MAP { .with_key TRUE }.
 - `MAX-BY` `( items:any[] forthic:string -- item:any )` — Return the item with the largest value produced by forthic. Null on empty input.
 - `MIN-BY` `( items:any[] forthic:string -- item:any )` — Return the item with the smallest value produced by forthic. Null on empty input.
 - `NTH` `( container:any n:number -- item:any )` — Get nth element from array or record
