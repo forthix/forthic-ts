@@ -4,23 +4,20 @@
 
 Record (object/dictionary) manipulation operations for working with key-value data structures.
 
-**10 words**
+**13 words**
 
 ## Categories
 
 - **Core**: REC, REC@, |REC@, <REC!
-- **Transform**: RELABEL, INVERT-KEYS, REC-DEFAULTS, <DEL
+- **Construct**: ENTRIES>REC
+- **Disassemble**: REC>ENTRIES
+- **Combine**: MERGE
+- **Subset**: PICK, OMIT
+- **Predicate**: HAS-KEY?
+- **Transform**: DELETE
 - **Access**: KEYS, VALUES
 
 ## Words
-
-### <DEL
-
-**Stack Effect:** `( container:any key:any -- container:any )`
-
-Delete key from record or index from array
-
----
 
 ### <REC!
 
@@ -38,11 +35,27 @@ Map REC@ over array of records
 
 ---
 
-### INVERT-KEYS
+### DELETE
 
-**Stack Effect:** `( record:any -- inverted:any )`
+**Stack Effect:** `( container:any key:any -- container:any )`
 
-Invert two-level nested record structure
+Delete key from record or index from array
+
+---
+
+### ENTRIES>REC
+
+**Stack Effect:** `( pairs:any[] -- rec:any )`
+
+Build a record from an array of [key, value] pairs. Alias of REC, surfaced for symmetry with REC>ENTRIES.
+
+---
+
+### HAS-KEY?
+
+**Stack Effect:** `( rec:any key:any -- bool:boolean )`
+
+Returns true if rec has the given key (own property). Distinct from REC@ NULL == — handles intentional null values correctly.
 
 ---
 
@@ -54,19 +67,35 @@ Get keys from record or indices from array
 
 ---
 
+### MERGE
+
+**Stack Effect:** `( rec1:any rec2:any -- merged:any )`
+
+Shallow merge two records. Keys present in rec2 override rec1.
+
+---
+
+### OMIT
+
+**Stack Effect:** `( rec:any keys:any[] -- rec:any )`
+
+Return a new record without the listed keys.
+
+---
+
+### PICK
+
+**Stack Effect:** `( rec:any keys:any[] -- rec:any )`
+
+Return a new record containing only the listed keys (missing keys are skipped).
+
+---
+
 ### REC
 
 **Stack Effect:** `( key_vals:any[] -- rec:any )`
 
 Create record from [[key, val], ...] pairs
-
----
-
-### REC-DEFAULTS
-
-**Stack Effect:** `( record:any key_vals:any[] -- record:any )`
-
-Set default values for missing/empty fields
 
 ---
 
@@ -78,11 +107,11 @@ Get value from record by field or array of fields
 
 ---
 
-### RELABEL
+### REC>ENTRIES
 
-**Stack Effect:** `( container:any old_keys:any[] new_keys:any[] -- container:any )`
+**Stack Effect:** `( rec:any -- pairs:any[] )`
 
-Rename record keys
+Convert a record to an array of [key, value] pairs (sorted by key for stability). Inverse of ENTRIES>REC / REC.
 
 ---
 

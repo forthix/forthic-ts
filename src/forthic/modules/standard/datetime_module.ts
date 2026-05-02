@@ -10,9 +10,10 @@ Date and time operations using the Temporal API for timezone-aware datetime mani
 - Current: TODAY, NOW
 - Time adjustment: AM, PM
 - Conversion to: >TIME, >DATE, >DATETIME, AT
-- Conversion from: TIME>STR, DATE>STR, DATE>INT
+- Conversion from: TIME>STR, DATE>STR
+- Getters: YEAR, MONTH, DAY-OF-WEEK
 - Timestamps: >TIMESTAMP, TIMESTAMP>DATETIME
-- Date math: ADD-DAYS, SUBTRACT-DATES
+- Date math: ADD-DAYS, DAYS-BETWEEN
 
 ## Examples
 TODAY
@@ -239,17 +240,6 @@ TODAY 7 ADD-DAYS
     return date.toString();
   }
 
-  @ForthicWord("( date:Temporal.PlainDate -- int:number )", "Convert date to integer (YYYYMMDD)", "DATE>INT")
-  async DATE_to_INT(date: any) {
-    if (!date || typeof date.year !== "number") {
-      return null;
-    }
-
-    const year = date.year;
-    const month = String(date.month).padStart(2, "0");
-    const day = String(date.day).padStart(2, "0");
-    return parseInt(`${year}${month}${day}`, 10);
-  }
 
 
   @ForthicDirectWord("( datetime:Temporal.ZonedDateTime -- timestamp:number )", "Convert datetime to Unix timestamp (seconds)", ">TIMESTAMP")
@@ -309,8 +299,8 @@ TODAY 7 ADD-DAYS
   }
 
   // ( date1 date2 -- num_days )
-  @ForthicWord("( date1:Temporal.PlainDate date2:Temporal.PlainDate -- num_days:number )", "Get difference in days between dates (date1 - date2)", "SUBTRACT-DATES")
-  async SUBTRACT_DATES(date1: any, date2: any) {
+  @ForthicWord("( date1:Temporal.PlainDate date2:Temporal.PlainDate -- num_days:number )", "Get number of days between two dates (date1 - date2)", "DAYS-BETWEEN")
+  async DAYS_BETWEEN(date1: any, date2: any) {
     if (!date1 || !date2 || typeof date1.year !== "number" || typeof date2.year !== "number") {
       return null;
     }
@@ -319,5 +309,35 @@ TODAY 7 ADD-DAYS
     // until() gives us date1 → date2, but we want date2 → date1 (negative of until)
     const duration = date2.until(date1, { largestUnit: "days" });
     return duration.days;
+  }
+
+  @ForthicWord(
+    "( date:Temporal.PlainDate -- year:number )",
+    "Get the calendar year of a date.",
+    "YEAR",
+  )
+  async YEAR(date: any) {
+    if (!date || typeof date.year !== "number") return null;
+    return date.year;
+  }
+
+  @ForthicWord(
+    "( date:Temporal.PlainDate -- month:number )",
+    "Get the calendar month of a date (1=January, 12=December).",
+    "MONTH",
+  )
+  async MONTH(date: any) {
+    if (!date || typeof date.month !== "number") return null;
+    return date.month;
+  }
+
+  @ForthicWord(
+    "( date:Temporal.PlainDate -- day:number )",
+    "Get the day-of-week (1=Monday, 7=Sunday, ISO 8601).",
+    "DAY-OF-WEEK",
+  )
+  async DAY_OF_WEEK(date: any) {
+    if (!date || typeof date.dayOfWeek !== "number") return null;
+    return date.dayOfWeek;
   }
 }

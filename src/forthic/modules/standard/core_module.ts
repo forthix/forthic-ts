@@ -12,12 +12,11 @@ Essential interpreter operations for stack manipulation, variables, control flow
 ## Categories
 - Stack: POP, DUP, SWAP
 - Variables: VARIABLES, !, @, !@
-- Module: EXPORT, USE-MODULES
-- Execution: INTERPRET
-- Control: IDENTITY, NOP, DEFAULT, *DEFAULT, NULL, ARRAY?
+- Module: USE-MODULES
+- Execution: RUN
+- Control: NOP, DEFAULT, DEFAULT-RUN, NULL, IF, IF-RUN, WHEN
+- Predicates: ARRAY?, NULL?, EMPTY?, STRING?, NUMBER?, RECORD?
 - Options: ~> (converts array to WordOptions)
-- Profiling: PROFILE-START, PROFILE-TIMESTAMP, PROFILE-END, PROFILE-DATA
-- Logging: START-LOG, END-LOG
 - String: INTERPOLATE, PRINT
 - Debug: PEEK!, STACK!
 
@@ -162,15 +161,42 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
   }
 
 
-  @ForthicWord("( string:string -- )", "Interprets Forthic string in current context")
-  async INTERPRET(string: string) {
+  @ForthicWord("( forthic:string -- ? )", "Run a Forthic string in the current context. Whatever the forthic produces is left on the stack.", "RUN")
+  async RUN(forthic: string) {
     const string_location = this.interp.get_string_location();
-    if (string) await this.interp.run(string, string_location);
+    if (forthic) await this.interp.run(forthic, string_location);
   }
 
-  @ForthicWord("( names:string[] -- )", "Exports words from current module")
-  async EXPORT(names: string[]) {
-    this.interp.cur_module().add_exportable(names);
+  @ForthicWord(
+    "( bool:boolean then_value:any else_value:any -- chosen:any )",
+    "Pure value selection: push then_value if bool is truthy, else push else_value. For lazy code execution use IF-RUN; for one-sided side effects use WHEN.",
+  )
+  async IF(bool: any, then_value: any, else_value: any) {
+    return bool ? then_value : else_value;
+  }
+
+  @ForthicWord(
+    "( bool:boolean then_forthic:string else_forthic:string -- ? )",
+    "Conditional code execution: if bool is truthy run then_forthic, otherwise run else_forthic. Branches are Forthic strings.",
+    "IF-RUN",
+  )
+  async IF_RUN(bool: any, then_forthic: string, else_forthic: string) {
+    const branch = bool ? then_forthic : else_forthic;
+    if (branch) {
+      const string_location = this.interp.get_string_location();
+      await this.interp.run(branch, string_location);
+    }
+  }
+
+  @ForthicWord(
+    "( bool:boolean forthic:string -- ? )",
+    "If bool is truthy run forthic, otherwise do nothing. The forthic argument is always treated as code (executed in current context).",
+  )
+  async WHEN(bool: any, forthic: string) {
+    if (bool && forthic) {
+      const string_location = this.interp.get_string_location();
+      await this.interp.run(forthic, string_location);
+    }
   }
 
   @ForthicWord("( names:string[] [options:WordOptions] -- )", "Imports modules by name", "USE-MODULES")
@@ -179,11 +205,6 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     this.interp.use_modules(names, options);
   }
 
-
-  @ForthicWord("( -- )", "Does nothing (identity operation)")
-  async IDENTITY() {
-    // No-op
-  }
 
   @ForthicWord("( -- )", "Does nothing (no operation)")
   async NOP() {
@@ -200,6 +221,41 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     return value instanceof Array;
   }
 
+  @ForthicWord("( value:any -- boolean:boolean )", "Returns true if value is null or undefined")
+  async ["NULL?"](value: any) {
+    return value === null || value === undefined;
+  }
+
+  @ForthicWord(
+    "( value:any -- boolean:boolean )",
+    "Returns true if value is null/undefined, an empty string, or a container (array/record) with no entries",
+  )
+  async ["EMPTY?"](value: any) {
+    if (value === null || value === undefined) return true;
+    if (typeof value === "string") return value.length === 0;
+    if (Array.isArray(value)) return value.length === 0;
+    if (typeof value === "object") return Object.keys(value).length === 0;
+    return false;
+  }
+
+  @ForthicWord("( value:any -- boolean:boolean )", "Returns true if value is a string")
+  async ["STRING?"](value: any) {
+    return typeof value === "string";
+  }
+
+  @ForthicWord("( value:any -- boolean:boolean )", "Returns true if value is a finite number")
+  async ["NUMBER?"](value: any) {
+    return typeof value === "number" && !Number.isNaN(value);
+  }
+
+  @ForthicWord(
+    "( value:any -- boolean:boolean )",
+    "Returns true if value is a plain record (object that is not an array and not null)",
+  )
+  async ["RECORD?"](value: any) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+
   @ForthicWord("( value:any default_value:any -- result:any )", "Returns value or default if value is null/undefined/empty string")
   async DEFAULT(value: any, default_value: any) {
     if (value === undefined || value === null || value === "") {
@@ -208,77 +264,25 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     return value;
   }
 
-  @ForthicWord("( value:any default_forthic:string -- result:any )", "Returns value or executes Forthic if value is null/undefined/empty string")
-  async ["*DEFAULT"](value: any, default_forthic: string) {
+  @ForthicWord(
+    "( value:any forthic:string -- result:any )",
+    "Lazy default: returns value if non-empty, otherwise runs forthic and uses its result. The forthic is only evaluated when needed.",
+    "DEFAULT-RUN",
+  )
+  async DEFAULT_RUN(value: any, forthic: string) {
     if (value === undefined || value === null || value === "") {
       const string_location = this.interp.get_string_location();
-      await this.interp.run(default_forthic, string_location);
+      await this.interp.run(forthic, string_location);
       return this.interp.stack_pop();
     }
     return value;
   }
-
 
   @ForthicWord("( array:any[] -- options:WordOptions )", "Convert options array to WordOptions. Format: [.key1 val1 .key2 val2]")
   async ["~>"](array: any[]) {
     return new WordOptions(array);
   }
 
-
-  @ForthicWord("( -- )", "Starts profiling word execution")
-  async ["PROFILE-START"]() {
-    this.interp.start_profiling();
-  }
-
-  @ForthicWord("( -- )", "Stops profiling word execution")
-  async ["PROFILE-END"]() {
-    this.interp.stop_profiling();
-  }
-
-  @ForthicWord("( label:string -- )", "Records profiling timestamp with label")
-  async ["PROFILE-TIMESTAMP"](label: string) {
-    this.interp.add_timestamp(label);
-  }
-
-  @ForthicWord("( -- profile_data:object )", "Returns profiling data (word counts and timestamps)")
-  async ["PROFILE-DATA"]() {
-    const histogram = this.interp.word_histogram();
-    const timestamps = this.interp.profile_timestamps();
-
-    const result: { word_counts: any[]; timestamps: any[] } = {
-      word_counts: [],
-      timestamps: [],
-    };
-
-    histogram.forEach((val) => {
-      const rec = { word: val["word"], count: val["count"] };
-      result["word_counts"].push(rec);
-    });
-
-    let prev_time = 0.0;
-    timestamps.forEach((t) => {
-      const rec = {
-        label: t["label"],
-        time_ms: t["time_ms"],
-        delta: t["time_ms"] - prev_time,
-      };
-      prev_time = t["time_ms"];
-      result["timestamps"].push(rec);
-    });
-
-    return result;
-  }
-
-
-  @ForthicWord("( -- )", "Starts logging interpreter stream", "START-LOG")
-  async START_LOG() {
-    this.interp.startStream();
-  }
-
-  @ForthicWord("( -- )", "Ends logging interpreter stream", "END-LOG")
-  async END_LOG() {
-    this.interp.endStream();
-  }
 
 
   @ForthicWord("( string:string [options:WordOptions] -- result:string )", "Interpolate variables (.name) and return result string. Use \\. to escape literal dots.")

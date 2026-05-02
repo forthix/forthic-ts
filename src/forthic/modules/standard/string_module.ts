@@ -7,11 +7,13 @@ export class StringModule extends DecoratedModule {
 String manipulation and processing operations with regex and URL encoding support.
 
 ## Categories
-- Conversion: >STR, URL-ENCODE, URL-DECODE
-- Transform: LOWERCASE, UPPERCASE, STRIP, ASCII
-- Split/Join: SPLIT, JOIN, CONCAT
-- Pattern: REPLACE, RE-MATCH, RE-MATCH-ALL, RE-MATCH-GROUP
-- Constants: /N, /R, /T
+- Conversion: >STR
+- Transform: LOWERCASE, UPPERCASE, STRIP, ASCII, TRIM-PREFIX, TRIM-SUFFIX
+- Split/Join: SPLIT, JOIN, CONCAT, LINES, UNLINES
+- Pattern: REPLACE, RE-REPLACE, RE-MATCH, RE-MATCH-ALL, RE-MATCH?
+- Predicates: STARTS-WITH?, ENDS-WITH?, RE-MATCH?
+- Bash-flavored: GREP, GREP-V, SED, CUT
+- Constants: /N, /T
 
 ## Examples
 "hello" "world" CONCAT
@@ -19,7 +21,6 @@ String manipulation and processing operations with regex and URL encoding suppor
 "hello world" " " SPLIT
 ["hello" "world"] " " JOIN
 "Hello" LOWERCASE
-"test@example.com" "(@.+)" RE-MATCH 1 RE-MATCH-GROUP
 `);
   }
 
@@ -27,18 +28,44 @@ String manipulation and processing operations with regex and URL encoding suppor
     super("string");
   }
 
-  @ForthicDirectWord("( str1:string str2:string -- result:string ) OR ( strings:string[] -- result:string )", "Concatenate two strings or array of strings", "CONCAT")
+  @ForthicDirectWord(
+    "( str1:string str2:string -- result:string ) OR ( arr1:any[] arr2:any[] -- result:any[] ) OR ( strings:string[] -- result:string )",
+    "Concatenate two strings, two arrays, or an array of strings. Dispatches on top-of-stack type.",
+    "CONCAT",
+  )
   async CONCAT(interp: Interpreter) {
-    const str2 = interp.stack_pop();
-    let array: string[];
-    if (str2 instanceof Array) {
-      array = str2;
-    } else {
-      const str1 = interp.stack_pop();
-      array = [str1, str2];
+    const top = interp.stack_pop();
+
+    // Case 1: Top is an array. Could be either:
+    //   (a) [arr1, arr2] form — join all arrays into one
+    //   (b) [str1, str2, ...] strings form — join into a single string
+    // Disambiguate: if there's another array immediately below, treat as the
+    // (arr1 arr2 -- result) two-array form. Otherwise treat as the array-of-things form.
+    if (top instanceof Array) {
+      // Check whether the value below is also an array → two-array concat
+      if (interp.stack_peek() instanceof Array) {
+        const below = interp.stack_pop();
+        interp.stack_push([...below, ...top]);
+        return;
+      }
+
+      // Else: array-of-things. If it's all strings, join into a string;
+      // if it's an array of arrays, flatten one level.
+      if (top.length > 0 && top.every((x: any) => Array.isArray(x))) {
+        const result: any[] = [];
+        for (const sub of top) result.push(...sub);
+        interp.stack_push(result);
+        return;
+      }
+
+      const result = top.join("");
+      interp.stack_push(result);
+      return;
     }
-    const result = array.join("");
-    interp.stack_push(result);
+
+    // Case 2: Two strings on the stack.
+    const str1 = interp.stack_pop();
+    interp.stack_push(`${str1 ?? ""}${top ?? ""}`);
   }
 
   @ForthicWord("( item:any -- string:string )", "Convert item to string", ">STR")
@@ -63,15 +90,63 @@ String manipulation and processing operations with regex and URL encoding suppor
     return "\n";
   }
 
-  @ForthicWord("( -- char:string )", "Carriage return character", "/R")
-  async slash_R() {
-    return "\r";
-  }
-
   @ForthicWord("( -- char:string )", "Tab character", "/T")
   async slash_T() {
     return "\t";
   }
+
+  @ForthicWord(
+    "( str:string prefix:string -- bool:boolean )",
+    "Returns true if str begins with prefix.",
+    "STARTS-WITH?",
+  )
+  async STARTS_WITH(str: any, prefix: any) {
+    if (typeof str !== "string" || typeof prefix !== "string") return false;
+    return str.startsWith(prefix);
+  }
+
+  @ForthicWord(
+    "( str:string suffix:string -- bool:boolean )",
+    "Returns true if str ends with suffix.",
+    "ENDS-WITH?",
+  )
+  async ENDS_WITH(str: any, suffix: any) {
+    if (typeof str !== "string" || typeof suffix !== "string") return false;
+    return str.endsWith(suffix);
+  }
+
+  @ForthicWord(
+    "( str:string prefix:string -- result:string )",
+    "Strip prefix from start of str if present (otherwise return str unchanged).",
+    "TRIM-PREFIX",
+  )
+  async TRIM_PREFIX(str: any, prefix: any) {
+    if (typeof str !== "string") return str;
+    if (typeof prefix !== "string" || prefix.length === 0) return str;
+    return str.startsWith(prefix) ? str.slice(prefix.length) : str;
+  }
+
+  @ForthicWord(
+    "( str:string suffix:string -- result:string )",
+    "Strip suffix from end of str if present (otherwise return str unchanged).",
+    "TRIM-SUFFIX",
+  )
+  async TRIM_SUFFIX(str: any, suffix: any) {
+    if (typeof str !== "string") return str;
+    if (typeof suffix !== "string" || suffix.length === 0) return str;
+    return str.endsWith(suffix) ? str.slice(0, str.length - suffix.length) : str;
+  }
+
+  @ForthicWord(
+    "( str:string pattern:string -- bool:boolean )",
+    "Returns true if str matches the regex pattern. Predicate-only — does not return the match. (jq's `test`.)",
+    "RE-MATCH?",
+  )
+  async RE_MATCH_TEST(str: any, pattern: any) {
+    if (typeof str !== "string" || typeof pattern !== "string") return false;
+    return new RegExp(pattern).test(str);
+  }
+
 
   @ForthicWord("( string:string -- result:string )", "Convert string to lowercase")
   async LOWERCASE(string: string) {
@@ -106,14 +181,26 @@ String manipulation and processing operations with regex and URL encoding suppor
     return result;
   }
 
-  @ForthicWord("( string:string text:string replace:string -- result:string )", "Replace all occurrences of text with replace")
+  @ForthicWord(
+    "( string:string text:string replace:string -- result:string )",
+    "Replace all literal occurrences of text with replace. For regex matching use RE-REPLACE.",
+    "REPLACE",
+  )
   async REPLACE(string: string, text: string, replace: string) {
-    let result = string;
-    if (string) {
-      const pattern = new RegExp(text, "g");
-      result = string.replace(pattern, replace);
-    }
-    return result;
+    if (string === null || string === undefined) return string;
+    if (text === null || text === undefined || text === "") return string;
+    return string.split(text).join(replace ?? "");
+  }
+
+  @ForthicWord(
+    "( string:string pattern:string replace:string -- result:string )",
+    "Replace all regex matches of pattern with replace. Same as classic REPLACE behavior.",
+    "RE-REPLACE",
+  )
+  async RE_REPLACE(string: string, pattern: string, replace: string) {
+    if (string === null || string === undefined) return string;
+    if (pattern === null || pattern === undefined) return string;
+    return string.replace(new RegExp(pattern, "g"), replace ?? "");
   }
 
   @ForthicWord("( string:string pattern:string -- match:any )", "Match string against regex pattern", "RE-MATCH")
@@ -133,24 +220,84 @@ String manipulation and processing operations with regex and URL encoding suppor
     return result;
   }
 
-  @ForthicWord("( match:any num:number -- result:any )", "Get capture group from regex match", "RE-MATCH-GROUP")
-  async RE_MATCH_GROUP(match: any, num: number) {
-    let result = null;
-    if (match) result = match[num];
-    return result;
+  // ========================================
+  // Bash/shell-flavored additions (PR 7)
+  // ========================================
+
+  @ForthicWord(
+    "( str:string -- lines:string[] )",
+    "Split string on newline. Equivalent to /N SPLIT.",
+    "LINES",
+  )
+  async LINES(str: any) {
+    if (str === null || str === undefined) return [];
+    if (typeof str !== "string") return [];
+    return str.split("\n");
   }
 
-  @ForthicWord("( str:string -- encoded:string )", "URL encode string", "URL-ENCODE")
-  async URL_ENCODE(str: string) {
-    let result = "";
-    if (str) result = encodeURIComponent(str);
-    return result;
+  @ForthicWord(
+    "( lines:string[] -- str:string )",
+    "Join an array of lines with newlines. Equivalent to /N JOIN.",
+    "UNLINES",
+  )
+  async UNLINES(lines: any) {
+    if (!Array.isArray(lines)) return "";
+    return lines.join("\n");
   }
 
-  @ForthicWord("( urlencoded:string -- decoded:string )", "URL decode string", "URL-DECODE")
-  async URL_DECODE(urlencoded: string) {
-    let result = "";
-    if (urlencoded) result = decodeURIComponent(urlencoded);
-    return result;
+  @ForthicWord(
+    "( strings:string[] pattern:string -- matches:string[] )",
+    "Keep only strings matching the regex pattern (bash grep).",
+    "GREP",
+  )
+  async GREP(strings: any, pattern: any) {
+    if (!Array.isArray(strings)) return [];
+    if (typeof pattern !== "string") return [];
+    const re = new RegExp(pattern);
+    return strings.filter((s: any) => typeof s === "string" && re.test(s));
   }
+
+  @ForthicWord(
+    "( strings:string[] pattern:string -- non_matches:string[] )",
+    "Keep only strings NOT matching the regex pattern (bash grep -v).",
+    "GREP-V",
+  )
+  async GREP_V(strings: any, pattern: any) {
+    if (!Array.isArray(strings)) return [];
+    if (typeof pattern !== "string") return strings;
+    const re = new RegExp(pattern);
+    return strings.filter((s: any) => typeof s !== "string" || !re.test(s));
+  }
+
+  @ForthicWord(
+    "( strings:string[] pattern:string repl:string -- strings:string[] )",
+    "Apply RE-REPLACE to each string in the array (bash sed s/pattern/repl/g).",
+    "SED",
+  )
+  async SED(strings: any, pattern: any, repl: any) {
+    if (!Array.isArray(strings)) return [];
+    if (typeof pattern !== "string") return strings;
+    const re = new RegExp(pattern, "g");
+    return strings.map((s: any) =>
+      typeof s === "string" ? s.replace(re, repl ?? "") : s,
+    );
+  }
+
+  @ForthicWord(
+    "( strings:string[] sep:string field:number -- field_values:any[] )",
+    "Split each string on sep and pick the field-th column (bash cut). Out-of-range yields null.",
+    "CUT",
+  )
+  async CUT(strings: any, sep: any, field: any) {
+    if (!Array.isArray(strings)) return [];
+    if (typeof sep !== "string") return [];
+    const idx = typeof field === "number" ? field : Number(field);
+    if (!Number.isInteger(idx)) return [];
+    return strings.map((s: any) => {
+      if (typeof s !== "string") return null;
+      const parts = s.split(sep);
+      return idx >= 0 && idx < parts.length ? parts[idx] : null;
+    });
+  }
+
 }
