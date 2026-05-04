@@ -1,8 +1,8 @@
 # Forthic Module Documentation
 
-Generated: 2026-05-04T18:52:02.197Z
+Generated: 2026-05-04T21:12:07.432Z
 
-**10 modules** with **204 words** total
+**10 modules** with **207 words** total
 
 ## Modules
 
@@ -16,7 +16,7 @@ Generated: 2026-05-04T18:52:02.197Z
 | [fs](./modules/fs.md) | 9 | TypeScript-specific file system operations for Node.js runtime. |
 | [json](./modules/json.md) | 2 | JSON serialization, parsing, and formatting operations. |
 | [math](./modules/math.md) | 22 | Mathematical operations and utilities including arithmetic, aggregation, and conversions. |
-| [record](./modules/record.md) | 13 | Record (object/dictionary) manipulation operations for working with key-value data structures. |
+| [record](./modules/record.md) | 16 | Record (object/dictionary) manipulation operations for working with key-value data structures. |
 | [string](./modules/string.md) | 25 | String manipulation and processing operations with regex and URL encoding support. |
 
 ## Quick Links
@@ -29,5 +29,5 @@ Generated: 2026-05-04T18:52:02.197Z
 - **[fs](./modules/fs.md)**: APPEND-FILE, BASENAME, DIR-EXISTS?, DIRNAME, FILE-EXISTS?, ... (4 more)
 - **[json](./modules/json.md)**: >JSON, JSON>
 - **[math](./modules/math.md)**: -, *, /, +, >FLOAT, ... (17 more)
-- **[record](./modules/record.md)**: <REC!, |REC@, DELETE, ENTRIES>REC, HAS-KEY?, ... (8 more)
+- **[record](./modules/record.md)**: <REC!, |REC@, DELETE, ENTRIES>REC, HAS-KEY?, ... (11 more)
 - **[string](./modules/string.md)**: /N, /T, >STR, ASCII, CONCAT, ... (20 more)

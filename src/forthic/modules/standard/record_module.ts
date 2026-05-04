@@ -1,5 +1,10 @@
 import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 
+type PathSegment =
+  | { kind: "field"; name: string }
+  | { kind: "index"; n: number }
+  | { kind: "iterate" };
+
 export class RecordModule extends DecoratedModule {
   static {
     registerModuleDoc(RecordModule, `
@@ -7,6 +12,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
 ## Categories
 - Core: REC, REC@, |REC@, <REC!
+- Path access (jq-style): JQ@, JQ!, JQ-DEL
 - Construct: ENTRIES>REC
 - Disassemble: REC>ENTRIES
 - Combine: MERGE
@@ -14,6 +20,13 @@ Record (object/dictionary) manipulation operations for working with key-value da
 - Predicate: HAS-KEY?
 - Transform: DELETE
 - Access: KEYS, VALUES
+
+## JQ path syntax
+Path strings use jq-style syntax: ".users[2].profile.name" or ".users[].posts[].title".
+- ".identifier" — record field
+- "[N]" — array index (negative indexes from end)
+- "[]" — iterate (JQ@ only); produces flat array
+- Path arrays accepted for dynamic keys: ["users" idx "name"]
 `);
   }
 
@@ -106,6 +119,237 @@ Record (object/dictionary) manipulation operations for working with key-value da
     cur_rec[fields[fields.length - 1]] = value;
 
     return _rec;
+  }
+
+  // ========================================
+  // JQ-style path access
+  // ========================================
+
+  private static parse_jq_path(path: any): PathSegment[] {
+    if (Array.isArray(path)) {
+      return path.map((p) => {
+        if (typeof p === "number") return { kind: "index", n: p } as PathSegment;
+        return { kind: "field", name: String(p) } as PathSegment;
+      });
+    }
+
+    let s = String(path ?? "");
+    if (s === "" || s === ".") return [];
+
+    if (s.startsWith(".")) s = s.slice(1);
+
+    const segments: PathSegment[] = [];
+    let i = 0;
+
+    while (i < s.length) {
+      const ch = s[i];
+      if (ch === ".") {
+        i++;
+        continue;
+      }
+      if (ch === "[") {
+        i++;
+        if (i >= s.length) {
+          throw new Error(`JQ path: unclosed '[' in "${path}"`);
+        }
+        if (s[i] === "]") {
+          segments.push({ kind: "iterate" });
+          i++;
+        } else if (s[i] === '"' || s[i] === "'") {
+          const quote = s[i];
+          i++;
+          let name = "";
+          while (i < s.length && s[i] !== quote) {
+            name += s[i];
+            i++;
+          }
+          if (i >= s.length) {
+            throw new Error(`JQ path: unclosed quote in "${path}"`);
+          }
+          i++;
+          if (s[i] !== "]") {
+            throw new Error(`JQ path: expected ']' after quoted key in "${path}"`);
+          }
+          i++;
+          segments.push({ kind: "field", name });
+        } else {
+          let num = "";
+          while (i < s.length && s[i] !== "]") {
+            num += s[i];
+            i++;
+          }
+          if (i >= s.length) {
+            throw new Error(`JQ path: unclosed '[' in "${path}"`);
+          }
+          i++;
+          const n = parseInt(num, 10);
+          if (isNaN(n)) {
+            throw new Error(`JQ path: invalid index "${num}" in "${path}"`);
+          }
+          segments.push({ kind: "index", n });
+        }
+      } else {
+        let name = "";
+        while (i < s.length && s[i] !== "." && s[i] !== "[") {
+          name += s[i];
+          i++;
+        }
+        if (name) segments.push({ kind: "field", name });
+      }
+    }
+
+    return segments;
+  }
+
+  private static jq_get(container: any, segments: PathSegment[]): any {
+    if (segments.length === 0) return container ?? null;
+    if (container == null) return null;
+
+    const [first, ...rest] = segments;
+
+    if (first.kind === "iterate") {
+      let items: any[];
+      if (Array.isArray(container)) {
+        items = container;
+      } else if (typeof container === "object") {
+        items = Object.keys(container)
+          .sort()
+          .map((k) => container[k]);
+      } else {
+        return [];
+      }
+
+      const rest_iterates = rest.some((s) => s.kind === "iterate");
+      const result: any[] = [];
+      for (const item of items) {
+        if (rest.length === 0) {
+          result.push(item);
+        } else {
+          const r = RecordModule.jq_get(item, rest);
+          if (rest_iterates && Array.isArray(r)) {
+            result.push(...r);
+          } else {
+            result.push(r);
+          }
+        }
+      }
+      return result;
+    }
+
+    if (first.kind === "field") {
+      const next = container[first.name];
+      return RecordModule.jq_get(next, rest);
+    }
+
+    // index
+    if (Array.isArray(container)) {
+      const n = first.n < 0 ? container.length + first.n : first.n;
+      if (n < 0 || n >= container.length) return null;
+      return RecordModule.jq_get(container[n], rest);
+    }
+    if (typeof container === "object") {
+      const keys = Object.keys(container).sort();
+      const n = first.n < 0 ? keys.length + first.n : first.n;
+      if (n < 0 || n >= keys.length) return null;
+      return RecordModule.jq_get(container[keys[n]], rest);
+    }
+    return null;
+  }
+
+  private static seg_key(seg: PathSegment): string | number {
+    if (seg.kind === "field") return seg.name;
+    if (seg.kind === "index") return seg.n;
+    throw new Error("JQ: [] iteration not supported here");
+  }
+
+  private static jq_set(container: any, segments: PathSegment[], value: any): any {
+    let cur = container;
+    for (let i = 0; i < segments.length - 1; i++) {
+      const seg = segments[i];
+      const next = segments[i + 1];
+      const key = RecordModule.seg_key(seg);
+
+      let child = cur[key];
+      if (child == null || typeof child !== "object") {
+        child = next.kind === "index" ? [] : {};
+        cur[key] = child;
+      }
+      cur = child;
+    }
+
+    const last_key = RecordModule.seg_key(segments[segments.length - 1]);
+    cur[last_key] = value;
+
+    return container;
+  }
+
+  private static jq_del(container: any, segments: PathSegment[]): any {
+    let cur = container;
+    for (let i = 0; i < segments.length - 1; i++) {
+      const key = RecordModule.seg_key(segments[i]);
+      if (cur == null || typeof cur !== "object") return container;
+      cur = cur[key];
+    }
+    if (cur == null || typeof cur !== "object") return container;
+
+    const last = segments[segments.length - 1];
+    if (last.kind === "field") {
+      delete cur[last.name];
+    } else if (last.kind === "index") {
+      if (Array.isArray(cur)) {
+        const n = last.n < 0 ? cur.length + last.n : last.n;
+        if (n >= 0 && n < cur.length) cur.splice(n, 1);
+      } else {
+        delete cur[last.n];
+      }
+    }
+
+    return container;
+  }
+
+  @ForthicWord(
+    "( container:any path:any -- value:any )",
+    "Get value at jq-style path (e.g., .users[].name). Returns null on miss; [] iterates and flattens. Path arrays accepted for dynamic keys.",
+    "JQ@",
+  )
+  async JQ_at(container: any, path: any) {
+    const segments = RecordModule.parse_jq_path(path);
+    return RecordModule.jq_get(container, segments);
+  }
+
+  @ForthicWord(
+    "( container:any value:any path:any -- container:any )",
+    "Set value at jq-style path. Auto-creates missing intermediates (record for field, array for index). [] iteration not supported.",
+    "JQ!",
+  )
+  async JQ_bang(container: any, value: any, path: any) {
+    const segments = RecordModule.parse_jq_path(path);
+    if (segments.some((s) => s.kind === "iterate")) {
+      throw new Error("JQ!: [] iteration not supported in set paths");
+    }
+    if (segments.length === 0) return value;
+
+    let _container = container;
+    if (_container == null || typeof _container !== "object") {
+      _container = segments[0].kind === "index" ? [] : {};
+    }
+
+    return RecordModule.jq_set(_container, segments, value);
+  }
+
+  @ForthicWord(
+    "( container:any path:any -- container:any )",
+    "Delete value at jq-style path. No-op if path doesn't exist. [] iteration not supported.",
+    "JQ-DEL",
+  )
+  async ["JQ-DEL"](container: any, path: any) {
+    const segments = RecordModule.parse_jq_path(path);
+    if (segments.some((s) => s.kind === "iterate")) {
+      throw new Error("JQ-DEL: [] iteration not supported in delete paths");
+    }
+    if (segments.length === 0 || container == null) return container;
+
+    return RecordModule.jq_del(container, segments);
   }
 
 

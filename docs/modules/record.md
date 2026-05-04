@@ -4,11 +4,12 @@
 
 Record (object/dictionary) manipulation operations for working with key-value data structures.
 
-**13 words**
+**16 words**
 
 ## Categories
 
 - **Core**: REC, REC@, |REC@, <REC!
+- **Path access (jq-style)**: JQ@, JQ!, JQ-DEL
 - **Construct**: ENTRIES>REC
 - **Disassemble**: REC>ENTRIES
 - **Combine**: MERGE
@@ -16,6 +17,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
 - **Predicate**: HAS-KEY?
 - **Transform**: DELETE
 - **Access**: KEYS, VALUES
+- **Path arrays accepted for dynamic keys**: ["users" idx "name"]
 
 ## Words
 
@@ -56,6 +58,30 @@ Build a record from an array of [key, value] pairs. Alias of REC, surfaced for s
 **Stack Effect:** `( rec:any key:any -- bool:boolean )`
 
 Returns true if rec has the given key (own property). Distinct from REC@ NULL == — handles intentional null values correctly.
+
+---
+
+### JQ-DEL
+
+**Stack Effect:** `( container:any path:any -- container:any )`
+
+Delete value at jq-style path. No-op if path doesn't exist. [] iteration not supported.
+
+---
+
+### JQ!
+
+**Stack Effect:** `( container:any value:any path:any -- container:any )`
+
+Set value at jq-style path. Auto-creates missing intermediates (record for field, array for index). [] iteration not supported.
+
+---
+
+### JQ@
+
+**Stack Effect:** `( container:any path:any -- value:any )`
+
+Get value at jq-style path (e.g., .users[].name). Returns null on miss; [] iterates and flattens. Path arrays accepted for dynamic keys.
 
 ---
 

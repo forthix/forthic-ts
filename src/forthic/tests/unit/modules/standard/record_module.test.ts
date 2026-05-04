@@ -169,3 +169,162 @@ test("|REC@ - needs MAP to work", async () => {
   const keys = interp.stack_pop();
   expect(keys).toEqual([101, 102, 103]);
 });
+
+// ========================================
+// JQ-style path access
+// ========================================
+
+test("JQ@ - simple field path", async () => {
+  await interp.run(`
+    [["name" "Ada"] ["age" 30]] REC
+    ".name" JQ@
+  `);
+  expect(interp.stack_pop()).toBe("Ada");
+});
+
+test("JQ@ - nested field path", async () => {
+  await interp.run(`
+    [["user" [["profile" [["name" "Ada"]] REC]] REC]] REC
+    ".user.profile.name" JQ@
+  `);
+  expect(interp.stack_pop()).toBe("Ada");
+});
+
+test("JQ@ - array index", async () => {
+  await interp.run(`
+    [10 20 30 40] ".[2]" JQ@
+  `);
+  expect(interp.stack_pop()).toBe(30);
+});
+
+test("JQ@ - negative index", async () => {
+  await interp.run(`
+    [10 20 30 40] ".[-1]" JQ@
+  `);
+  expect(interp.stack_pop()).toBe(40);
+});
+
+test("JQ@ - field then index", async () => {
+  await interp.run(`
+    [["users" [10 20 30]]] REC
+    ".users[1]" JQ@
+  `);
+  expect(interp.stack_pop()).toBe(20);
+});
+
+test("JQ@ - missing key returns null", async () => {
+  await interp.run(`
+    [["a" 1]] REC ".missing.deeper" JQ@
+  `);
+  expect(interp.stack_pop()).toBeNull();
+});
+
+test("JQ@ - iterate flat", async () => {
+  await interp.run(`
+    [["users" [
+      [["name" "Ada"]] REC
+      [["name" "Bob"]] REC
+      [["name" "Cleo"]] REC
+    ]]] REC
+    ".users[].name" JQ@
+  `);
+  expect(interp.stack_pop()).toEqual(["Ada", "Bob", "Cleo"]);
+});
+
+test("JQ@ - nested iterate flattens", async () => {
+  await interp.run(`
+    [["users" [
+      [["posts" [
+        [["title" "A"]] REC
+        [["title" "B"]] REC
+      ]]] REC
+      [["posts" [
+        [["title" "C"]] REC
+      ]]] REC
+    ]]] REC
+    ".users[].posts[].title" JQ@
+  `);
+  expect(interp.stack_pop()).toEqual(["A", "B", "C"]);
+});
+
+test("JQ@ - path array form", async () => {
+  await interp.run(`
+    [["users" [10 20 30]]] REC
+    ["users" 1] JQ@
+  `);
+  expect(interp.stack_pop()).toBe(20);
+});
+
+test("JQ@ - empty path returns container", async () => {
+  await interp.run(`
+    [["a" 1]] REC "" JQ@
+  `);
+  expect(interp.stack_pop()).toEqual({ a: 1 });
+});
+
+test("JQ! - set existing field", async () => {
+  await interp.run(`
+    [["name" "Ada"] ["age" 30]] REC
+    99 ".age" JQ!
+  `);
+  const result = interp.stack_pop();
+  expect(result).toEqual({ name: "Ada", age: 99 });
+});
+
+test("JQ! - auto-create nested record path", async () => {
+  await interp.run(`
+    [] REC 42 ".a.b.c" JQ!
+  `);
+  expect(interp.stack_pop()).toEqual({ a: { b: { c: 42 } } });
+});
+
+test("JQ! - auto-create with index creates array", async () => {
+  await interp.run(`
+    [] REC 42 ".a.b[0].c" JQ!
+  `);
+  expect(interp.stack_pop()).toEqual({ a: { b: [{ c: 42 }] } });
+});
+
+test("JQ! - path array form", async () => {
+  await interp.run(`
+    [["a" [["b" 1]] REC]] REC
+    99 ["a" "b"] JQ!
+  `);
+  expect(interp.stack_pop()).toEqual({ a: { b: 99 } });
+});
+
+test("JQ! - rejects iterate", async () => {
+  await expect(
+    interp.run(`[] REC 1 ".items[].x" JQ!`),
+  ).rejects.toThrow();
+});
+
+test("JQ-DEL - delete existing field", async () => {
+  await interp.run(`
+    [["a" 1] ["b" 2]] REC ".a" JQ-DEL
+  `);
+  expect(interp.stack_pop()).toEqual({ b: 2 });
+});
+
+test("JQ-DEL - delete nested field", async () => {
+  await interp.run(`
+    [["a" [["b" 1] ["c" 2]] REC]] REC
+    ".a.b" JQ-DEL
+  `);
+  expect(interp.stack_pop()).toEqual({ a: { c: 2 } });
+});
+
+test("JQ-DEL - delete array index", async () => {
+  await interp.run(`
+    [["items" [10 20 30]]] REC
+    ".items[1]" JQ-DEL
+  `);
+  expect(interp.stack_pop()).toEqual({ items: [10, 30] });
+});
+
+test("JQ-DEL - missing path is no-op", async () => {
+  await interp.run(`
+    [["a" 1]] REC ".nonexistent.deep" JQ-DEL
+  `);
+  expect(interp.stack_pop()).toEqual({ a: 1 });
+});

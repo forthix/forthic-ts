@@ -1,8 +1,8 @@
 # Forthic — Standard Words
 
-Generated: 2026-05-04T18:52:02.201Z
+Generated: 2026-05-04T21:12:07.435Z
 
-**8 modules · 159 surface words**
+**8 modules · 162 surface words**
 
 Classic/back-compat words live in `classic/classic_module.ts` and are
 intentionally omitted from this index.
@@ -281,6 +281,12 @@ Record (object/dictionary) manipulation operations for working with key-value da
 - **|REC@** `( records:any field:any -- values:any )` — Map REC@ over array of records
 - **<REC!** `( rec:any value:any field:any -- rec:any )` — Set value in record at field path
 
+### Path access (jq-style)
+
+- **JQ@** `( container:any path:any -- value:any )` — Get value at jq-style path (e.g., .users[].name). Returns null on miss; [] iterates and flattens. Path arrays accepted for dynamic keys.
+- **JQ!** `( container:any value:any path:any -- container:any )` — Set value at jq-style path. Auto-creates missing intermediates (record for field, array for index). [] iteration not supported.
+- **JQ-DEL** `( container:any path:any -- container:any )` — Delete value at jq-style path. No-op if path doesn't exist. [] iteration not supported.
+
 ### Construct
 
 - **ENTRIES>REC** `( pairs:any[] -- rec:any )` — Build a record from an array of [key, value] pairs. Alias of REC, surfaced for symmetry with REC>ENTRIES.
@@ -310,6 +316,10 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
 - **KEYS** `( container:any -- keys:any[] )` — Get keys from record or indices from array
 - **VALUES** `( container:any -- values:any[] )` — Get values from record or elements from array
+
+### Path arrays accepted for dynamic keys
+
+- **["users" idx "name"]** _(declared in category but not found in module)_
 
 ## string
 
