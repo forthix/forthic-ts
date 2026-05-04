@@ -8,7 +8,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 
 ## Categories
 
-- **Stack**: POP, DUP, SWAP
+- **Stack**: DROP, DUP, SWAP
 - **Variables**: VARIABLES, !, @, !@
 - **Module**: USE-MODULES
 - **Execution**: RUN
@@ -95,6 +95,14 @@ Lazy default: returns value if non-empty, otherwise runs forthic and uses its re
 
 ---
 
+### DROP
+
+**Stack Effect:** `( a:any -- )`
+
+Removes top item from stack
+
+---
+
 ### DUP
 
 **Stack Effect:** `( a:any -- a:any a:any )`
@@ -172,14 +180,6 @@ Returns true if value is a finite number
 **Stack Effect:** `( -- )`
 
 Prints top of stack and stops execution
-
----
-
-### POP
-
-**Stack Effect:** `( a:any -- )`
-
-Removes top item from stack
 
 ---
 

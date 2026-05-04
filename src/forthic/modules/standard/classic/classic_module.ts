@@ -110,6 +110,11 @@ in the sibling standard modules.
     // No-op
   }
 
+  @ForthicWord("( a:any -- )", "Removes top item from stack. Surfaced as DROP in core_module.")
+  async POP(_a: any) {
+    // No return = push nothing
+  }
+
   // ========================================
   // Module / control niche
   // ========================================

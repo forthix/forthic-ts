@@ -1,8 +1,8 @@
 # Forthic Module Documentation
 
-Generated: 2026-05-02T00:18:30.332Z
+Generated: 2026-05-04T18:52:02.197Z
 
-**10 modules** with **203 words** total
+**10 modules** with **204 words** total
 
 ## Modules
 
@@ -10,7 +10,7 @@ Generated: 2026-05-02T00:18:30.332Z
 |--------|-------|-------------|
 | [array](./modules/array.md) | 40 | Array and collection operations for manipulating arrays and records. |
 | [boolean](./modules/boolean.md) | 13 | Comparison, logic, and membership operations for boolean values and conditions. |
-| [classic](./modules/classic.md) | 35 | Module operations |
+| [classic](./modules/classic.md) | 36 | Module operations |
 | [core](./modules/core.md) | 27 | Essential interpreter operations for stack manipulation, variables, control flow, and module system. |
 | [datetime](./modules/datetime.md) | 17 | Date and time operations using the Temporal API for timezone-aware datetime manipulation. |
 | [fs](./modules/fs.md) | 9 | TypeScript-specific file system operations for Node.js runtime. |
@@ -23,7 +23,7 @@ Generated: 2026-05-02T00:18:30.332Z
 
 - **[array](./modules/array.md)**: ALL?, ANY?, APPEND, BY-FIELD, COUNT, ... (35 more)
 - **[boolean](./modules/boolean.md)**: !=, <, <=, ==, >, ... (8 more)
-- **[classic](./modules/classic.md)**: *DEFAULT, /R, <DEL, <REPEAT, >FIXED, ... (30 more)
+- **[classic](./modules/classic.md)**: *DEFAULT, /R, <DEL, <REPEAT, >FIXED, ... (31 more)
 - **[core](./modules/core.md)**: !, !@, @, ~>, ARRAY?, ... (22 more)
 - **[datetime](./modules/datetime.md)**: >DATE, >DATETIME, >TIME, >TIMESTAMP, ADD-DAYS, ... (12 more)
 - **[fs](./modules/fs.md)**: APPEND-FILE, BASENAME, DIR-EXISTS?, DIRNAME, FILE-EXISTS?, ... (4 more)

@@ -10,7 +10,7 @@ export class CoreModule extends DecoratedModule {
 Essential interpreter operations for stack manipulation, variables, control flow, and module system.
 
 ## Categories
-- Stack: POP, DUP, SWAP
+- Stack: DROP, DUP, SWAP
 - Variables: VARIABLES, !, @, !@
 - Module: USE-MODULES
 - Execution: RUN
@@ -76,7 +76,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
 
 
   @ForthicWord("( a:any -- )", "Removes top item from stack")
-  async POP(a: any) {
+  async DROP(_a: any) {
     // No return = push nothing
   }
 

@@ -8,7 +8,7 @@ Array and collection operations for manipulating arrays and records.
 
 ## Categories
 
-- **Access**: NTH, FIRST, LAST, SLICE, TAKE, TAKE-LAST, DROP, LENGTH, INDEX, KEY-OF
+- **Access**: NTH, FIRST, LAST, SLICE, TAKE, TAKE-LAST, SKIP, LENGTH, INDEX, KEY-OF
 - **Transform**: MAP, MAP-AT, REVERSE
 - **Combine**: APPEND, ZIP, ZIP-WITH
 - **Filter**: FILTER, UNIQUE, UNIQUE-BY, DIFFERENCE, INTERSECTION, UNION
@@ -86,14 +86,6 @@ Count items where forthic returns truthy.
 **Stack Effect:** `( lcontainer:any rcontainer:any -- result:any )`
 
 Set difference between two containers
-
----
-
-### DROP
-
-**Stack Effect:** `( container:any n:number -- result:any )`
-
-Drop first n elements from array or record
 
 ---
 
@@ -262,6 +254,14 @@ Reduce array or record with accumulator
 **Stack Effect:** `( container:any -- container:any )`
 
 Reverse array
+
+---
+
+### SKIP
+
+**Stack Effect:** `( container:any n:number -- result:any )`
+
+Skip first n elements from array or record
 
 ---
 

@@ -1074,17 +1074,17 @@ test("TAKE with rest", async () => {
   expect(stack[1].length).toBe(1);
 });
 
-test("DROP", async () => {
+test("SKIP", async () => {
   await interp.run(`
-    [0 1 2 3 4 5 6] 4 DROP
+    [0 1 2 3 4 5 6] 4 SKIP
   `);
   let stack = (interp as any).stack;
   expect(stack[0]).toEqual([4, 5, 6]);
 
-  // Drop records
+  // Skip records
   interp = new StandardInterpreter();
   await interp.run(`
-    [['a' 1] ['b' 2] ['c' 3]] REC  2 DROP
+    [['a' 1] ['b' 2] ['c' 3]] REC  2 SKIP
   `);
   stack = (interp as any).stack;
   expect(stack[0].length).toBe(1);

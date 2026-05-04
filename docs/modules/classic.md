@@ -2,7 +2,7 @@
 
 [← Back to Index](../index.md)
 
-**35 words**
+**36 words**
 
 ## Words
 
@@ -147,6 +147,14 @@ Multiply two numbers or product of array
 **Stack Effect:** `( a:boolean b:boolean -- result:boolean )`
 
 Logical NAND (not and)
+
+---
+
+### POP
+
+**Stack Effect:** `( a:any -- )`
+
+Removes top item from stack. Surfaced as DROP in core_module.
 
 ---
 

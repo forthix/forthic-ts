@@ -7,7 +7,7 @@ export class ArrayModule extends DecoratedModule {
 Array and collection operations for manipulating arrays and records.
 
 ## Categories
-- Access: NTH, FIRST, LAST, SLICE, TAKE, TAKE-LAST, DROP, LENGTH, INDEX, KEY-OF
+- Access: NTH, FIRST, LAST, SLICE, TAKE, TAKE-LAST, SKIP, LENGTH, INDEX, KEY-OF
 - Transform: MAP, MAP-AT, REVERSE
 - Combine: APPEND, ZIP, ZIP-WITH
 - Filter: FILTER, UNIQUE, UNIQUE-BY, DIFFERENCE, INTERSECTION, UNION
@@ -224,8 +224,8 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return taken
   }
 
-  @ForthicWord("( container:any n:number -- result:any )", "Drop first n elements from array or record")
-  async DROP(container: any, n: number) {
+  @ForthicWord("( container:any n:number -- result:any )", "Skip first n elements from array or record")
+  async SKIP(container: any, n: number) {
     if (!container) return [];
     if (n <= 0) return container;
 

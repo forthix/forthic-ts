@@ -145,9 +145,9 @@ test("Interpret", async () => {
 // Stack Operations
 // ========================================
 
-test("POP", async () => {
+test("DROP", async () => {
   await interp.run(`
-    1 2 3 4 5 POP
+    1 2 3 4 5 DROP
   `);
   const stack = interp.get_stack().get_items();
   expect(stack.length).toBe(4);

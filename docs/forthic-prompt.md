@@ -102,7 +102,6 @@ ALWAYS generate code in this structure:
 - `BY-FIELD` `( container:any[] field:string -- indexed:any )` — Index records by field value
 - `COUNT` `( items:any forthic:string -- n:number )` — Count items where forthic returns truthy.
 - `DIFFERENCE` `( lcontainer:any rcontainer:any -- result:any )` — Set difference between two containers
-- `DROP` `( container:any n:number -- result:any )` — Drop first n elements from array or record
 - `FILTER` `( container:any forthic:string [options:WordOptions] -- filtered:any )` — Filter items with predicate. Options: with_key (bool)
 - `FIND` `( items:any forthic:string -- item:any )` — Return the first item where forthic returns truthy, or null if none.
 - `FIRST` `( container:any -- item:any )` — Get first element from array or record (sorted-key order for records)
@@ -124,6 +123,7 @@ ALWAYS generate code in this structure:
 - `NUMBERED` `( items:any[] -- pairs:any[] )` — Pair each item with its index: [v0 v1 v2] -> [[0 v0] [1 v1] [2 v2]]. (Python's enumerate.)
 - `REDUCE` `( container:any initial:any forthic:string -- result:any )` — Reduce array or record with accumulator
 - `REVERSE` `( container:any -- container:any )` — Reverse array
+- `SKIP` `( container:any n:number -- result:any )` — Skip first n elements from array or record
 - `SLICE` `( container:any start:number end:number -- result:any )` — Extract slice from array or record
 - `SORT-BY` `( items:any[] forthic:string -- sorted:any[] )` — Sort items by the value forthic produces (ascending).
 - `SORT-U` `( strings:any[] -- strings:any[] )` — Sort an array and remove duplicates (bash sort -u).
@@ -160,6 +160,7 @@ ALWAYS generate code in this structure:
 - `ARRAY?` `( value:any -- boolean:boolean )` — Returns true if value is an array
 - `DEFAULT` `( value:any default_value:any -- result:any )` — Returns value or default if value is null/undefined/empty string
 - `DEFAULT-RUN` `( value:any forthic:string -- result:any )` — Lazy default: returns value if non-empty, otherwise runs forthic and uses its result. The forthic is only evaluated when needed.
+- `DROP` `( a:any -- )` — Removes top item from stack
 - `DUP` `( a:any -- a:any a:any )` — Duplicates top stack item
 - `EMPTY?` `( value:any -- boolean:boolean )` — Returns true if value is null/undefined, an empty string, or a container (array/record) with no entries
 - `IF` `( bool:boolean then_value:any else_value:any -- chosen:any )` — Pure value selection: push then_value if bool is truthy, else push else_value. For lazy code execution use IF-RUN; for one-sided side effects use WHEN.
@@ -170,7 +171,6 @@ ALWAYS generate code in this structure:
 - `NULL?` `( value:any -- boolean:boolean )` — Returns true if value is null or undefined
 - `NUMBER?` `( value:any -- boolean:boolean )` — Returns true if value is a finite number
 - `PEEK!` `( -- )` — Prints top of stack and stops execution
-- `POP` `( a:any -- )` — Removes top item from stack
 - `PRINT` `( value:any [options:WordOptions] -- )` — Print value to stdout. Strings interpolate variables (.name). Non-strings formatted with options. Use \\. to escape literal dots in strings.
 - `RECORD?` `( value:any -- boolean:boolean )` — Returns true if value is a plain record (object that is not an array and not null)
 - `RUN` `( forthic:string -- ? )` — Run a Forthic string in the current context. Whatever the forthic produces is left on the stack.

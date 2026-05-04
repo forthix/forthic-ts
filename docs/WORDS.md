@@ -1,6 +1,6 @@
 # Forthic — Standard Words
 
-Generated: 2026-05-02T00:18:30.334Z
+Generated: 2026-05-04T18:52:02.201Z
 
 **8 modules · 159 surface words**
 
@@ -21,7 +21,7 @@ Array and collection operations for manipulating arrays and records.
 - **SLICE** `( container:any start:number end:number -- result:any )` — Extract slice from array or record
 - **TAKE** `( container:any[] n:number [options:WordOptions] -- result:any[] )` — Take first n elements
 - **TAKE-LAST** `( container:any n:number -- result:any )` — Take last n elements from array or record (sorted-key order for records).
-- **DROP** `( container:any n:number -- result:any )` — Drop first n elements from array or record
+- **SKIP** `( container:any n:number -- result:any )` — Skip first n elements from array or record
 - **LENGTH** `( container:any -- length:number )` — Get length of array or record
 - **INDEX** `( items:any[] forthic:string -- indexed:any )` — Create index mapping from array indices to values
 - **KEY-OF** `( container:any value:any -- key:any )` — Find key of value in container
@@ -125,7 +125,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 
 ### Stack
 
-- **POP** `( a:any -- )` — Removes top item from stack
+- **DROP** `( a:any -- )` — Removes top item from stack
 - **DUP** `( a:any -- a:any a:any )` — Duplicates top stack item
 - **SWAP** `( a:any b:any -- b:any a:any )` — Swaps top two stack items
 

@@ -66,8 +66,8 @@ test("TAKE", async () => {
   expect(interp.stack_pop()).toEqual([0, 1, 2]);
 });
 
-test("DROP", async () => {
-  await interp.run(`[0 1 2 3 4 5 6] 4 DROP`);
+test("SKIP", async () => {
+  await interp.run(`[0 1 2 3 4 5 6] 4 SKIP`);
   expect(interp.stack_pop()).toEqual([4, 5, 6]);
 });
 
