@@ -328,3 +328,30 @@ test("JQ-DEL - missing path is no-op", async () => {
   `);
   expect(interp.stack_pop()).toEqual({ a: 1 });
 });
+
+test("JQ@ composes as FILTER predicate (truthy field)", async () => {
+  await interp.run(`
+    [
+      [["name" "Ada"] ["age" 30]] REC
+      [["name" "Bob"]] REC
+      [["name" "Cleo"] ["age" 45]] REC
+    ]
+    '".age" JQ@' FILTER
+  `);
+  const result = interp.stack_pop();
+  expect(result).toHaveLength(2);
+  expect(result.map((r: any) => r.name).sort()).toEqual(["Ada", "Cleo"]);
+});
+
+test("JQ@ composes as FILTER predicate (deep path + comparison)", async () => {
+  await interp.run(`
+    [
+      [["name" "Ada"] ["profile" [["age" 30]] REC]] REC
+      [["name" "Bob"] ["profile" [["age" 25]] REC]] REC
+      [["name" "Cleo"] ["profile" [["age" 45]] REC]] REC
+    ]
+    '".profile.age" JQ@ 30 >=' FILTER
+  `);
+  const result = interp.stack_pop();
+  expect(result.map((r: any) => r.name).sort()).toEqual(["Ada", "Cleo"]);
+});

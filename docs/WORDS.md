@@ -1,6 +1,6 @@
 # Forthic — Standard Words
 
-Generated: 2026-05-04T21:12:07.435Z
+Generated: 2026-05-04T21:18:27.473Z
 
 **8 modules · 162 surface words**
 
@@ -316,10 +316,6 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
 - **KEYS** `( container:any -- keys:any[] )` — Get keys from record or indices from array
 - **VALUES** `( container:any -- values:any[] )` — Get values from record or elements from array
-
-### Path arrays accepted for dynamic keys
-
-- **["users" idx "name"]** _(declared in category but not found in module)_
 
 ## string
 

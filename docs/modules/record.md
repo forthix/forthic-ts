@@ -17,7 +17,6 @@ Record (object/dictionary) manipulation operations for working with key-value da
 - **Predicate**: HAS-KEY?
 - **Transform**: DELETE
 - **Access**: KEYS, VALUES
-- **Path arrays accepted for dynamic keys**: ["users" idx "name"]
 
 ## Words
 

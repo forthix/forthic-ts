@@ -20,13 +20,6 @@ Record (object/dictionary) manipulation operations for working with key-value da
 - Predicate: HAS-KEY?
 - Transform: DELETE
 - Access: KEYS, VALUES
-
-## JQ path syntax
-Path strings use jq-style syntax: ".users[2].profile.name" or ".users[].posts[].title".
-- ".identifier" — record field
-- "[N]" — array index (negative indexes from end)
-- "[]" — iterate (JQ@ only); produces flat array
-- Path arrays accepted for dynamic keys: ["users" idx "name"]
 `);
   }
 

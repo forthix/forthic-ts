@@ -1,6 +1,6 @@
 # Forthic Module Documentation
 
-Generated: 2026-05-04T21:12:07.432Z
+Generated: 2026-05-04T21:18:27.471Z
 
 **10 modules** with **207 words** total
 
