@@ -262,7 +262,7 @@ async function dispatch(
           result = await servicer.executeSequence(params);
         } catch (err: any) {
           if (err instanceof JsonRpcMethodError) throw err;
-          const seqContext = Array.isArray(params?.word_names)
+          const seqContext: { [key: string]: string } = Array.isArray(params?.word_names)
             ? { word_sequence: params.word_names.join(', ') }
             : {};
           const data = servicer.buildRuntimeError(err, null, seqContext);
