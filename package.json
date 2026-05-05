@@ -32,6 +32,18 @@
         "import": "./dist/esm/grpc/browser-stub.js",
         "require": "./dist/cjs/grpc/browser-stub.js"
       }
+    },
+    "./jsonrpc": {
+      "node": {
+        "import": "./dist/esm/jsonrpc/index.js",
+        "require": "./dist/cjs/jsonrpc/index.js",
+        "types": "./dist/cjs/jsonrpc/index.d.ts"
+      },
+      "default": {
+        "types": "./dist/cjs/jsonrpc/browser-stub.d.ts",
+        "import": "./dist/esm/jsonrpc/browser-stub.js",
+        "require": "./dist/cjs/jsonrpc/browser-stub.js"
+      }
     }
   },
   "files": [
@@ -54,7 +66,8 @@
     "test:integration": "jest --testPathIgnorePatterns=[]",
     "test:watch": "jest --watch",
     "docs:build": "tsx scripts/generate-docs.ts",
-    "grpc:server": "node dist/cjs/grpc/server.js"
+    "grpc:server": "node dist/cjs/grpc/server.js",
+    "jsonrpc:server": "node dist/cjs/jsonrpc/server.js"
   },
   "keywords": [
     "forthic",

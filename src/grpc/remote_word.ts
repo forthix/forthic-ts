@@ -3,7 +3,7 @@
  */
 import { Word, RuntimeInfo } from '../forthic/module.js';
 import { Interpreter } from '../forthic/interpreter.js';
-import { GrpcClient } from './client.js';
+import type { RuntimeClient } from '../common/runtime_client.js';
 
 /**
  * RemoteWord - Proxy word that delegates execution to a remote runtime
@@ -17,7 +17,7 @@ import { GrpcClient } from './client.js';
  * into the local TypeScript interpreter.
  */
 export class RemoteWord extends Word {
-  private client: GrpcClient;
+  private client: RuntimeClient;
   private runtimeName: string;
   private moduleName: string;
   public stackEffect: string;
@@ -25,7 +25,7 @@ export class RemoteWord extends Word {
 
   /**
    * @param name - Word name (e.g., "DF_FROM_RECORDS")
-   * @param client - gRPC client connected to remote runtime
+   * @param client - Transport client (gRPC or JSON-RPC) connected to remote runtime
    * @param runtimeName - Name of remote runtime (e.g., "python")
    * @param moduleName - Module name (e.g., "pandas")
    * @param stackEffect - Stack notation (e.g., "( records:array -- df:DataFrame )")
@@ -33,7 +33,7 @@ export class RemoteWord extends Word {
    */
   constructor(
     name: string,
-    client: GrpcClient,
+    client: RuntimeClient,
     runtimeName: string,
     moduleName: string,
     stackEffect: string = '( -- )',
