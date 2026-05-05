@@ -10,10 +10,14 @@ import YAML from 'yaml';
 /**
  * Configuration for a single runtime
  */
+export type RuntimeTransport = 'grpc' | 'jsonrpc';
+
 export interface RuntimeConfig {
   host: string;
   port: number;
   modules: string[];
+  /** Optional transport. Defaults to 'grpc' when omitted, for backward compatibility. */
+  transport?: RuntimeTransport;
 }
 
 /**
@@ -149,6 +153,14 @@ export class ConfigLoader {
     for (const module of runtimeConfig.modules) {
       if (typeof module !== 'string') {
         throw new Error(`Runtime "${runtimeName}" modules must be strings`);
+      }
+    }
+
+    if (runtimeConfig.transport !== undefined) {
+      if (runtimeConfig.transport !== 'grpc' && runtimeConfig.transport !== 'jsonrpc') {
+        throw new Error(
+          `Runtime "${runtimeName}" "transport" must be "grpc" or "jsonrpc"`
+        );
       }
     }
   }

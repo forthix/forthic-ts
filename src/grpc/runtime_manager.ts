@@ -5,13 +5,14 @@
  * Used by DefinitionWord for batched remote execution.
  */
 import { GrpcClient } from './client.js';
+import type { RuntimeClient } from '../common/runtime_client.js';
 
 /**
  * RuntimeManager - Manages connections to remote Forthic runtimes
  */
 export class RuntimeManager {
   private static instance: RuntimeManager | null = null;
-  private clients: Map<string, GrpcClient>;
+  private clients: Map<string, RuntimeClient>;
 
   private constructor() {
     this.clients = new Map();
@@ -51,17 +52,17 @@ export class RuntimeManager {
    * @param runtimeName - Name of the runtime (e.g., "python", "ruby")
    * @param client - GrpcClient instance connected to that runtime
    */
-  registerClient(runtimeName: string, client: GrpcClient): void {
+  registerClient(runtimeName: string, client: RuntimeClient): void {
     this.clients.set(runtimeName, client);
   }
 
   /**
-   * Get the gRPC client for a specific runtime
+   * Get the runtime client for a specific runtime
    *
    * @param runtimeName - Name of the runtime
-   * @returns GrpcClient instance or undefined if not registered
+   * @returns RuntimeClient instance or undefined if not registered
    */
-  getClient(runtimeName: string): GrpcClient | undefined {
+  getClient(runtimeName: string): RuntimeClient | undefined {
     return this.clients.get(runtimeName);
   }
 

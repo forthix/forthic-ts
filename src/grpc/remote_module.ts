@@ -3,7 +3,7 @@
  */
 import { Module } from '../forthic/module.js';
 import { Interpreter } from '../forthic/interpreter.js';
-import { GrpcClient, type GetModuleInfoResponse } from './client.js';
+import type { RuntimeClient, GetModuleInfoResponse } from '../common/runtime_client.js';
 import { RemoteWord } from './remote_word.js';
 
 /**
@@ -28,17 +28,17 @@ import { RemoteWord } from './remote_word.js';
  * ```
  */
 export class RemoteModule extends Module {
-  private client: GrpcClient;
+  private client: RuntimeClient;
   private runtimeName: string;
   private initialized: boolean = false;
   private moduleInfo: GetModuleInfoResponse | null = null;
 
   /**
    * @param moduleName - Name of the module in the remote runtime (e.g., "pandas")
-   * @param client - gRPC client connected to the remote runtime
+   * @param client - Transport client (gRPC or JSON-RPC) connected to the remote runtime
    * @param runtimeName - Name of the runtime (e.g., "python") for debugging
    */
-  constructor(moduleName: string, client: GrpcClient, runtimeName: string = 'remote') {
+  constructor(moduleName: string, client: RuntimeClient, runtimeName: string = 'remote') {
     super(moduleName);
     this.client = client;
     this.runtimeName = runtimeName;
