@@ -4,7 +4,7 @@
  * Uses shared type detection from common/type_utils
  */
 
-import { getForthicType } from "../common/type_utils.js";
+import { getForthicType, pathSegmentForKey } from "../common/type_utils.js";
 
 // Type definitions matching the protobuf schema
 interface StackValue {
@@ -45,8 +45,8 @@ interface ZonedDateTimeValue {
  * Serialize a JavaScript value to a StackValue protobuf message
  * Uses shared type detection and maps to protobuf format
  */
-export function serializeValue(value: any): StackValue {
-  const type = getForthicType(value);
+export function serializeValue(value: any, path: string = ''): StackValue {
+  const type = getForthicType(value, path);
 
   switch (type) {
     case 'null':
@@ -67,16 +67,18 @@ export function serializeValue(value: any): StackValue {
     case 'array':
       return {
         array_value: {
-          items: value.map((item: any) => serializeValue(item)),
+          items: value.map((item: any, i: number) =>
+            serializeValue(item, `${path}[${i}]`)),
         },
       };
 
-    case 'record':
+    case 'record': {
       const fields: { [key: string]: StackValue } = {};
       for (const [key, val] of Object.entries(value)) {
-        fields[key] = serializeValue(val);
+        fields[key] = serializeValue(val, `${path}${pathSegmentForKey(key)}`);
       }
       return { record_value: { fields } };
+    }
 
     case 'instant':
       return {
@@ -101,7 +103,7 @@ export function serializeValue(value: any): StackValue {
       };
 
     default:
-      throw new Error(`Unsupported Forthic type: ${type}`);
+      throw new Error(`Unsupported Forthic type: ${type}${path ? ` at path: ${path}` : ''}`);
   }
 }
 

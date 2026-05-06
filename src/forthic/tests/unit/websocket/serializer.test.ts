@@ -205,5 +205,50 @@ describe('WebSocket Serializer', () => {
       const invalidValue = { type: 'unknown_type', value: 'test' } as any;
       expect(() => deserializeValue(invalidValue)).toThrow('Unknown stack value type');
     });
+
+    test('top-level unsupported value has no path suffix', () => {
+      expect(() => serializeValue(() => 1)).toThrow(/^Unsupported value type: function$/);
+    });
+
+    test('unsupported value inside record reports key path', () => {
+      expect(() => serializeValue({ cb: () => 1 })).toThrow(
+        'Unsupported value type: function at path: .cb'
+      );
+    });
+
+    test('unsupported value inside array reports index path', () => {
+      expect(() => serializeValue([0, () => 1, 2])).toThrow(
+        'Unsupported value type: function at path: [1]'
+      );
+    });
+
+    test('deeply nested unsupported value reports full path', () => {
+      const value = { a: { b: [{ fn: () => 1 }] } };
+      expect(() => serializeValue(value)).toThrow(
+        'Unsupported value type: function at path: .a.b[0].fn'
+      );
+    });
+
+    test('record key with special characters uses bracket notation', () => {
+      const value = { 'weird key': () => 1 };
+      expect(() => serializeValue(value)).toThrow(
+        'Unsupported value type: function at path: ["weird key"]'
+      );
+    });
+
+    describe('serializeStack', () => {
+      test('annotates index in path', () => {
+        expect(() => serializeStack([1, () => 1])).toThrow(
+          'Unsupported value type: function at path: [1]'
+        );
+      });
+
+      test('reports full path for unsupported value nested inside a stack entry', () => {
+        const stack = [1, { user: { cb: () => 1 } }, 'ok'];
+        expect(() => serializeStack(stack)).toThrow(
+          'Unsupported value type: function at path: [1].user.cb'
+        );
+      });
+    });
   });
 });
