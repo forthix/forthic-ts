@@ -201,53 +201,96 @@ describe('WebSocket Serializer', () => {
   });
 
   describe('Error handling', () => {
-    test('deserialize unknown type throws error', () => {
-      const invalidValue = { type: 'unknown_type', value: 'test' } as any;
-      expect(() => deserializeValue(invalidValue)).toThrow('Unknown stack value type');
-    });
+    describe('serialize', () => {
+      test('top-level unsupported value has no path suffix', () => {
+        expect(() => serializeValue(() => 1)).toThrow(/^Unsupported value type: function$/);
+      });
 
-    test('top-level unsupported value has no path suffix', () => {
-      expect(() => serializeValue(() => 1)).toThrow(/^Unsupported value type: function$/);
-    });
+      test('unsupported value inside record reports key path', () => {
+        expect(() => serializeValue({ cb: () => 1 })).toThrow(
+          'Unsupported value type: function at path: .cb'
+        );
+      });
 
-    test('unsupported value inside record reports key path', () => {
-      expect(() => serializeValue({ cb: () => 1 })).toThrow(
-        'Unsupported value type: function at path: .cb'
-      );
-    });
-
-    test('unsupported value inside array reports index path', () => {
-      expect(() => serializeValue([0, () => 1, 2])).toThrow(
-        'Unsupported value type: function at path: [1]'
-      );
-    });
-
-    test('deeply nested unsupported value reports full path', () => {
-      const value = { a: { b: [{ fn: () => 1 }] } };
-      expect(() => serializeValue(value)).toThrow(
-        'Unsupported value type: function at path: .a.b[0].fn'
-      );
-    });
-
-    test('record key with special characters uses bracket notation', () => {
-      const value = { 'weird key': () => 1 };
-      expect(() => serializeValue(value)).toThrow(
-        'Unsupported value type: function at path: ["weird key"]'
-      );
-    });
-
-    describe('serializeStack', () => {
-      test('annotates index in path', () => {
-        expect(() => serializeStack([1, () => 1])).toThrow(
+      test('unsupported value inside array reports index path', () => {
+        expect(() => serializeValue([0, () => 1, 2])).toThrow(
           'Unsupported value type: function at path: [1]'
         );
       });
 
-      test('reports full path for unsupported value nested inside a stack entry', () => {
-        const stack = [1, { user: { cb: () => 1 } }, 'ok'];
-        expect(() => serializeStack(stack)).toThrow(
-          'Unsupported value type: function at path: [1].user.cb'
+      test('deeply nested unsupported value reports full path', () => {
+        const value = { a: { b: [{ fn: () => 1 }] } };
+        expect(() => serializeValue(value)).toThrow(
+          'Unsupported value type: function at path: .a.b[0].fn'
         );
+      });
+
+      test('record key with special characters uses bracket notation', () => {
+        const value = { 'weird key': () => 1 };
+        expect(() => serializeValue(value)).toThrow(
+          'Unsupported value type: function at path: ["weird key"]'
+        );
+      });
+
+      describe('serializeStack', () => {
+        test('annotates index in path', () => {
+          expect(() => serializeStack([1, () => 1])).toThrow(
+            'Unsupported value type: function at path: [1]'
+          );
+        });
+
+        test('reports full path for unsupported value nested inside a stack entry', () => {
+          const stack = [1, { user: { cb: () => 1 } }, 'ok'];
+          expect(() => serializeStack(stack)).toThrow(
+            'Unsupported value type: function at path: [1].user.cb'
+          );
+        });
+      });
+    });
+
+    describe('deserialize', () => {
+      test('top-level unknown type has no path suffix', () => {
+        const invalidValue = { type: 'unknown_type', value: 'test' } as any;
+        expect(() => deserializeValue(invalidValue)).toThrow(
+          /^Unknown stack value type: unknown_type$/
+        );
+      });
+
+      test('unknown type inside record reports key path', () => {
+        const invalidValue = {
+          type: 'record',
+          value: { bad: { type: 'unknown_type', value: 1 } },
+        } as any;
+        expect(() => deserializeValue(invalidValue)).toThrow(
+          'Unknown stack value type: unknown_type at path: .bad'
+        );
+      });
+
+      test('unknown type deeply nested reports full path', () => {
+        const invalidValue = {
+          type: 'record',
+          value: {
+            a: {
+              type: 'array',
+              value: [{ type: 'unknown_type', value: 1 }],
+            },
+          },
+        } as any;
+        expect(() => deserializeValue(invalidValue)).toThrow(
+          'Unknown stack value type: unknown_type at path: .a[0]'
+        );
+      });
+
+      describe('deserializeStack', () => {
+        test('annotates index in path on bad payload', () => {
+          const invalidStack = [
+            { type: 'int', value: 1 },
+            { type: 'unknown_type', value: 1 },
+          ] as any;
+          expect(() => deserializeStack(invalidStack)).toThrow(
+            'Unknown stack value type: unknown_type at path: [1]'
+          );
+        });
       });
     });
   });

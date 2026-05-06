@@ -110,7 +110,7 @@ export function serializeValue(value: any, path: string = ''): StackValue {
 /**
  * Deserialize a StackValue protobuf message to a JavaScript value
  */
-export function deserializeValue(stackValue: StackValue): any {
+export function deserializeValue(stackValue: StackValue, path: string = ''): any {
   if ('int_value' in stackValue) {
     return stackValue.int_value;
   }
@@ -145,16 +145,17 @@ export function deserializeValue(stackValue: StackValue): any {
   }
 
   if ('array_value' in stackValue && stackValue.array_value) {
-    return stackValue.array_value.items.map((item) => deserializeValue(item));
+    return stackValue.array_value.items.map((item, i) =>
+      deserializeValue(item, `${path}[${i}]`));
   }
 
   if ('record_value' in stackValue && stackValue.record_value) {
     const result: { [key: string]: any } = {};
     for (const [key, val] of Object.entries(stackValue.record_value.fields)) {
-      result[key] = deserializeValue(val);
+      result[key] = deserializeValue(val, `${path}${pathSegmentForKey(key)}`);
     }
     return result;
   }
 
-  throw new Error('Unknown stack value type');
+  throw new Error(`Unknown stack value type${path ? ` at path: ${path}` : ''}`);
 }

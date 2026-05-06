@@ -80,7 +80,7 @@ export function serializeValue(value: any, path: string = ''): StackValue {
 /**
  * Deserialize a JSON StackValue to a JavaScript value
  */
-export function deserializeValue(stackValue: StackValue): any {
+export function deserializeValue(stackValue: StackValue, path: string = ''): any {
   switch (stackValue.type) {
     case 'int':
     case 'float':
@@ -92,12 +92,13 @@ export function deserializeValue(stackValue: StackValue): any {
       return null;
 
     case 'array':
-      return (stackValue.value as StackValue[]).map((v) => deserializeValue(v));
+      return (stackValue.value as StackValue[]).map((v, i) =>
+        deserializeValue(v, `${path}[${i}]`));
 
     case 'record':
       return Object.entries(stackValue.value as Record<string, StackValue>).reduce(
         (acc, [k, v]) => {
-          acc[k] = deserializeValue(v);
+          acc[k] = deserializeValue(v, `${path}${pathSegmentForKey(k)}`);
           return acc;
         },
         {} as Record<string, any>
@@ -113,7 +114,7 @@ export function deserializeValue(stackValue: StackValue): any {
       return Temporal.ZonedDateTime.from(stackValue.value as string);
 
     default:
-      throw new Error(`Unknown stack value type: ${(stackValue as any).type}`);
+      throw new Error(`Unknown stack value type: ${(stackValue as any).type}${path ? ` at path: ${path}` : ''}`);
   }
 }
 
@@ -127,6 +128,6 @@ export function serializeStack(stack: any[], pathPrefix: string = ''): StackValu
 /**
  * Deserialize an array of StackValues (stack)
  */
-export function deserializeStack(stackValues: StackValue[]): any[] {
-  return stackValues.map((value) => deserializeValue(value));
+export function deserializeStack(stackValues: StackValue[], pathPrefix: string = ''): any[] {
+  return stackValues.map((value, i) => deserializeValue(value, `${pathPrefix}[${i}]`));
 }
