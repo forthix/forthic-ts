@@ -30,7 +30,7 @@ export type ForthicType =
  * - Check boolean BEFORE number (to avoid typeof confusion)
  * - Check array BEFORE object (arrays are objects)
  */
-export function getForthicType(value: any): ForthicType {
+export function getForthicType(value: any, path: string = ''): ForthicType {
   // Handle null/undefined
   if (value === null || value === undefined) {
     return 'null';
@@ -74,7 +74,18 @@ export function getForthicType(value: any): ForthicType {
     return 'record';
   }
 
-  throw new Error(`Unsupported value type: ${typeof value}`);
+  throw new Error(`Unsupported value type: ${typeof value}${path ? ` at path: ${path}` : ''}`);
+}
+
+/**
+ * Format a record key as a path segment.
+ * Valid JS identifiers become `.key`; everything else becomes `["key"]` (JSON-escaped)
+ * so the path is unambiguous and copy-pasteable.
+ */
+export function pathSegmentForKey(key: string): string {
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key)
+    ? `.${key}`
+    : `[${JSON.stringify(key)}]`;
 }
 
 /**

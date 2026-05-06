@@ -24,6 +24,7 @@ import { BooleanModule } from "./modules/standard/boolean_module.js";
 import { JsonModule } from "./modules/standard/json_module.js";
 import { DateTimeModule } from "./modules/standard/datetime_module.js";
 import { serializeValue, deserializeValue, serializeStack, deserializeStack, StackValue } from "../websocket/serializer.js";
+import { pathSegmentForKey } from "../common/type_utils.js";
 
 type Timestamp = {
   label: string;
@@ -1111,14 +1112,14 @@ export interface InterpreterState {
 export function export_state(interp: Interpreter): InterpreterState {
   const internal = interp as unknown as InterpreterInternal;
 
-  // Serialize the stack
-  const stack = serializeStack(internal.stack.get_items());
+  // Serialize the stack (annotate path so errors point at the offending stack entry)
+  const stack = serializeStack(internal.stack.get_items(), 'stack:');
 
   // Serialize variables
   const variables: Record<string, StackValue> = {};
   const appModule = internal.app_module;
   for (const [name, variable] of Object.entries(appModule.variables)) {
-    variables[name] = serializeValue(variable.get_value());
+    variables[name] = serializeValue(variable.get_value(), `var:${pathSegmentForKey(name)}`);
   }
 
   // Collect source text from user-defined words
