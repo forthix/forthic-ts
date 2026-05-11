@@ -1,5 +1,4 @@
-import { Interpreter } from "../../interpreter.js";
-import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
+import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 
 export class StringModule extends DecoratedModule {
   static {
@@ -16,8 +15,8 @@ String manipulation and processing operations with regex and URL encoding suppor
 - Constants: /N, /T
 
 ## Examples
-"hello" "world" CONCAT
-["a" "b" "c"] CONCAT
+["hello" " " "world"] CONCAT
+"hello world" STR-LENGTH
 "hello world" " " SPLIT
 ["hello" "world"] " " JOIN
 "Hello" LOWERCASE
@@ -28,44 +27,29 @@ String manipulation and processing operations with regex and URL encoding suppor
     super("string");
   }
 
-  @ForthicDirectWord(
-    "( str1:string str2:string -- result:string ) OR ( arr1:any[] arr2:any[] -- result:any[] ) OR ( strings:string[] -- result:string )",
-    "Concatenate two strings, two arrays, or an array of strings. Dispatches on top-of-stack type.",
+  @ForthicWord(
+    "( strings:string[] -- result:string )",
+    "Concatenate an array of strings into one string. For two strings: write [s1 s2] CONCAT. For arrays of arrays, use FLATTEN.",
     "CONCAT",
   )
-  async CONCAT(interp: Interpreter) {
-    const top = interp.stack_pop();
-
-    // Case 1: Top is an array. Could be either:
-    //   (a) [arr1, arr2] form — join all arrays into one
-    //   (b) [str1, str2, ...] strings form — join into a single string
-    // Disambiguate: if there's another array immediately below, treat as the
-    // (arr1 arr2 -- result) two-array form. Otherwise treat as the array-of-things form.
-    if (top instanceof Array) {
-      // Check whether the value below is also an array → two-array concat
-      if (interp.stack_peek() instanceof Array) {
-        const below = interp.stack_pop();
-        interp.stack_push([...below, ...top]);
-        return;
-      }
-
-      // Else: array-of-things. If it's all strings, join into a string;
-      // if it's an array of arrays, flatten one level.
-      if (top.length > 0 && top.every((x: any) => Array.isArray(x))) {
-        const result: any[] = [];
-        for (const sub of top) result.push(...sub);
-        interp.stack_push(result);
-        return;
-      }
-
-      const result = top.join("");
-      interp.stack_push(result);
-      return;
+  async CONCAT(strings: any[]) {
+    if (!Array.isArray(strings)) {
+      throw new Error("CONCAT requires an array of strings. Wrap two strings as [s1 s2] CONCAT.");
     }
+    return strings.map((s) => (s === null || s === undefined ? "" : String(s))).join("");
+  }
 
-    // Case 2: Two strings on the stack.
-    const str1 = interp.stack_pop();
-    interp.stack_push(`${str1 ?? ""}${top ?? ""}`);
+  @ForthicWord(
+    "( str:string -- length:number )",
+    "Length of a string in characters (0 if null/undefined).",
+    "STR-LENGTH",
+  )
+  async STR_LENGTH(str: any) {
+    if (str === null || str === undefined) return 0;
+    if (typeof str !== "string") {
+      throw new Error("STR-LENGTH requires a string. For arrays/records, use LENGTH.");
+    }
+    return str.length;
   }
 
   @ForthicWord("( item:any -- string:string )", "Convert item to string", ">STR")

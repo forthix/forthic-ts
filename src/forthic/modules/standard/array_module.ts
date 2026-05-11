@@ -1,5 +1,5 @@
 import { Interpreter, dup_interpreter } from "../../interpreter.js";
-import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
+import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 
 export class ArrayModule extends DecoratedModule {
   static {
@@ -15,7 +15,6 @@ Array and collection operations for manipulating arrays and records.
 - Search: FIND, COUNT
 - Extrema: MIN-BY, MAX-BY
 - Indexing: NUMBERED
-- Quantifiers: ALL?, ANY?
 - Group: BY-FIELD, GROUP-BY, GROUP-BY-FIELD, GROUPS-OF
 - Iteration: FOREACH, REDUCE, UNPACK, FLATTEN, TIMES-RUN
 
@@ -40,18 +39,18 @@ Several words support options via the ~> operator using syntax: [.option_name va
     super("array");
   }
 
-  @ForthicWord("( container:any item:any -- container:any )", "Append item to array or add key-value to record")
-  async APPEND(container: any, item: any) {
-    let result = container;
-    if (!result) result = [];
-
-    if (result instanceof Array) {
-      result.push(item);
-    } else {
-      // If not a list, treat as record - item should be [key, value]
-      result[item[0]] = item[1];
+  @ForthicWord(
+    "( array:any[] item:any -- array:any[] )",
+    "Append item to array. For records, use JQ! to set a key.",
+    "APPEND",
+  )
+  async APPEND(array: any, item: any) {
+    let result = array;
+    if (result === null || result === undefined) result = [];
+    if (!(result instanceof Array)) {
+      throw new Error("APPEND requires an array. For records, use JQ! to set a key.");
     }
-
+    result.push(item);
     return result;
   }
 
@@ -79,15 +78,18 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @ForthicWord("( container:any -- length:number )", "Get length of array or record")
+  @ForthicWord(
+    "( container:any -- length:number )",
+    "Length of an array or record. For strings, use STR-LENGTH.",
+  )
   async LENGTH(container: any) {
-    if (!container) return 0;
-
-    if (container instanceof Array) {
-      return container.length;
-    } else {
-      return Object.keys(container).length;
+    if (container === null || container === undefined) return 0;
+    if (container instanceof Array) return container.length;
+    if (typeof container === "string") {
+      throw new Error("LENGTH operates on arrays and records. For strings, use STR-LENGTH.");
     }
+    if (typeof container === "object") return Object.keys(container).length;
+    throw new Error("LENGTH operates on arrays and records.");
   }
 
   @ForthicWord("( container:any n:number -- item:any )", "Get nth element from array or record")
@@ -1149,41 +1151,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return items.map((item, i) => [i, item]);
   }
 
-  @ForthicWord(
-    "( items:any forthic:string -- bool:boolean )",
-    "Returns true if forthic returns truthy for every item. True for empty.",
-    "ALL?",
-  )
-  async ALL_PRED(items: any, forthic: string) {
-    if (!items) return true;
-    const string_location = this.interp.get_string_location();
-    const seq: any[] = items instanceof Array ? items : Object.keys(items).map((k) => items[k]);
-    for (const item of seq) {
-      this.interp.stack_push(item);
-      await this.interp.run(forthic, string_location);
-      if (!this.interp.stack_pop()) return false;
-    }
-    return true;
-  }
-
-  @ForthicWord(
-    "( items:any forthic:string -- bool:boolean )",
-    "Returns true if forthic returns truthy for any item. False for empty.",
-    "ANY?",
-  )
-  async ANY_PRED(items: any, forthic: string) {
-    if (!items) return false;
-    const string_location = this.interp.get_string_location();
-    const seq: any[] = items instanceof Array ? items : Object.keys(items).map((k) => items[k]);
-    for (const item of seq) {
-      this.interp.stack_push(item);
-      await this.interp.run(forthic, string_location);
-      if (this.interp.stack_pop()) return true;
-    }
-    return false;
-  }
-
-  // ========================================
+// ========================================
   // Bash/shell-flavored array additions (PR 7)
   // ========================================
 

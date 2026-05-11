@@ -18,8 +18,8 @@ test("arithmetic", async () => {
             2 4 /
             5 3 MOD
             2.51 ROUND
-            [1 2 3] +
-            [2 3 4] *
+            [1 2 3] SUM
+            [2 3 4] PRODUCT
           `);
   const stack = (interp as any).stack;
   expect(stack[0]).toBe(6);
@@ -30,6 +30,10 @@ test("arithmetic", async () => {
   expect(stack[5]).toBe(3);
   expect(stack[6]).toBe(6);
   expect(stack[7]).toBe(24);
+});
+
+test("+ rejects array", async () => {
+  await expect(interp.run(`1 [2 3] +`)).rejects.toThrow(/SUM/);
 });
 
 test("DIVIDE", async () => {
@@ -58,30 +62,22 @@ test("MEAN", async () => {
   expect(stack[stack.length - 1]).toBe(0);
 });
 
-test("MAX of two numbers", async () => {
-  interp.stack_push(4);
-  interp.stack_push(18);
-  await interp.run("MAX");
-  expect(interp.stack_pop()).toEqual(18);
-});
-
 test("MAX of an array of numbers", async () => {
   interp.stack_push([14, 8, 55, 4, 5]);
   await interp.run("MAX");
   expect(interp.stack_pop()).toEqual(55);
 });
 
-test("MIN of two numbers", async () => {
-  interp.stack_push(4);
-  interp.stack_push(18);
-  await interp.run("MIN");
-  expect(interp.stack_pop()).toEqual(4);
-});
-
 test("MIN of an array of numbers", async () => {
   interp.stack_push([14, 8, 55, 4, 5]);
   await interp.run("MIN");
   expect(interp.stack_pop()).toEqual(4);
+});
+
+test("MAX rejects two numbers on stack", async () => {
+  interp.stack_push(4);
+  interp.stack_push(18);
+  await expect(interp.run("MAX")).rejects.toThrow(/array/i);
 });
 
 test("MEAN of an array of numbers", async () => {

@@ -383,25 +383,19 @@ describe("Record additions (PR 6)", () => {
   });
 });
 
-describe("CONCAT extension for arrays", () => {
-  test("two strings concatenate", async () => {
-    await interp.run("'hello' 'world' CONCAT");
+describe("CONCAT (array-only)", () => {
+  test("two strings via array", async () => {
+    await interp.run("['hello' 'world'] CONCAT");
     expect(interp.stack_pop()).toBe("helloworld");
   });
 
-  test("two arrays concatenate", async () => {
-    await interp.run("[1 2] [3 4] CONCAT");
-    expect(interp.stack_pop()).toEqual([1, 2, 3, 4]);
-  });
-
-  test("array of strings still joins to one string", async () => {
+  test("array of strings joins to one string", async () => {
     await interp.run("['a' 'b' 'c'] CONCAT");
     expect(interp.stack_pop()).toBe("abc");
   });
 
-  test("array of arrays flattens one level", async () => {
-    await interp.run("[[1 2] [3] [4 5]] CONCAT");
-    expect(interp.stack_pop()).toEqual([1, 2, 3, 4, 5]);
+  test("rejects two strings on stack", async () => {
+    await expect(interp.run("'hello' 'world' CONCAT")).rejects.toThrow(/array of strings/);
   });
 });
 
@@ -527,22 +521,22 @@ describe("Collection additions (PR 6)", () => {
   });
 
   test("ALL? true when every item matches", async () => {
-    await interp.run("[2 4 6] '2 MOD 0 ==' ALL?");
+    await interp.run("[2 4 6] '2 MOD 0 ==' MAP ALL?");
     expect(interp.stack_pop()).toBe(true);
   });
 
   test("ALL? false when any item fails", async () => {
-    await interp.run("[2 4 5] '2 MOD 0 ==' ALL?");
+    await interp.run("[2 4 5] '2 MOD 0 ==' MAP ALL?");
     expect(interp.stack_pop()).toBe(false);
   });
 
   test("ANY? true when any item matches", async () => {
-    await interp.run("[1 3 5 6] '2 MOD 0 ==' ANY?");
+    await interp.run("[1 3 5 6] '2 MOD 0 ==' MAP ANY?");
     expect(interp.stack_pop()).toBe(true);
   });
 
   test("ANY? false when no item matches", async () => {
-    await interp.run("[1 3 5] '2 MOD 0 ==' ANY?");
+    await interp.run("[1 3 5] '2 MOD 0 ==' MAP ANY?");
     expect(interp.stack_pop()).toBe(false);
   });
 
@@ -563,13 +557,13 @@ describe("Math aggregates (PR 6)", () => {
     expect(interp.stack_pop()).toBe(1);
   });
 
-  test("MAX-OF picks the maximum", async () => {
-    await interp.run("[3 7 2 5] MAX-OF");
+  test("MAX picks the maximum", async () => {
+    await interp.run("[3 7 2 5] MAX");
     expect(interp.stack_pop()).toBe(7);
   });
 
-  test("MIN-OF picks the minimum", async () => {
-    await interp.run("[3 7 2 5] MIN-OF");
+  test("MIN picks the minimum", async () => {
+    await interp.run("[3 7 2 5] MIN");
     expect(interp.stack_pop()).toBe(2);
   });
 });

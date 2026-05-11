@@ -1,5 +1,4 @@
-import { Interpreter } from "../../interpreter.js";
-import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
+import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 
 export class MathModule extends DecoratedModule {
   static {
@@ -8,7 +7,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
 
 ## Categories
 - Arithmetic: +, -, *, /, MOD, RANGE
-- Aggregates: MEAN, MAX, MIN, SUM, PRODUCT, MAX-OF, MIN-OF
+- Aggregates: MEAN, MAX, MIN, SUM, PRODUCT
 - Type conversion: >INT, >FLOAT, FORMAT-FIXED, ROUND
 - Math functions: ABS, SQRT, FLOOR, CEIL, CLAMP
 
@@ -29,27 +28,14 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
   // Arithmetic Operations
   // ========================================
 
-  @ForthicDirectWord("( a:number b:number -- sum:number ) OR ( numbers:number[] -- sum:number )", "Add two numbers or sum array", "+")
-  async plus(interp: Interpreter) {
-    const b = interp.stack_pop();
-
-    // Case 1: Array on top of stack
-    if (Array.isArray(b)) {
-      let result = 0;
-      for (const num of b) {
-        if (num !== null && num !== undefined) {
-          result += num;
-        }
-      }
-      interp.stack_push(result);
-      return;
+  @ForthicWord("( a:number b:number -- sum:number )", "Add two numbers. For arrays use SUM.", "+")
+  async plus(a: any, b: any) {
+    if (Array.isArray(a) || Array.isArray(b)) {
+      throw new Error("+ takes two numbers. For an array of numbers, use SUM.");
     }
-
-    // Case 2: Two numbers
-    const a = interp.stack_pop();
     const num_a = a === null || a === undefined ? 0 : a;
     const num_b = b === null || b === undefined ? 0 : b;
-    interp.stack_push(num_a + num_b);
+    return num_a + num_b;
   }
 
   @ForthicWord("( a:number b:number -- difference:number )", "Subtract b from a", "-")
@@ -60,31 +46,15 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     return a - b;
   }
 
-  @ForthicDirectWord("( a:number b:number -- product:number ) OR ( numbers:number[] -- product:number )", "Multiply two numbers or product of array", "*")
-  async times(interp: Interpreter) {
-    const b = interp.stack_pop();
-
-    // Case 1: Array on top of stack
-    if (Array.isArray(b)) {
-      let result = 1;
-      for (const num of b) {
-        if (num === null || num === undefined) {
-          interp.stack_push(null);
-          return;
-        }
-        result *= num;
-      }
-      interp.stack_push(result);
-      return;
+  @ForthicWord("( a:number b:number -- product:number )", "Multiply two numbers. For arrays use PRODUCT.", "*")
+  async times(a: any, b: any) {
+    if (Array.isArray(a) || Array.isArray(b)) {
+      throw new Error("* takes two numbers. For an array of numbers, use PRODUCT.");
     }
-
-    // Case 2: Two numbers
-    const a = interp.stack_pop();
     if (a === null || a === undefined || b === null || b === undefined) {
-      interp.stack_push(null);
-      return;
+      return null;
     }
-    interp.stack_push(a * b);
+    return a * b;
   }
 
   @ForthicWord("( a:number b:number -- quotient:number )", "Divide a by b", "/")
@@ -210,42 +180,38 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     return 0;
   }
 
-  @ForthicDirectWord("( a:number b:number -- max:number ) OR ( items:number[] -- max:number )", "Maximum of two numbers or array", "MAX")
-  async MAX(interp: Interpreter) {
-    const b = interp.stack_pop();
-
-    // Case 1: Array on top of stack
-    if (Array.isArray(b)) {
-      if (b.length === 0) {
-        interp.stack_push(null);
-        return;
-      }
-      interp.stack_push(Math.max(...b));
-      return;
+  @ForthicWord(
+    "( numbers:number[] -- max:number )",
+    "Maximum of an array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.",
+    "MAX",
+  )
+  async MAX(numbers: any) {
+    if (!Array.isArray(numbers)) {
+      throw new Error("MAX requires an array of numbers. For two numbers use > with IF.");
     }
-
-    // Case 2: Two values
-    const a = interp.stack_pop();
-    interp.stack_push(Math.max(a, b));
+    let result: number | null = null;
+    for (const num of numbers) {
+      if (num === null || num === undefined) continue;
+      if (result === null || num > result) result = num;
+    }
+    return result;
   }
 
-  @ForthicDirectWord("( a:number b:number -- min:number ) OR ( items:number[] -- min:number )", "Minimum of two numbers or array", "MIN")
-  async MIN(interp: Interpreter) {
-    const b = interp.stack_pop();
-
-    // Case 1: Array on top of stack
-    if (Array.isArray(b)) {
-      if (b.length === 0) {
-        interp.stack_push(null);
-        return;
-      }
-      interp.stack_push(Math.min(...b));
-      return;
+  @ForthicWord(
+    "( numbers:number[] -- min:number )",
+    "Minimum of an array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.",
+    "MIN",
+  )
+  async MIN(numbers: any) {
+    if (!Array.isArray(numbers)) {
+      throw new Error("MIN requires an array of numbers. For two numbers use < with IF.");
     }
-
-    // Case 2: Two values
-    const a = interp.stack_pop();
-    interp.stack_push(Math.min(a, b));
+    let result: number | null = null;
+    for (const num of numbers) {
+      if (num === null || num === undefined) continue;
+      if (result === null || num < result) result = num;
+    }
+    return result;
   }
 
   @ForthicWord(
@@ -263,37 +229,7 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
     return result;
   }
 
-  @ForthicWord(
-    "( numbers:number[] -- max:number )",
-    "Maximum of array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.",
-    "MAX-OF",
-  )
-  async MAX_OF(numbers: number[]) {
-    if (!Array.isArray(numbers)) return null;
-    let result: number | null = null;
-    for (const num of numbers) {
-      if (num === null || num === undefined) continue;
-      if (result === null || num > result) result = num;
-    }
-    return result;
-  }
-
-  @ForthicWord(
-    "( numbers:number[] -- min:number )",
-    "Minimum of array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.",
-    "MIN-OF",
-  )
-  async MIN_OF(numbers: number[]) {
-    if (!Array.isArray(numbers)) return null;
-    let result: number | null = null;
-    for (const num of numbers) {
-      if (num === null || num === undefined) continue;
-      if (result === null || num < result) result = num;
-    }
-    return result;
-  }
-
-  @ForthicWord("( numbers:number[] -- sum:number )", "Sum of array (explicit)")
+@ForthicWord("( numbers:number[] -- sum:number )", "Sum of array (explicit)")
   async SUM(numbers: number[]) {
     if (!numbers || !Array.isArray(numbers)) {
       return 0;
