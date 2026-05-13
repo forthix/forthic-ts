@@ -12,14 +12,24 @@ describe("StringModule", () => {
     expect(interp.stack_pop()).toBe("42");
   });
 
-  test("CONCAT two strings", async () => {
-    await interp.run("'Hello' ' World' CONCAT");
-    expect(interp.stack_pop()).toBe("Hello World");
-  });
-
   test("CONCAT array of strings", async () => {
     await interp.run("['Hello' ' ' 'World'] CONCAT");
     expect(interp.stack_pop()).toBe("Hello World");
+  });
+
+  test("CONCAT rejects two strings on stack", async () => {
+    await expect(interp.run("'Hello' ' World' CONCAT")).rejects.toThrow(/array of strings/);
+  });
+
+  test("STR-LENGTH", async () => {
+    await interp.run("'hello' STR-LENGTH");
+    expect(interp.stack_pop()).toBe(5);
+
+    await interp.run("'' STR-LENGTH");
+    expect(interp.stack_pop()).toBe(0);
+
+    await interp.run("NULL STR-LENGTH");
+    expect(interp.stack_pop()).toBe(0);
   });
 
   test("SPLIT", async () => {

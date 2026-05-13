@@ -1,5 +1,4 @@
-import { Interpreter } from "../../interpreter.js";
-import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
+import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 
 export class BooleanModule extends DecoratedModule {
   static {
@@ -8,14 +7,14 @@ Comparison, logic, and membership operations for boolean values and conditions.
 
 ## Categories
 - Comparison: ==, !=, <, <=, >, >=
-- Logic: OR, AND, NOT, XOR, NAND
-- Membership: IN, ANY, ALL
+- Logic: OR, AND, NOT, ANY?, ALL?
+- Membership: CONTAINS?
 - Conversion: >BOOL
 
 ## Examples
 5 3 >
 "hello" "hello" ==
-[1 2 3] [4 5 6] OR
+[TRUE FALSE TRUE] ANY?
 2 [1 2 3] IN
 `);
   }
@@ -56,46 +55,44 @@ Comparison, logic, and membership operations for boolean values and conditions.
   }
 
 
-  @ForthicDirectWord("( a:boolean b:boolean -- result:boolean ) OR ( bools:boolean[] -- result:boolean )", "Logical OR of two values or array", "OR")
-  async OR(interp: Interpreter) {
-    const b = interp.stack_pop();
-
-    // Case 1: Array on top of stack
-    if (Array.isArray(b)) {
-      for (const val of b) {
-        if (val) {
-          interp.stack_push(true);
-          return;
-        }
-      }
-      interp.stack_push(false);
-      return;
+  @ForthicWord("( a:boolean b:boolean -- result:boolean )", "Logical OR of two values. For arrays use ANY?.", "OR")
+  async OR(a: any, b: any) {
+    if (Array.isArray(a) || Array.isArray(b)) {
+      throw new Error("OR takes two values. For an array of booleans, use ANY?.");
     }
-
-    // Case 2: Two values
-    const a = interp.stack_pop();
-    interp.stack_push(a || b);
+    return a || b;
   }
 
-  @ForthicDirectWord("( a:boolean b:boolean -- result:boolean ) OR ( bools:boolean[] -- result:boolean )", "Logical AND of two values or array", "AND")
-  async AND(interp: Interpreter) {
-    const b = interp.stack_pop();
-
-    // Case 1: Array on top of stack
-    if (Array.isArray(b)) {
-      for (const val of b) {
-        if (!val) {
-          interp.stack_push(false);
-          return;
-        }
-      }
-      interp.stack_push(true);
-      return;
+  @ForthicWord("( a:boolean b:boolean -- result:boolean )", "Logical AND of two values. For arrays use ALL?.", "AND")
+  async AND(a: any, b: any) {
+    if (Array.isArray(a) || Array.isArray(b)) {
+      throw new Error("AND takes two values. For an array of booleans, use ALL?.");
     }
+    return a && b;
+  }
 
-    // Case 2: Two values
-    const a = interp.stack_pop();
-    interp.stack_push(a && b);
+  @ForthicWord(
+    "( bools:boolean[] -- result:boolean )",
+    "Returns true if any element of the array is truthy. False for empty array.",
+    "ANY?",
+  )
+  async ANY_Q(bools: any) {
+    if (!Array.isArray(bools)) {
+      throw new Error("ANY? requires an array of booleans.");
+    }
+    return bools.some((v) => !!v);
+  }
+
+  @ForthicWord(
+    "( bools:boolean[] -- result:boolean )",
+    "Returns true if all elements of the array are truthy. True for empty array.",
+    "ALL?",
+  )
+  async ALL_Q(bools: any) {
+    if (!Array.isArray(bools)) {
+      throw new Error("ALL? requires an array of booleans.");
+    }
+    return bools.every((v) => !!v);
   }
 
   @ForthicWord("( bool:boolean -- result:boolean )", "Logical NOT")
@@ -103,23 +100,16 @@ Comparison, logic, and membership operations for boolean values and conditions.
     return !bool;
   }
 
-  @ForthicWord("( a:boolean b:boolean -- result:boolean )", "Logical XOR (exclusive or)")
-  async XOR(a: boolean, b: boolean) {
-    return (a || b) && !(a && b);
-  }
-
-  @ForthicWord("( a:boolean b:boolean -- result:boolean )", "Logical NAND (not and)")
-  async NAND(a: boolean, b: boolean) {
-    return !(a && b);
-  }
-
-
-  @ForthicWord("( item:any array:any[] -- in:boolean )", "Check if item is in array")
-  async IN(item: any, array: any[]) {
-    if (!Array.isArray(array)) {
+  @ForthicWord(
+    "( haystack:any[] needle:any -- bool:boolean )",
+    "Check if haystack array contains needle. Container-first arg order.",
+    "CONTAINS?",
+  )
+  async CONTAINS(haystack: any[], needle: any) {
+    if (!Array.isArray(haystack)) {
       return false;
     }
-    return array.includes(item);
+    return haystack.includes(needle);
   }
 
   @ForthicWord("( items1:any[] items2:any[] -- any:boolean )", "Check if any item from items1 is in items2")

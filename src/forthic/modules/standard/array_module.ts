@@ -1,5 +1,5 @@
 import { Interpreter, dup_interpreter } from "../../interpreter.js";
-import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
+import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 
 export class ArrayModule extends DecoratedModule {
   static {
@@ -7,13 +7,16 @@ export class ArrayModule extends DecoratedModule {
 Array and collection operations for manipulating arrays and records.
 
 ## Categories
-- Access: NTH, LAST, SLICE, TAKE, DROP, LENGTH, INDEX, KEY-OF
-- Transform: MAP, REVERSE
-- Combine: APPEND, ZIP, ZIP_WITH, CONCAT
-- Filter: SELECT, UNIQUE, DIFFERENCE, INTERSECTION, UNION
-- Sort: SORT, SHUFFLE, ROTATE
-- Group: BY_FIELD, GROUP-BY-FIELD, GROUP_BY, GROUPS_OF
-- Utility: <REPEAT, FOREACH, REDUCE, UNPACK, FLATTEN
+- Access: NTH, FIRST, LAST, SLICE, TAKE, TAKE-LAST, SKIP, LENGTH, INDEX, KEY-OF
+- Transform: MAP, MAP-AT, REVERSE
+- Combine: APPEND, ZIP, ZIP-WITH
+- Filter: FILTER, UNIQUE, UNIQUE-BY, DIFFERENCE, INTERSECTION, UNION
+- Sort: SORT, SORT-BY, SORT-U
+- Search: FIND, COUNT
+- Extrema: MIN-BY, MAX-BY
+- Indexing: NUMBERED
+- Group: BY-FIELD, GROUP-BY, GROUP-BY-FIELD, GROUPS-OF
+- Iteration: FOREACH, REDUCE, UNPACK, FLATTEN, TIMES-RUN
 
 ## Options
 Several words support options via the ~> operator using syntax: [.option_name value ...] ~> WORD
@@ -36,18 +39,18 @@ Several words support options via the ~> operator using syntax: [.option_name va
     super("array");
   }
 
-  @ForthicWord("( container:any item:any -- container:any )", "Append item to array or add key-value to record")
-  async APPEND(container: any, item: any) {
-    let result = container;
-    if (!result) result = [];
-
-    if (result instanceof Array) {
-      result.push(item);
-    } else {
-      // If not a list, treat as record - item should be [key, value]
-      result[item[0]] = item[1];
+  @ForthicWord(
+    "( array:any[] item:any -- array:any[] )",
+    "Append item to array. For records, use JQ! to set a key.",
+    "APPEND",
+  )
+  async APPEND(array: any, item: any) {
+    let result = array;
+    if (result === null || result === undefined) result = [];
+    if (!(result instanceof Array)) {
+      throw new Error("APPEND requires an array. For records, use JQ! to set a key.");
     }
-
+    result.push(item);
     return result;
   }
 
@@ -75,15 +78,18 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @ForthicWord("( container:any -- length:number )", "Get length of array or record")
+  @ForthicWord(
+    "( container:any -- length:number )",
+    "Length of an array or record. For strings, use STR-LENGTH.",
+  )
   async LENGTH(container: any) {
-    if (!container) return 0;
-
-    if (container instanceof Array) {
-      return container.length;
-    } else {
-      return Object.keys(container).length;
+    if (container === null || container === undefined) return 0;
+    if (container instanceof Array) return container.length;
+    if (typeof container === "string") {
+      throw new Error("LENGTH operates on arrays and records. For strings, use STR-LENGTH.");
     }
+    if (typeof container === "object") return Object.keys(container).length;
+    throw new Error("LENGTH operates on arrays and records.");
   }
 
   @ForthicWord("( container:any n:number -- item:any )", "Get nth element from array or record")
@@ -98,6 +104,20 @@ Several words support options via the ~> operator using syntax: [.option_name va
       if (n < 0 || n >= keys.length) return null;
       const key = keys[n];
       return container[key];
+    }
+  }
+
+  @ForthicWord("( container:any -- item:any )", "Get first element from array or record (sorted-key order for records)")
+  async FIRST(container: any) {
+    if (!container) return null;
+
+    if (container instanceof Array) {
+      if (container.length === 0) return null;
+      return container[0];
+    } else {
+      const keys = Object.keys(container).sort();
+      if (keys.length === 0) return null;
+      return container[keys[0]];
     }
   }
 
@@ -206,8 +226,8 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return taken
   }
 
-  @ForthicWord("( container:any n:number -- result:any )", "Drop first n elements from array or record")
-  async DROP(container: any, n: number) {
+  @ForthicWord("( container:any n:number -- result:any )", "Skip first n elements from array or record")
+  async SKIP(container: any, n: number) {
     if (!container) return [];
     if (n <= 0) return container;
 
@@ -217,6 +237,26 @@ Several words support options via the ~> operator using syntax: [.option_name va
       const keys = Object.keys(container).sort();
       const rest_keys = keys.slice(n);
       return rest_keys.map((k) => container[k]);
+    }
+  }
+
+  @ForthicWord(
+    "( container:any n:number -- result:any )",
+    "Take last n elements from array or record (sorted-key order for records).",
+    "TAKE-LAST",
+  )
+  async TAKE_LAST(container: any, n: number) {
+    if (!container) return [];
+    if (n <= 0) return container instanceof Array ? [] : {};
+
+    if (container instanceof Array) {
+      return container.slice(Math.max(0, container.length - n));
+    } else {
+      const keys = Object.keys(container).sort();
+      const tail = keys.slice(Math.max(0, keys.length - n));
+      const result: Record<string, any> = {};
+      for (const k of tail) result[k] = container[k];
+      return result;
     }
   }
 
@@ -391,35 +431,6 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-
-  @ForthicWord("( array:any[] -- array:any[] )", "Shuffle array randomly")
-  async SHUFFLE(array: any[]) {
-    if (!array) return array;
-
-    const result = [...array];
-    for (let i = result.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [result[i], result[j]] = [result[j], result[i]];
-    }
-
-    return result;
-  }
-
-  @ForthicWord("( container:any -- container:any )", "Rotate container by moving last element to front")
-  async ROTATE(container: any) {
-    if (!container) return container;
-
-    let result = container;
-    if (container instanceof Array) {
-      if (container.length > 0) {
-        result = [...container];
-        const val = result.pop();
-        result.unshift(val);
-      }
-    }
-
-    return result;
-  }
 
   @ForthicWord("( container:any -- elements:any )", "Unpack array or record elements onto stack")
   async UNPACK(container: any) {
@@ -655,8 +666,8 @@ Several words support options via the ~> operator using syntax: [.option_name va
   }
 
 
-  @ForthicWord("( container:any forthic:string [options:WordOptions] -- filtered:any )", "Filter items with predicate. Options: with_key (bool)")
-  async SELECT(container: any, forthic: string, options: Record<string, any>) {
+  @ForthicWord("( container:any forthic:string [options:WordOptions] -- filtered:any )", "Filter items with predicate. Options: with_key (bool)", "FILTER")
+  async FILTER(container: any, forthic: string, options: Record<string, any>) {
     const interp = this.interp
     const string_location = interp.get_string_location();
 
@@ -902,24 +913,266 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return undefined; // MapWord pushes result directly
   }
 
-  @ForthicDirectWord("( item:any forthic:string num_times:number -- )", "Repeat execution of forthic num_times", "<REPEAT")
-  async l_REPEAT(interp: Interpreter) {
-    const num_times = interp.stack_pop();
-    const forthic = interp.stack_pop();
-    const string_location = interp.get_string_location();
+  @ForthicWord(
+    "( container:any key:any|any[] forthic:string -- container:any )",
+    "Apply forthic to the value at key/index, returning a new container with that slot transformed. The key arg may be a single key (one-level update) or a path-array for deep updates. Polymorphic over arrays and records. Equivalent of jq's |= operator.",
+    "MAP-AT",
+  )
+  async MAP_AT(container: any, key: any, forthic: string) {
+    if (container === null || container === undefined) return container;
+    const string_location = this.interp.get_string_location();
 
-    for (let i = 0; i < num_times; i++) {
-      // Store item so we can push it back later
-      const item = interp.stack_pop();
-      interp.stack_push(item);
-
-      await interp.run(forthic, string_location);
-      const res = interp.stack_pop();
-
-      // Push original item and result
-      interp.stack_push(item);
-      interp.stack_push(res);
+    // Path-array form: walk the path, transforming the value at the leaf
+    if (Array.isArray(key)) {
+      if (key.length === 0) {
+        // Apply forthic to the entire container
+        this.interp.stack_push(container);
+        await this.interp.run(forthic, string_location);
+        return this.interp.stack_pop();
+      }
+      const [head, ...rest] = key;
+      return this._mapAtRecursive(container, head, rest, forthic, string_location);
     }
+
+    // Single-key form
+    return this._mapAtSingle(container, key, forthic, string_location);
+  }
+
+  private async _mapAtRecursive(
+    container: any,
+    head: any,
+    rest: any[],
+    forthic: string,
+    string_location: any,
+  ): Promise<any> {
+    if (rest.length === 0) {
+      return this._mapAtSingle(container, head, forthic, string_location);
+    }
+
+    if (container instanceof Array) {
+      const idx = typeof head === "number" ? head : Number(head);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= container.length) return container;
+      const result = [...container];
+      result[idx] = await this._mapAtRecursive(result[idx], rest[0], rest.slice(1), forthic, string_location);
+      return result;
+    }
+
+    if (typeof container === "object" && container !== null) {
+      if (!Object.prototype.hasOwnProperty.call(container, head)) return container;
+      const result: Record<string, any> = { ...container };
+      result[head] = await this._mapAtRecursive(result[head], rest[0], rest.slice(1), forthic, string_location);
+      return result;
+    }
+
+    return container;
+  }
+
+  private async _mapAtSingle(
+    container: any,
+    key: any,
+    forthic: string,
+    string_location: any,
+  ): Promise<any> {
+    if (container instanceof Array) {
+      const idx = typeof key === "number" ? key : Number(key);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= container.length) return container;
+      const result = [...container];
+      this.interp.stack_push(result[idx]);
+      await this.interp.run(forthic, string_location);
+      result[idx] = this.interp.stack_pop();
+      return result;
+    }
+
+    if (typeof container === "object" && container !== null) {
+      if (!Object.prototype.hasOwnProperty.call(container, key)) return container;
+      const result: Record<string, any> = { ...container };
+      this.interp.stack_push(result[key]);
+      await this.interp.run(forthic, string_location);
+      result[key] = this.interp.stack_pop();
+      return result;
+    }
+
+    return container;
+  }
+
+  @ForthicWord(
+    "( num_times:number forthic:string -- )",
+    "Run forthic num_times. Each invocation runs in the current stack — no automatic per-iteration value passing.",
+    "TIMES-RUN",
+  )
+  async TIMES_RUN(num_times: number, forthic: string) {
+    if (num_times === null || num_times === undefined || !forthic) return;
+    const string_location = this.interp.get_string_location();
+    for (let i = 0; i < num_times; i++) {
+      await this.interp.run(forthic, string_location);
+    }
+  }
+
+  // ========================================
+  // Functional / jq-style additions
+  // ========================================
+
+  @ForthicWord(
+    "( items:any forthic:string -- item:any )",
+    "Return the first item where forthic returns truthy, or null if none.",
+    "FIND",
+  )
+  async FIND(items: any, forthic: string) {
+    if (!items) return null;
+    const string_location = this.interp.get_string_location();
+    const seq: any[] = items instanceof Array ? items : Object.keys(items).map((k) => items[k]);
+    for (const item of seq) {
+      this.interp.stack_push(item);
+      await this.interp.run(forthic, string_location);
+      const matched = this.interp.stack_pop();
+      if (matched) return item;
+    }
+    return null;
+  }
+
+  @ForthicWord(
+    "( items:any forthic:string -- n:number )",
+    "Count items where forthic returns truthy.",
+    "COUNT",
+  )
+  async COUNT(items: any, forthic: string) {
+    if (!items) return 0;
+    const string_location = this.interp.get_string_location();
+    const seq: any[] = items instanceof Array ? items : Object.keys(items).map((k) => items[k]);
+    let n = 0;
+    for (const item of seq) {
+      this.interp.stack_push(item);
+      await this.interp.run(forthic, string_location);
+      if (this.interp.stack_pop()) n++;
+    }
+    return n;
+  }
+
+  @ForthicWord(
+    "( items:any[] forthic:string -- sorted:any[] )",
+    "Sort items by the value forthic produces (ascending).",
+    "SORT-BY",
+  )
+  async SORT_BY(items: any[], forthic: string) {
+    if (!Array.isArray(items)) return items;
+    const string_location = this.interp.get_string_location();
+    const decorated: { item: any; key: any }[] = [];
+    for (const item of items) {
+      this.interp.stack_push(item);
+      await this.interp.run(forthic, string_location);
+      decorated.push({ item, key: this.interp.stack_pop() });
+    }
+    decorated.sort((a, b) => {
+      if (a.key < b.key) return -1;
+      if (a.key > b.key) return 1;
+      return 0;
+    });
+    return decorated.map((d) => d.item);
+  }
+
+  @ForthicWord(
+    "( items:any[] forthic:string -- item:any )",
+    "Return the item with the smallest value produced by forthic. Null on empty input.",
+    "MIN-BY",
+  )
+  async MIN_BY(items: any[], forthic: string) {
+    if (!Array.isArray(items) || items.length === 0) return null;
+    const string_location = this.interp.get_string_location();
+    let best_item: any = null;
+    let best_key: any = null;
+    let first = true;
+    for (const item of items) {
+      this.interp.stack_push(item);
+      await this.interp.run(forthic, string_location);
+      const key = this.interp.stack_pop();
+      if (first || key < best_key) {
+        best_item = item;
+        best_key = key;
+        first = false;
+      }
+    }
+    return best_item;
+  }
+
+  @ForthicWord(
+    "( items:any[] forthic:string -- item:any )",
+    "Return the item with the largest value produced by forthic. Null on empty input.",
+    "MAX-BY",
+  )
+  async MAX_BY(items: any[], forthic: string) {
+    if (!Array.isArray(items) || items.length === 0) return null;
+    const string_location = this.interp.get_string_location();
+    let best_item: any = null;
+    let best_key: any = null;
+    let first = true;
+    for (const item of items) {
+      this.interp.stack_push(item);
+      await this.interp.run(forthic, string_location);
+      const key = this.interp.stack_pop();
+      if (first || key > best_key) {
+        best_item = item;
+        best_key = key;
+        first = false;
+      }
+    }
+    return best_item;
+  }
+
+  @ForthicWord(
+    "( items:any[] forthic:string -- items:any[] )",
+    "Dedupe items by the key forthic produces (keeps first occurrence).",
+    "UNIQUE-BY",
+  )
+  async UNIQUE_BY(items: any[], forthic: string) {
+    if (!Array.isArray(items)) return items;
+    const string_location = this.interp.get_string_location();
+    const seen = new Set<string>();
+    const result: any[] = [];
+    for (const item of items) {
+      this.interp.stack_push(item);
+      await this.interp.run(forthic, string_location);
+      const key = this.interp.stack_pop();
+      const skey = JSON.stringify(key);
+      if (!seen.has(skey)) {
+        seen.add(skey);
+        result.push(item);
+      }
+    }
+    return result;
+  }
+
+  @ForthicWord(
+    "( items:any[] -- pairs:any[] )",
+    "Pair each item with its index: [v0 v1 v2] -> [[0 v0] [1 v1] [2 v2]]. (Python's enumerate.)",
+    "NUMBERED",
+  )
+  async NUMBERED(items: any[]) {
+    if (!Array.isArray(items)) return [];
+    return items.map((item, i) => [i, item]);
+  }
+
+// ========================================
+  // Bash/shell-flavored array additions (PR 7)
+  // ========================================
+
+  @ForthicWord(
+    "( strings:any[] -- strings:any[] )",
+    "Sort an array and remove duplicates (bash sort -u).",
+    "SORT-U",
+  )
+  async SORT_U(strings: any) {
+    if (!Array.isArray(strings)) return strings;
+    const sorted = [...strings].sort();
+    const seen = new Set<string>();
+    const result: any[] = [];
+    for (const s of sorted) {
+      const key = JSON.stringify(s);
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(s);
+      }
+    }
+    return result;
   }
 }
 

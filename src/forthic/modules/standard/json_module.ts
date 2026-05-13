@@ -7,12 +7,10 @@ JSON serialization, parsing, and formatting operations.
 
 ## Categories
 - Conversion: >JSON, JSON>
-- Formatting: JSON-PRETTIFY
 
 ## Examples
 {name: "Alice", age: 30} >JSON
 '{"name":"Alice"}' JSON>
-'{"a":1}' JSON-PRETTIFY
 `);
   }
 
@@ -36,12 +34,4 @@ JSON serialization, parsing, and formatting operations.
     return JSON.parse(json);
   }
 
-  @ForthicWord("( json:string -- pretty:string )", "Format JSON with 2-space indentation", "JSON-PRETTIFY")
-  async JSON_PRETTIFY(json: string) {
-    if (!json || json.trim() === "") {
-      return "";
-    }
-    const obj = JSON.parse(json);
-    return JSON.stringify(obj, null, 2);
-  }
 }

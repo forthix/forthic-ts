@@ -1,5 +1,10 @@
 import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 
+type PathSegment =
+  | { kind: "field"; name: string }
+  | { kind: "index"; n: number }
+  | { kind: "iterate" };
+
 export class RecordModule extends DecoratedModule {
   static {
     registerModuleDoc(RecordModule, `
@@ -7,7 +12,13 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
 ## Categories
 - Core: REC, REC@, |REC@, <REC!
-- Transform: RELABEL, INVERT-KEYS, REC-DEFAULTS, <DEL
+- Path access (jq-style): JQ@, JQ!, JQ-DEL
+- Construct: ENTRIES>REC
+- Disassemble: REC>ENTRIES
+- Combine: MERGE
+- Subset: PICK, OMIT
+- Predicate: HAS-KEY?
+- Transform: DELETE
 - Access: KEYS, VALUES
 `);
   }
@@ -103,64 +114,327 @@ Record (object/dictionary) manipulation operations for working with key-value da
     return _rec;
   }
 
+  // ========================================
+  // JQ-style path access
+  // ========================================
 
-  @ForthicWord("( container:any old_keys:any[] new_keys:any[] -- container:any )", "Rename record keys")
-  async RELABEL(container: any, old_keys: any[], new_keys: any[]) {
-    if (!container) return container;
-
-    if (old_keys.length !== new_keys.length) {
-      throw new Error("RELABEL: old_keys and new_keys must be same length");
-    }
-
-    const new_to_old: any = {};
-    for (let i = 0; i < old_keys.length; i++) {
-      new_to_old[new_keys[i]] = old_keys[i];
-    }
-
-    let result: any;
-    if (container instanceof Array) {
-      result = [];
-      Object.keys(new_to_old)
-        .sort()
-        .forEach((k) => result.push(container[new_to_old[k]]));
-    } else {
-      result = {};
-      Object.keys(new_to_old).forEach((k) => (result[k] = container[new_to_old[k]]));
-    }
-
-    return result;
-  }
-
-  @ForthicWord("( record:any -- inverted:any )", "Invert two-level nested record structure", "INVERT-KEYS")
-  async INVERT_KEYS(record: any) {
-    const result: any = {};
-    Object.keys(record).forEach((first_key) => {
-      const sub_record = record[first_key];
-      Object.keys(sub_record).forEach((second_key) => {
-        const value = sub_record[second_key];
-        if (!result[second_key]) result[second_key] = {};
-        result[second_key][first_key] = value;
+  private static parse_jq_path(path: any): PathSegment[] {
+    if (Array.isArray(path)) {
+      return path.map((p) => {
+        if (typeof p === "number") return { kind: "index", n: p } as PathSegment;
+        return { kind: "field", name: String(p) } as PathSegment;
       });
+    }
+
+    let s = String(path ?? "");
+    if (s === "" || s === ".") return [];
+
+    if (s.startsWith(".")) s = s.slice(1);
+
+    const segments: PathSegment[] = [];
+    let i = 0;
+
+    while (i < s.length) {
+      const ch = s[i];
+      if (ch === ".") {
+        i++;
+        continue;
+      }
+      if (ch === "[") {
+        i++;
+        if (i >= s.length) {
+          throw new Error(`JQ path: unclosed '[' in "${path}"`);
+        }
+        if (s[i] === "]") {
+          segments.push({ kind: "iterate" });
+          i++;
+        } else if (s[i] === '"' || s[i] === "'") {
+          const quote = s[i];
+          i++;
+          let name = "";
+          while (i < s.length && s[i] !== quote) {
+            name += s[i];
+            i++;
+          }
+          if (i >= s.length) {
+            throw new Error(`JQ path: unclosed quote in "${path}"`);
+          }
+          i++;
+          if (s[i] !== "]") {
+            throw new Error(`JQ path: expected ']' after quoted key in "${path}"`);
+          }
+          i++;
+          segments.push({ kind: "field", name });
+        } else {
+          let num = "";
+          while (i < s.length && s[i] !== "]") {
+            num += s[i];
+            i++;
+          }
+          if (i >= s.length) {
+            throw new Error(`JQ path: unclosed '[' in "${path}"`);
+          }
+          i++;
+          const n = parseInt(num, 10);
+          if (isNaN(n)) {
+            throw new Error(`JQ path: invalid index "${num}" in "${path}"`);
+          }
+          segments.push({ kind: "index", n });
+        }
+      } else {
+        let name = "";
+        while (i < s.length && s[i] !== "." && s[i] !== "[") {
+          name += s[i];
+          i++;
+        }
+        if (name) segments.push({ kind: "field", name });
+      }
+    }
+
+    return segments;
+  }
+
+  private static jq_get(container: any, segments: PathSegment[]): any {
+    if (segments.length === 0) return container ?? null;
+    if (container == null) return null;
+
+    const [first, ...rest] = segments;
+
+    if (first.kind === "iterate") {
+      let items: any[];
+      if (Array.isArray(container)) {
+        items = container;
+      } else if (typeof container === "object") {
+        items = Object.keys(container)
+          .sort()
+          .map((k) => container[k]);
+      } else {
+        return [];
+      }
+
+      const rest_iterates = rest.some((s) => s.kind === "iterate");
+      const result: any[] = [];
+      for (const item of items) {
+        if (rest.length === 0) {
+          result.push(item);
+        } else {
+          const r = RecordModule.jq_get(item, rest);
+          if (rest_iterates && Array.isArray(r)) {
+            result.push(...r);
+          } else {
+            result.push(r);
+          }
+        }
+      }
+      return result;
+    }
+
+    if (first.kind === "field") {
+      const next = container[first.name];
+      return RecordModule.jq_get(next, rest);
+    }
+
+    // index
+    if (Array.isArray(container)) {
+      const n = first.n < 0 ? container.length + first.n : first.n;
+      if (n < 0 || n >= container.length) return null;
+      return RecordModule.jq_get(container[n], rest);
+    }
+    if (typeof container === "object") {
+      const keys = Object.keys(container).sort();
+      const n = first.n < 0 ? keys.length + first.n : first.n;
+      if (n < 0 || n >= keys.length) return null;
+      return RecordModule.jq_get(container[keys[n]], rest);
+    }
+    return null;
+  }
+
+  private static seg_key(seg: PathSegment): string | number {
+    if (seg.kind === "field") return seg.name;
+    if (seg.kind === "index") return seg.n;
+    throw new Error("JQ: [] iteration not supported here");
+  }
+
+  private static jq_set(container: any, segments: PathSegment[], value: any): any {
+    let cur = container;
+    for (let i = 0; i < segments.length - 1; i++) {
+      const seg = segments[i];
+      const next = segments[i + 1];
+      const key = RecordModule.seg_key(seg);
+
+      let child = cur[key];
+      if (child == null || typeof child !== "object") {
+        child = next.kind === "index" ? [] : {};
+        cur[key] = child;
+      }
+      cur = child;
+    }
+
+    const last_key = RecordModule.seg_key(segments[segments.length - 1]);
+    cur[last_key] = value;
+
+    return container;
+  }
+
+  private static jq_del(container: any, segments: PathSegment[]): any {
+    let cur = container;
+    for (let i = 0; i < segments.length - 1; i++) {
+      const key = RecordModule.seg_key(segments[i]);
+      if (cur == null || typeof cur !== "object") return container;
+      cur = cur[key];
+    }
+    if (cur == null || typeof cur !== "object") return container;
+
+    const last = segments[segments.length - 1];
+    if (last.kind === "field") {
+      delete cur[last.name];
+    } else if (last.kind === "index") {
+      if (Array.isArray(cur)) {
+        const n = last.n < 0 ? cur.length + last.n : last.n;
+        if (n >= 0 && n < cur.length) cur.splice(n, 1);
+      } else {
+        delete cur[last.n];
+      }
+    }
+
+    return container;
+  }
+
+  @ForthicWord(
+    "( container:any path:any -- value:any )",
+    "Get value at jq-style path (e.g., .users[].name). Returns null on miss; [] iterates and flattens. Path arrays accepted for dynamic keys.",
+    "JQ@",
+  )
+  async JQ_at(container: any, path: any) {
+    const segments = RecordModule.parse_jq_path(path);
+    return RecordModule.jq_get(container, segments);
+  }
+
+  @ForthicWord(
+    "( container:any value:any path:any -- container:any )",
+    "Set value at jq-style path. Auto-creates missing intermediates (record for field, array for index). [] iteration not supported.",
+    "JQ!",
+  )
+  async JQ_bang(container: any, value: any, path: any) {
+    const segments = RecordModule.parse_jq_path(path);
+    if (segments.some((s) => s.kind === "iterate")) {
+      throw new Error("JQ!: [] iteration not supported in set paths");
+    }
+    if (segments.length === 0) return value;
+
+    let _container = container;
+    if (_container == null || typeof _container !== "object") {
+      _container = segments[0].kind === "index" ? [] : {};
+    }
+
+    return RecordModule.jq_set(_container, segments, value);
+  }
+
+  @ForthicWord(
+    "( container:any path:any -- container:any )",
+    "Delete value at jq-style path. No-op if path doesn't exist. [] iteration not supported.",
+    "JQ-DEL",
+  )
+  async ["JQ-DEL"](container: any, path: any) {
+    const segments = RecordModule.parse_jq_path(path);
+    if (segments.some((s) => s.kind === "iterate")) {
+      throw new Error("JQ-DEL: [] iteration not supported in delete paths");
+    }
+    if (segments.length === 0 || container == null) return container;
+
+    return RecordModule.jq_del(container, segments);
+  }
+
+
+  @ForthicWord(
+    "( pairs:any[] -- rec:any )",
+    "Build a record from an array of [key, value] pairs. Alias of REC, surfaced for symmetry with REC>ENTRIES.",
+    "ENTRIES>REC",
+  )
+  async ENTRIES_to_REC(pairs: any[]) {
+    let _key_vals = pairs;
+    if (!_key_vals) _key_vals = [];
+
+    const result: any = {};
+    _key_vals.forEach((pair) => {
+      let key = null;
+      let val = null;
+      if (pair) {
+        if (pair.length >= 1) key = pair[0];
+        if (pair.length >= 2) val = pair[1];
+      }
+      result[key] = val;
     });
 
     return result;
   }
 
-  @ForthicWord("( record:any key_vals:any[] -- record:any )", "Set default values for missing/empty fields", "REC-DEFAULTS")
-  async REC_DEFAULTS(record: any, key_vals: any[]) {
-    key_vals.forEach((key_val) => {
-      const key = key_val[0];
-      const value = record[key];
-      if (value === undefined || value === null || value === "") {
-        record[key] = key_val[1];
-      }
-    });
-
-    return record;
+  @ForthicWord(
+    "( rec:any -- pairs:any[] )",
+    "Convert a record to an array of [key, value] pairs (sorted by key for stability). Inverse of ENTRIES>REC / REC.",
+    "REC>ENTRIES",
+  )
+  async REC_to_ENTRIES(rec: any) {
+    if (!rec || typeof rec !== "object" || Array.isArray(rec)) return [];
+    const keys = Object.keys(rec).sort();
+    return keys.map((k) => [k, rec[k]]);
   }
 
-  @ForthicWord("( container:any key:any -- container:any )", "Delete key from record or index from array", "<DEL")
-  async l_DEL(container: any, key: any) {
+  @ForthicWord(
+    "( rec1:any rec2:any -- merged:any )",
+    "Shallow merge two records. Keys present in rec2 override rec1.",
+    "MERGE",
+  )
+  async MERGE(rec1: any, rec2: any) {
+    const a = rec1 && typeof rec1 === "object" && !Array.isArray(rec1) ? rec1 : {};
+    const b = rec2 && typeof rec2 === "object" && !Array.isArray(rec2) ? rec2 : {};
+    return { ...a, ...b };
+  }
+
+  @ForthicWord(
+    "( rec:any keys:any[] -- rec:any )",
+    "Return a new record containing only the listed keys (missing keys are skipped).",
+    "PICK",
+  )
+  async PICK(rec: any, keys: any[]) {
+    if (!rec || typeof rec !== "object" || Array.isArray(rec)) return {};
+    const ks = Array.isArray(keys) ? keys : [];
+    const result: Record<string, any> = {};
+    for (const k of ks) {
+      if (Object.prototype.hasOwnProperty.call(rec, k)) {
+        result[k] = rec[k];
+      }
+    }
+    return result;
+  }
+
+  @ForthicWord(
+    "( rec:any keys:any[] -- rec:any )",
+    "Return a new record without the listed keys.",
+    "OMIT",
+  )
+  async OMIT(rec: any, keys: any[]) {
+    if (!rec || typeof rec !== "object" || Array.isArray(rec)) return {};
+    const drop = new Set(Array.isArray(keys) ? keys : []);
+    const result: Record<string, any> = {};
+    for (const k of Object.keys(rec)) {
+      if (!drop.has(k)) result[k] = rec[k];
+    }
+    return result;
+  }
+
+  @ForthicWord(
+    "( rec:any key:any -- bool:boolean )",
+    "Returns true if rec has the given key (own property). Distinct from REC@ NULL == — handles intentional null values correctly.",
+    "HAS-KEY?",
+  )
+  async HAS_KEY(rec: any, key: any) {
+    if (!rec || typeof rec !== "object" || Array.isArray(rec)) return false;
+    return Object.prototype.hasOwnProperty.call(rec, key);
+  }
+
+  @ForthicWord("( container:any key:any -- container:any )", "Delete key from record or index from array", "DELETE")
+  async DELETE(container: any, key: any) {
     if (!container) return container;
 
     if (container instanceof Array) {

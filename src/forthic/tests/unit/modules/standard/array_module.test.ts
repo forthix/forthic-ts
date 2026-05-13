@@ -66,8 +66,8 @@ test("TAKE", async () => {
   expect(interp.stack_pop()).toEqual([0, 1, 2]);
 });
 
-test("DROP", async () => {
-  await interp.run(`[0 1 2 3 4 5 6] 4 DROP`);
+test("SKIP", async () => {
+  await interp.run(`[0 1 2 3 4 5 6] 4 SKIP`);
   expect(interp.stack_pop()).toEqual([4, 5, 6]);
 });
 
@@ -252,16 +252,17 @@ test("SORT with options - comparator", async () => {
 
 test("FOREACH with options - with_key", async () => {
   await interp.run(`
-    ['result'] VARIABLES
-    "" result !
-    ['a' 'b' 'c'] '>STR CONCAT result @ CONCAT result !' [.with_key TRUE] ~> FOREACH
-    result @
+    ['result' 'k' 'v'] VARIABLES
+    [] result !
+    ['a' 'b' 'c'] '
+      v ! k !
+      result @ k @ APPEND v @ APPEND result !
+    ' [.with_key TRUE] ~> FOREACH
+    result @ CONCAT
   `);
   const result = interp.stack_pop();
-  // with_key pushes: index, value -> >STR converts index to string -> CONCAT joins them
-  // CONCAT with result @ puts accumulator first: result + "0a" + "1b" + "2c"
-  // But actually builds as: (("" + "2c") + "1b") + "0a" = "2c1b0a"
-  expect(result).toBe("2c1b0a");
+  // with_key pushes index then value; append both to result; CONCAT joins as strings.
+  expect(result).toBe("0a1b2c");
 });
 
 test("GROUP-BY with options - with_key", async () => {

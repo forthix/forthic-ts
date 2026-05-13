@@ -11,8 +11,7 @@ import { JsonRpcErrorCode } from '../../../../jsonrpc/errors.js';
 
 describe('JSON-RPC Server', () => {
   let server: http.Server | null = null;
-  const TEST_PORT = 8766;
-  const ENDPOINT = `http://localhost:${TEST_PORT}/rpc`;
+  let ENDPOINT = '';
 
   let nextId = 1;
   async function rpc(method: string, params: any, opts: { contentType?: string; method?: string; raw?: string } = {}): Promise<any> {
@@ -35,7 +34,11 @@ describe('JSON-RPC Server', () => {
   }
 
   beforeEach(async () => {
-    server = await serve(TEST_PORT);
+    server = await serve(0);
+    const addr = server.address();
+    if (!addr || typeof addr === 'string') throw new Error('No server address');
+    // Use 127.0.0.1 to avoid IPv6 resolution issues with `localhost`.
+    ENDPOINT = `http://127.0.0.1:${addr.port}/rpc`;
   });
 
   afterEach(async () => {

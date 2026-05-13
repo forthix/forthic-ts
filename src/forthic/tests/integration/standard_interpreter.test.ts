@@ -300,15 +300,10 @@ test("Append", async () => {
   const array = interp.stack_pop();
   expect(array).toEqual([1, 2, 3, 4]);
 
-  // Test append to record
-  await interp.run(`
-    [["a" 1] ["b" 2]] REC  ["c" 3] APPEND
-  `);
-  expect((interp as any).stack.length).toBe(1);
-
-  const rec = interp.stack_pop();
-  const values = ["a", "b", "c"].map((k) => rec[k]);
-  expect(values).toEqual([1, 2, 3]);
+  // APPEND no longer accepts records — use JQ! instead.
+  await expect(
+    interp.run(`[["a" 1] ["b" 2]] REC ["c" 3] APPEND`),
+  ).rejects.toThrow(/array/i);
 });
 
 test("Reverse", async () => {
@@ -708,7 +703,7 @@ test("MAP with key", async () => {
 
   await interp.run(`
     ["k" "v"] VARIABLES
-    "v ! k ! k @ >STR v @ 'status' REC@ CONCAT" [.with_key TRUE] ~> MAP
+    "v ! k ! [k @ >STR v @ 'status' REC@] CONCAT" [.with_key TRUE] ~> MAP
   `);
   const record = interp.stack_pop();
   expect(record[100]).toBe("100OPEN");
@@ -732,7 +727,10 @@ test("FOREACH", async () => {
   interp.stack_push(by_key);
 
   await interp.run(`
-    "" SWAP "'status' REC@ CONCAT" FOREACH
+    ['acc' 's'] VARIABLES
+    "" acc !
+    "'status' REC@ s ! [acc @ s @] CONCAT acc !" FOREACH
+    acc @
   `);
   const string = interp.stack_pop();
   expect(string).toBe("OPENOPENIN PROGRESSCLOSEDIN PROGRESSOPENCLOSED");
@@ -754,7 +752,10 @@ test("FOREACH with key", async () => {
   interp.stack_push(by_key);
 
   await interp.run(`
-    "" SWAP "'status' REC@ CONCAT CONCAT" [.with_key TRUE] ~> FOREACH
+    ['acc' 'k' 'v'] VARIABLES
+    "" acc !
+    "v ! k ! [acc @ k @ >STR v @ 'status' REC@] CONCAT acc !" [.with_key TRUE] ~> FOREACH
+    acc @
   `);
   const string = interp.stack_pop();
   expect(string).toBe(
@@ -882,10 +883,13 @@ test("VALUES", async () => {
 test("LENGTH", async () => {
   await interp.run(`
     ['a' 'b' 'c'] LENGTH
-    "Howdy" LENGTH
+    "Howdy" STR-LENGTH
   `);
   expect(interp.stack_pop()).toBe(5);
   expect(interp.stack_pop()).toBe(3);
+
+  // LENGTH rejects strings (use STR-LENGTH)
+  await expect(interp.run(`"Howdy" LENGTH`)).rejects.toThrow(/STR-LENGTH/);
 
   // Test record
   interp = new StandardInterpreter();
@@ -1006,9 +1010,9 @@ test("UNION", async () => {
   );
 });
 
-test("SELECT", async () => {
+test("FILTER", async () => {
   await interp.run(`
-    [0 1 2 3 4 5 6] "2 MOD 1 ==" SELECT
+    [0 1 2 3 4 5 6] "2 MOD 1 ==" FILTER
   `);
   let stack = (interp as any).stack;
   expect(stack[0]).toEqual([1, 3, 5]);
@@ -1016,16 +1020,16 @@ test("SELECT", async () => {
   // Slice records
   interp = new StandardInterpreter();
   await interp.run(`
-    [['a' 1] ['b' 2] ['c' 3]] REC  "2 MOD 0 ==" SELECT
+    [['a' 1] ['b' 2] ['c' 3]] REC  "2 MOD 0 ==" FILTER
   `);
   stack = (interp as any).stack;
   expect(Object.keys(stack[0])).toEqual(["b"]);
   expect(Object.values(stack[0])).toEqual([2]);
 });
 
-test("SELECT with key", async () => {
+test("FILTER with key", async () => {
   await interp.run(`
-    [0 1 2 3 4 5 6] "+ 3 MOD 1 ==" [.with_key TRUE] ~> SELECT
+    [0 1 2 3 4 5 6] "+ 3 MOD 1 ==" [.with_key TRUE] ~> FILTER
   `);
   let stack = (interp as any).stack;
   expect(stack[0]).toEqual([2, 5]);
@@ -1033,7 +1037,8 @@ test("SELECT with key", async () => {
   // Slice records
   interp = new StandardInterpreter();
   await interp.run(`
-    [['a' 1] ['b' 2] ['c' 3]] REC  "CONCAT 'c3' ==" [.with_key TRUE] ~> SELECT
+    ['k' 'v'] VARIABLES
+    [['a' 1] ['b' 2] ['c' 3]] REC  "v ! k ! [k @ v @] CONCAT 'c3' ==" [.with_key TRUE] ~> FILTER
   `);
   stack = (interp as any).stack;
   expect(Object.keys(stack[0])).toEqual(["c"]);
@@ -1074,17 +1079,17 @@ test("TAKE with rest", async () => {
   expect(stack[1].length).toBe(1);
 });
 
-test("DROP", async () => {
+test("SKIP", async () => {
   await interp.run(`
-    [0 1 2 3 4 5 6] 4 DROP
+    [0 1 2 3 4 5 6] 4 SKIP
   `);
   let stack = (interp as any).stack;
   expect(stack[0]).toEqual([4, 5, 6]);
 
-  // Drop records
+  // Skip records
   interp = new StandardInterpreter();
   await interp.run(`
-    [['a' 1] ['b' 2] ['c' 3]] REC  2 DROP
+    [['a' 1] ['b' 2] ['c' 3]] REC  2 SKIP
   `);
   stack = (interp as any).stack;
   expect(stack[0].length).toBe(1);
@@ -1597,8 +1602,8 @@ test("arithmetic", async () => {
             2 4 /
             5 3 MOD
             2.51 ROUND
-            [1 2 3] +
-            [2 3 4] *
+            [1 2 3] SUM
+            [2 3 4] PRODUCT
           `);
   const stack = (interp as any).stack;
   expect(stack[0]).toBe(6);
@@ -1650,9 +1655,9 @@ test("comparison", async () => {
 test("logic", async () => {
   await interp.run(`
             FALSE FALSE OR
-            [FALSE FALSE TRUE FALSE] OR
+            [FALSE FALSE TRUE FALSE] ANY?
             FALSE TRUE AND
-            [FALSE FALSE TRUE FALSE] AND
+            [FALSE FALSE TRUE FALSE] ALL?
             FALSE NOT
           `);
   const stack = (interp as any).stack;
@@ -1769,24 +1774,10 @@ test("|REC@|", async () => {
   expect(interp.stack_pop()).toEqual([1, 2, 3]);
 });
 
-test("MAX of two numbers", async () => {
-  interp.stack_push(4);
-  interp.stack_push(18);
-  await interp.run("MAX");
-  expect(interp.stack_pop()).toEqual(18);
-});
-
 test("MAX of an array of numbers", async () => {
   interp.stack_push([14, 8, 55, 4, 5]);
   await interp.run("MAX");
   expect(interp.stack_pop()).toEqual(55);
-});
-
-test("MIN of two numbers", async () => {
-  interp.stack_push(4);
-  interp.stack_push(18);
-  await interp.run("MIN");
-  expect(interp.stack_pop()).toEqual(4);
 });
 
 test("MIN of an array of numbers", async () => {

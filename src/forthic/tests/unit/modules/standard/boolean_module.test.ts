@@ -46,9 +46,9 @@ test("equality with different types", async () => {
 test("logic", async () => {
   await interp.run(`
             FALSE FALSE OR
-            [FALSE FALSE TRUE FALSE] OR
+            [FALSE FALSE TRUE FALSE] ANY?
             FALSE TRUE AND
-            [FALSE FALSE TRUE FALSE] AND
+            [FALSE FALSE TRUE FALSE] ALL?
             FALSE NOT
           `);
   const stack = (interp as any).stack;
@@ -65,19 +65,31 @@ test("OR with two values", async () => {
 
   await interp.run(`FALSE FALSE OR`);
   expect(interp.stack_pop()).toBe(false);
-
-  await interp.run(`TRUE TRUE OR`);
-  expect(interp.stack_pop()).toBe(true);
 });
 
-test("OR with array", async () => {
-  await interp.run(`[FALSE FALSE FALSE] OR`);
-  expect(interp.stack_pop()).toBe(false);
+test("OR rejects array", async () => {
+  await expect(interp.run(`TRUE [FALSE] OR`)).rejects.toThrow(/ANY\?/);
+});
 
-  await interp.run(`[TRUE FALSE FALSE] OR`);
+test("ANY? on array of booleans", async () => {
+  await interp.run(`[FALSE FALSE TRUE] ANY?`);
   expect(interp.stack_pop()).toBe(true);
 
-  await interp.run(`[FALSE TRUE FALSE] OR`);
+  await interp.run(`[FALSE FALSE] ANY?`);
+  expect(interp.stack_pop()).toBe(false);
+
+  await interp.run(`[] ANY?`);
+  expect(interp.stack_pop()).toBe(false);
+});
+
+test("ALL? on array of booleans", async () => {
+  await interp.run(`[TRUE TRUE TRUE] ALL?`);
+  expect(interp.stack_pop()).toBe(true);
+
+  await interp.run(`[TRUE FALSE TRUE] ALL?`);
+  expect(interp.stack_pop()).toBe(false);
+
+  await interp.run(`[] ALL?`);
   expect(interp.stack_pop()).toBe(true);
 });
 
@@ -87,20 +99,10 @@ test("AND with two values", async () => {
 
   await interp.run(`TRUE FALSE AND`);
   expect(interp.stack_pop()).toBe(false);
-
-  await interp.run(`FALSE FALSE AND`);
-  expect(interp.stack_pop()).toBe(false);
 });
 
-test("AND with array", async () => {
-  await interp.run(`[TRUE TRUE TRUE] AND`);
-  expect(interp.stack_pop()).toBe(true);
-
-  await interp.run(`[TRUE FALSE TRUE] AND`);
-  expect(interp.stack_pop()).toBe(false);
-
-  await interp.run(`[FALSE FALSE FALSE] AND`);
-  expect(interp.stack_pop()).toBe(false);
+test("AND rejects array", async () => {
+  await expect(interp.run(`TRUE [FALSE] AND`)).rejects.toThrow(/ALL\?/);
 });
 
 test("NOT", async () => {

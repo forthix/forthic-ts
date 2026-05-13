@@ -4,13 +4,13 @@
 
 Comparison, logic, and membership operations for boolean values and conditions.
 
-**14 words**
+**13 words**
 
 ## Categories
 
 - **Comparison**: ==, !=, <, <=, >, >=
-- **Logic**: OR, AND, NOT, XOR, NAND
-- **Membership**: IN, ANY, ALL
+- **Logic**: OR, AND, NOT
+- **Membership**: CONTAINS?
 - **Conversion**: >BOOL
 
 ## Examples
@@ -72,6 +72,14 @@ Greater than or equal
 
 ---
 
+### >BOOL
+
+**Stack Effect:** `( a:any -- bool:boolean )`
+
+Convert to boolean (JavaScript truthiness)
+
+---
+
 ### ALL
 
 **Stack Effect:** `( items1:any[] items2:any[] -- all:boolean )`
@@ -96,19 +104,11 @@ Check if any item from items1 is in items2
 
 ---
 
-### IN
+### CONTAINS?
 
-**Stack Effect:** `( item:any array:any[] -- in:boolean )`
+**Stack Effect:** `( haystack:any[] needle:any -- bool:boolean )`
 
-Check if item is in array
-
----
-
-### NAND
-
-**Stack Effect:** `( a:boolean b:boolean -- result:boolean )`
-
-Logical NAND (not and)
+Check if haystack array contains needle. Container-first arg order.
 
 ---
 
@@ -125,14 +125,6 @@ Logical NOT
 **Stack Effect:** `( a:boolean b:boolean -- result:boolean ) OR ( bools:boolean[] -- result:boolean )`
 
 Logical OR of two values or array
-
----
-
-### XOR
-
-**Stack Effect:** `( a:boolean b:boolean -- result:boolean )`
-
-Logical XOR (exclusive or)
 
 ---
 
