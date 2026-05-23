@@ -4,7 +4,6 @@
  * Provides centralized access to gRPC clients for different runtimes (python, ruby, etc.)
  * Used by DefinitionWord for batched remote execution.
  */
-import { GrpcClient } from './client.js';
 import type { RuntimeClient } from '../common/runtime_client.js';
 
 /**
@@ -26,24 +25,6 @@ export class RuntimeManager {
       RuntimeManager.instance = new RuntimeManager();
     }
     return RuntimeManager.instance;
-  }
-
-  /**
-   * Connect to a runtime and register the client
-   * Convenience method for CONNECT-RUNTIME word
-   *
-   * @param runtimeName - Name of the runtime (e.g., "python", "ruby")
-   * @param address - Address of the runtime (e.g., "localhost:50051")
-   * @returns GrpcClient instance
-   */
-  connectRuntime(runtimeName: string, address: string): GrpcClient {
-    // Create a new client for the runtime
-    const client = new GrpcClient(address);
-
-    // Register it
-    this.clients.set(runtimeName, client);
-
-    return client;
   }
 
   /**
