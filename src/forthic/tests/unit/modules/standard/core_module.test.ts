@@ -208,6 +208,11 @@ test("NULL", async () => {
   expect(interp.stack_pop()).toBeNull();
 });
 
+test("UNDEFINED", async () => {
+  await interp.run(`UNDEFINED`);
+  expect(interp.stack_pop()).toBeUndefined();
+});
+
 test("IDENTITY", async () => {
   await interp.run(`42 IDENTITY`);
   expect(interp.stack_pop()).toBe(42);

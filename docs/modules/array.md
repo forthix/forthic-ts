@@ -4,7 +4,7 @@
 
 Array and collection operations for manipulating arrays and records.
 
-**40 words**
+**38 words**
 
 ## Categories
 
@@ -16,7 +16,6 @@ Array and collection operations for manipulating arrays and records.
 - **Search**: FIND, COUNT
 - **Extrema**: MIN-BY, MAX-BY
 - **Indexing**: NUMBERED
-- **Quantifiers**: ALL?, ANY?
 - **Group**: BY-FIELD, GROUP-BY, GROUP-BY-FIELD, GROUPS-OF
 - **Iteration**: FOREACH, REDUCE, UNPACK, FLATTEN, TIMES-RUN
 
@@ -41,27 +40,11 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
 ## Words
 
-### ALL?
-
-**Stack Effect:** `( items:any forthic:string -- bool:boolean )`
-
-Returns true if forthic returns truthy for every item. True for empty.
-
----
-
-### ANY?
-
-**Stack Effect:** `( items:any forthic:string -- bool:boolean )`
-
-Returns true if forthic returns truthy for any item. False for empty.
-
----
-
 ### APPEND
 
-**Stack Effect:** `( container:any item:any -- container:any )`
+**Stack Effect:** `( array:any[] item:any -- array:any[] )`
 
-Append item to array or add key-value to record
+Append item to array. For records, use JQ! to set a key.
 
 ---
 
@@ -189,7 +172,7 @@ Get last element from array or record
 
 **Stack Effect:** `( container:any -- length:number )`
 
-Get length of array or record
+Length of an array or record. For strings, use STR-LENGTH.
 
 ---
 

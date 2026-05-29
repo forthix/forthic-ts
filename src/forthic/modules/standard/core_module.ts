@@ -1,7 +1,7 @@
 import { Variable } from "../../module.js";
 import { Interpreter } from "../../interpreter.js";
 import { InvalidVariableNameError, IntentionalStopError, UnknownVariableError } from "../../errors.js";
-import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
+import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
 import { WordOptions } from "../../word_options.js";
 
 export class CoreModule extends DecoratedModule {
@@ -214,6 +214,11 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
   @ForthicWord("( -- null:null )", "Pushes null onto stack")
   async NULL() {
     return null;
+  }
+
+  @ForthicDirectWord("( -- undefined:undefined )", "Pushes undefined onto stack", "UNDEFINED")
+  async UNDEFINED(interp: Interpreter) {
+    interp.stack_push(undefined);
   }
 
   @ForthicWord("( value:any -- boolean:boolean )", "Returns true if value is an array")

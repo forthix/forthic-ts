@@ -4,7 +4,7 @@
 
 Essential interpreter operations for stack manipulation, variables, control flow, and module system.
 
-**27 words**
+**28 words**
 
 ## Categories
 
@@ -228,6 +228,14 @@ Returns true if value is a string
 **Stack Effect:** `( a:any b:any -- b:any a:any )`
 
 Swaps top two stack items
+
+---
+
+### UNDEFINED
+
+**Stack Effect:** `( -- undefined:undefined )`
+
+Pushes undefined onto stack
 
 ---
 

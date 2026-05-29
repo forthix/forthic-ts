@@ -96,9 +96,7 @@ ALWAYS generate code in this structure:
 8 modules · 162 surface words.
 
 ### array
-- `ALL?` `( items:any forthic:string -- bool:boolean )` — Returns true if forthic returns truthy for every item. True for empty.
-- `ANY?` `( items:any forthic:string -- bool:boolean )` — Returns true if forthic returns truthy for any item. False for empty.
-- `APPEND` `( container:any item:any -- container:any )` — Append item to array or add key-value to record
+- `APPEND` `( array:any[] item:any -- array:any[] )` — Append item to array. For records, use JQ! to set a key.
 - `BY-FIELD` `( container:any[] field:string -- indexed:any )` — Index records by field value
 - `COUNT` `( items:any forthic:string -- n:number )` — Count items where forthic returns truthy.
 - `DIFFERENCE` `( lcontainer:any rcontainer:any -- result:any )` — Set difference between two containers
@@ -114,7 +112,7 @@ ALWAYS generate code in this structure:
 - `INTERSECTION` `( lcontainer:any rcontainer:any -- result:any )` — Set intersection between two containers
 - `KEY-OF` `( container:any value:any -- key:any )` — Find key of value in container
 - `LAST` `( container:any -- item:any )` — Get last element from array or record
-- `LENGTH` `( container:any -- length:number )` — Get length of array or record
+- `LENGTH` `( container:any -- length:number )` — Length of an array or record. For strings, use STR-LENGTH.
 - `MAP` `( items:any forthic:string [options:WordOptions] -- mapped:any )` — Map function over items. Options: with_key (bool), push_error (bool), depth (num), push_rest (bool). Example: [1 2 3] '2 *' [.with_key TRUE] ~> MAP
 - `MAP-AT` `( container:any key:any|any[] forthic:string -- container:any )` — Apply forthic to the value at key/index, returning a new container with that slot transformed. The key arg may be a single key (one-level update) or a path-array for deep updates. Polymorphic over arrays and records. Equivalent of jq's |= operator.
 - `MAX-BY` `( items:any[] forthic:string -- item:any )` — Return the item with the largest value produced by forthic. Null on empty input.
@@ -146,11 +144,13 @@ ALWAYS generate code in this structure:
 - `>=` `( a:any b:any -- greater_equal:boolean )` — Greater than or equal
 - `>BOOL` `( a:any -- bool:boolean )` — Convert to boolean (JavaScript truthiness)
 - `ALL` `( items1:any[] items2:any[] -- all:boolean )` — Check if all items from items2 are in items1
-- `AND` `( a:boolean b:boolean -- result:boolean ) OR ( bools:boolean[] -- result:boolean )` — Logical AND of two values or array
+- `ALL?` `( bools:boolean[] -- result:boolean )` — Returns true if all elements of the array are truthy. True for empty array.
+- `AND` `( a:boolean b:boolean -- result:boolean )` — Logical AND of two values. For arrays use ALL?.
 - `ANY` `( items1:any[] items2:any[] -- any:boolean )` — Check if any item from items1 is in items2
+- `ANY?` `( bools:boolean[] -- result:boolean )` — Returns true if any element of the array is truthy. False for empty array.
 - `CONTAINS?` `( haystack:any[] needle:any -- bool:boolean )` — Check if haystack array contains needle. Container-first arg order.
 - `NOT` `( bool:boolean -- result:boolean )` — Logical NOT
-- `OR` `( a:boolean b:boolean -- result:boolean ) OR ( bools:boolean[] -- result:boolean )` — Logical OR of two values or array
+- `OR` `( a:boolean b:boolean -- result:boolean )` — Logical OR of two values. For arrays use ANY?.
 
 ### core
 - `!` `( value:any variable:any -- )` — Sets variable value (auto-creates if string name)
@@ -177,6 +177,7 @@ ALWAYS generate code in this structure:
 - `STACK!` `( -- )` — Prints entire stack (reversed) and stops execution
 - `STRING?` `( value:any -- boolean:boolean )` — Returns true if value is a string
 - `SWAP` `( a:any b:any -- b:any a:any )` — Swaps top two stack items
+- `UNDEFINED` `( -- undefined:undefined )` — Pushes undefined onto stack
 - `USE-MODULES` `( names:string[] [options:WordOptions] -- )` — Imports modules by name
 - `VARIABLES` `( varnames:string[] -- )` — Creates variables in current module
 - `WHEN` `( bool:boolean forthic:string -- ? )` — If bool is truthy run forthic, otherwise do nothing. The forthic argument is always treated as code (executed in current context).
@@ -206,9 +207,9 @@ ALWAYS generate code in this structure:
 
 ### math
 - `-` `( a:number b:number -- difference:number )` — Subtract b from a
-- `*` `( a:number b:number -- product:number ) OR ( numbers:number[] -- product:number )` — Multiply two numbers or product of array
+- `*` `( a:number b:number -- product:number )` — Multiply two numbers. For arrays use PRODUCT.
 - `/` `( a:number b:number -- quotient:number )` — Divide a by b
-- `+` `( a:number b:number -- sum:number ) OR ( numbers:number[] -- sum:number )` — Add two numbers or sum array
+- `+` `( a:number b:number -- sum:number )` — Add two numbers. For arrays use SUM.
 - `>FLOAT` `( a:any -- float:number )` — Convert to float
 - `>INT` `( a:any -- int:number )` — Convert to integer (returns length for arrays/objects, 0 for null)
 - `ABS` `( n:number -- abs:number )` — Absolute value
@@ -216,11 +217,9 @@ ALWAYS generate code in this structure:
 - `CLAMP` `( value:number min:number max:number -- clamped:number )` — Constrain value to range [min, max]
 - `FLOOR` `( n:number -- floor:number )` — Round down to integer
 - `FORMAT-FIXED` `( num:number digits:number -- result:string )` — Format number with fixed decimal places
-- `MAX` `( a:number b:number -- max:number ) OR ( items:number[] -- max:number )` — Maximum of two numbers or array
-- `MAX-OF` `( numbers:number[] -- max:number )` — Maximum of array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.
+- `MAX` `( numbers:number[] -- max:number )` — Maximum of an array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.
 - `MEAN` `( items:any[] -- mean:any )` — Calculate mean of array (handles numbers, strings, objects)
-- `MIN` `( a:number b:number -- min:number ) OR ( items:number[] -- min:number )` — Minimum of two numbers or array
-- `MIN-OF` `( numbers:number[] -- min:number )` — Minimum of array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.
+- `MIN` `( numbers:number[] -- min:number )` — Minimum of an array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.
 - `MOD` `( m:number n:number -- remainder:number )` — Modulo operation (m % n)
 - `PRODUCT` `( numbers:number[] -- product:number )` — Product of array of numbers (1 if empty). Null/undefined elements yield null.
 - `RANGE` `( start:number end:number -- numbers:number[] )` — Generate inclusive integer range from start to end (e.g. 1 5 RANGE -> [1,2,3,4,5]). Empty if start > end.
@@ -251,7 +250,7 @@ ALWAYS generate code in this structure:
 - `/T` `( -- char:string )` — Tab character
 - `>STR` `( item:any -- string:string )` — Convert item to string
 - `ASCII` `( string:string -- result:string )` — Keep only ASCII characters (< 256)
-- `CONCAT` `( str1:string str2:string -- result:string ) OR ( arr1:any[] arr2:any[] -- result:any[] ) OR ( strings:string[] -- result:string )` — Concatenate two strings, two arrays, or an array of strings. Dispatches on top-of-stack type.
+- `CONCAT` `( strings:string[] -- result:string )` — Concatenate an array of strings into one string. For two strings: write [s1 s2] CONCAT. For arrays of arrays, use FLATTEN.
 - `CUT` `( strings:string[] sep:string field:number -- field_values:any[] )` — Split each string on sep and pick the field-th column (bash cut). Out-of-range yields null.
 - `ENDS-WITH?` `( str:string suffix:string -- bool:boolean )` — Returns true if str ends with suffix.
 - `GREP` `( strings:string[] pattern:string -- matches:string[] )` — Keep only strings matching the regex pattern (bash grep).
@@ -267,6 +266,7 @@ ALWAYS generate code in this structure:
 - `SED` `( strings:string[] pattern:string repl:string -- strings:string[] )` — Apply RE-REPLACE to each string in the array (bash sed s/pattern/repl/g).
 - `SPLIT` `( string:string sep:string -- items:any[] )` — Split string by separator
 - `STARTS-WITH?` `( str:string prefix:string -- bool:boolean )` — Returns true if str begins with prefix.
+- `STR-LENGTH` `( str:string -- length:number )` — Length of a string in characters (0 if null/undefined).
 - `STRIP` `( string:string -- result:string )` — Trim whitespace from string
 - `TRIM-PREFIX` `( str:string prefix:string -- result:string )` — Strip prefix from start of str if present (otherwise return str unchanged).
 - `TRIM-SUFFIX` `( str:string suffix:string -- result:string )` — Strip suffix from end of str if present (otherwise return str unchanged).

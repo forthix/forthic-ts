@@ -4,12 +4,12 @@
 
 Comparison, logic, and membership operations for boolean values and conditions.
 
-**13 words**
+**15 words**
 
 ## Categories
 
 - **Comparison**: ==, !=, <, <=, >, >=
-- **Logic**: OR, AND, NOT
+- **Logic**: OR, AND, NOT, ANY?, ALL?
 - **Membership**: CONTAINS?
 - **Conversion**: >BOOL
 
@@ -18,7 +18,7 @@ Comparison, logic, and membership operations for boolean values and conditions.
 ```forthic
 5 3 >
 "hello" "hello" ==
-[1 2 3] [4 5 6] OR
+[TRUE FALSE TRUE] ANY?
 2 [1 2 3] IN
 ```
 
@@ -88,11 +88,19 @@ Check if all items from items2 are in items1
 
 ---
 
+### ALL?
+
+**Stack Effect:** `( bools:boolean[] -- result:boolean )`
+
+Returns true if all elements of the array are truthy. True for empty array.
+
+---
+
 ### AND
 
-**Stack Effect:** `( a:boolean b:boolean -- result:boolean ) OR ( bools:boolean[] -- result:boolean )`
+**Stack Effect:** `( a:boolean b:boolean -- result:boolean )`
 
-Logical AND of two values or array
+Logical AND of two values. For arrays use ALL?.
 
 ---
 
@@ -101,6 +109,14 @@ Logical AND of two values or array
 **Stack Effect:** `( items1:any[] items2:any[] -- any:boolean )`
 
 Check if any item from items1 is in items2
+
+---
+
+### ANY?
+
+**Stack Effect:** `( bools:boolean[] -- result:boolean )`
+
+Returns true if any element of the array is truthy. False for empty array.
 
 ---
 
@@ -122,9 +138,9 @@ Logical NOT
 
 ### OR
 
-**Stack Effect:** `( a:boolean b:boolean -- result:boolean ) OR ( bools:boolean[] -- result:boolean )`
+**Stack Effect:** `( a:boolean b:boolean -- result:boolean )`
 
-Logical OR of two values or array
+Logical OR of two values. For arrays use ANY?.
 
 ---
 

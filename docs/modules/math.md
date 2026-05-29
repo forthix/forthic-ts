@@ -4,12 +4,12 @@
 
 Mathematical operations and utilities including arithmetic, aggregation, and conversions.
 
-**22 words**
+**20 words**
 
 ## Categories
 
 - **Arithmetic**: +, -, *, /, MOD, RANGE
-- **Aggregates**: MEAN, MAX, MIN, SUM, PRODUCT, MAX-OF, MIN-OF
+- **Aggregates**: MEAN, MAX, MIN, SUM, PRODUCT
 - **Type conversion**: >INT, >FLOAT, FORMAT-FIXED, ROUND
 - **Math functions**: ABS, SQRT, FLOOR, CEIL, CLAMP
 
@@ -35,9 +35,9 @@ Subtract b from a
 
 ### *
 
-**Stack Effect:** `( a:number b:number -- product:number ) OR ( numbers:number[] -- product:number )`
+**Stack Effect:** `( a:number b:number -- product:number )`
 
-Multiply two numbers or product of array
+Multiply two numbers. For arrays use PRODUCT.
 
 ---
 
@@ -51,9 +51,9 @@ Divide a by b
 
 ### +
 
-**Stack Effect:** `( a:number b:number -- sum:number ) OR ( numbers:number[] -- sum:number )`
+**Stack Effect:** `( a:number b:number -- sum:number )`
 
-Add two numbers or sum array
+Add two numbers. For arrays use SUM.
 
 ---
 
@@ -115,17 +115,9 @@ Format number with fixed decimal places
 
 ### MAX
 
-**Stack Effect:** `( a:number b:number -- max:number ) OR ( items:number[] -- max:number )`
-
-Maximum of two numbers or array
-
----
-
-### MAX-OF
-
 **Stack Effect:** `( numbers:number[] -- max:number )`
 
-Maximum of array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.
+Maximum of an array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.
 
 ---
 
@@ -139,17 +131,9 @@ Calculate mean of array (handles numbers, strings, objects)
 
 ### MIN
 
-**Stack Effect:** `( a:number b:number -- min:number ) OR ( items:number[] -- min:number )`
-
-Minimum of two numbers or array
-
----
-
-### MIN-OF
-
 **Stack Effect:** `( numbers:number[] -- min:number )`
 
-Minimum of array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.
+Minimum of an array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.
 
 ---
 

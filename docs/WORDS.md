@@ -1,6 +1,6 @@
 # Forthic — Standard Words
 
-Generated: 2026-05-04T21:18:27.473Z
+Generated: 2026-05-29T00:12:17.921Z
 
 **8 modules · 162 surface words**
 
@@ -22,7 +22,7 @@ Array and collection operations for manipulating arrays and records.
 - **TAKE** `( container:any[] n:number [options:WordOptions] -- result:any[] )` — Take first n elements
 - **TAKE-LAST** `( container:any n:number -- result:any )` — Take last n elements from array or record (sorted-key order for records).
 - **SKIP** `( container:any n:number -- result:any )` — Skip first n elements from array or record
-- **LENGTH** `( container:any -- length:number )` — Get length of array or record
+- **LENGTH** `( container:any -- length:number )` — Length of an array or record. For strings, use STR-LENGTH.
 - **INDEX** `( items:any[] forthic:string -- indexed:any )` — Create index mapping from array indices to values
 - **KEY-OF** `( container:any value:any -- key:any )` — Find key of value in container
 
@@ -34,7 +34,7 @@ Array and collection operations for manipulating arrays and records.
 
 ### Combine
 
-- **APPEND** `( container:any item:any -- container:any )` — Append item to array or add key-value to record
+- **APPEND** `( array:any[] item:any -- array:any[] )` — Append item to array. For records, use JQ! to set a key.
 - **ZIP** `( container1:any[] container2:any[] -- result:any[] )` — Zip two arrays into array of pairs
 - **ZIP-WITH** `( container1:any[] container2:any[] forthic:string -- result:any[] )` — Zip two arrays with combining function
 
@@ -67,11 +67,6 @@ Array and collection operations for manipulating arrays and records.
 
 - **NUMBERED** `( items:any[] -- pairs:any[] )` — Pair each item with its index: [v0 v1 v2] -> [[0 v0] [1 v1] [2 v2]]. (Python's enumerate.)
 
-### Quantifiers
-
-- **ALL?** `( items:any forthic:string -- bool:boolean )` — Returns true if forthic returns truthy for every item. True for empty.
-- **ANY?** `( items:any forthic:string -- bool:boolean )` — Returns true if forthic returns truthy for any item. False for empty.
-
 ### Group
 
 - **BY-FIELD** `( container:any[] field:string -- indexed:any )` — Index records by field value
@@ -102,9 +97,11 @@ Comparison, logic, and membership operations for boolean values and conditions.
 
 ### Logic
 
-- **OR** `( a:boolean b:boolean -- result:boolean ) OR ( bools:boolean[] -- result:boolean )` — Logical OR of two values or array
-- **AND** `( a:boolean b:boolean -- result:boolean ) OR ( bools:boolean[] -- result:boolean )` — Logical AND of two values or array
+- **OR** `( a:boolean b:boolean -- result:boolean )` — Logical OR of two values. For arrays use ANY?.
+- **AND** `( a:boolean b:boolean -- result:boolean )` — Logical AND of two values. For arrays use ALL?.
 - **NOT** `( bool:boolean -- result:boolean )` — Logical NOT
+- **ANY?** `( bools:boolean[] -- result:boolean )` — Returns true if any element of the array is truthy. False for empty array.
+- **ALL?** `( bools:boolean[] -- result:boolean )` — Returns true if all elements of the array are truthy. True for empty array.
 
 ### Membership
 
@@ -180,6 +177,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 ### Other
 
 - **~>** `( array:any[] -- options:WordOptions )` — Convert options array to WordOptions. Format: [.key1 val1 .key2 val2]
+- **UNDEFINED** `( -- undefined:undefined )` — Pushes undefined onto stack
 
 ## datetime
 
@@ -238,9 +236,9 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
 
 ### Arithmetic
 
-- **+** `( a:number b:number -- sum:number ) OR ( numbers:number[] -- sum:number )` — Add two numbers or sum array
+- **+** `( a:number b:number -- sum:number )` — Add two numbers. For arrays use SUM.
 - **-** `( a:number b:number -- difference:number )` — Subtract b from a
-- ***** `( a:number b:number -- product:number ) OR ( numbers:number[] -- product:number )` — Multiply two numbers or product of array
+- ***** `( a:number b:number -- product:number )` — Multiply two numbers. For arrays use PRODUCT.
 - **/** `( a:number b:number -- quotient:number )` — Divide a by b
 - **MOD** `( m:number n:number -- remainder:number )` — Modulo operation (m % n)
 - **RANGE** `( start:number end:number -- numbers:number[] )` — Generate inclusive integer range from start to end (e.g. 1 5 RANGE -> [1,2,3,4,5]). Empty if start > end.
@@ -248,12 +246,10 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
 ### Aggregates
 
 - **MEAN** `( items:any[] -- mean:any )` — Calculate mean of array (handles numbers, strings, objects)
-- **MAX** `( a:number b:number -- max:number ) OR ( items:number[] -- max:number )` — Maximum of two numbers or array
-- **MIN** `( a:number b:number -- min:number ) OR ( items:number[] -- min:number )` — Minimum of two numbers or array
+- **MAX** `( numbers:number[] -- max:number )` — Maximum of an array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.
+- **MIN** `( numbers:number[] -- min:number )` — Minimum of an array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.
 - **SUM** `( numbers:number[] -- sum:number )` — Sum of array (explicit)
 - **PRODUCT** `( numbers:number[] -- product:number )` — Product of array of numbers (1 if empty). Null/undefined elements yield null.
-- **MAX-OF** `( numbers:number[] -- max:number )` — Maximum of array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.
-- **MIN-OF** `( numbers:number[] -- min:number )` — Minimum of array of numbers. Null/undefined elements are skipped. Returns null for empty/all-null array.
 
 ### Type conversion
 
@@ -338,7 +334,7 @@ String manipulation and processing operations with regex and URL encoding suppor
 
 - **SPLIT** `( string:string sep:string -- items:any[] )` — Split string by separator
 - **JOIN** `( strings:string[] sep:string -- result:string )` — Join strings with separator
-- **CONCAT** `( str1:string str2:string -- result:string ) OR ( arr1:any[] arr2:any[] -- result:any[] ) OR ( strings:string[] -- result:string )` — Concatenate two strings, two arrays, or an array of strings. Dispatches on top-of-stack type.
+- **CONCAT** `( strings:string[] -- result:string )` — Concatenate an array of strings into one string. For two strings: write [s1 s2] CONCAT. For arrays of arrays, use FLATTEN.
 - **LINES** `( str:string -- lines:string[] )` — Split string on newline. Equivalent to /N SPLIT.
 - **UNLINES** `( lines:string[] -- str:string )` — Join an array of lines with newlines. Equivalent to /N JOIN.
 
@@ -367,4 +363,8 @@ String manipulation and processing operations with regex and URL encoding suppor
 
 - **/N** `( -- char:string )` — Newline character
 - **/T** `( -- char:string )` — Tab character
+
+### Other
+
+- **STR-LENGTH** `( str:string -- length:number )` — Length of a string in characters (0 if null/undefined).
 

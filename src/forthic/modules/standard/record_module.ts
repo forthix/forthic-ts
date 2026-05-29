@@ -46,23 +46,42 @@ Record (object/dictionary) manipulation operations for working with key-value da
   }
 
 
-  @ForthicWord("( key_vals:any[] -- rec:any )", "Create record from [[key, val], ...] pairs")
-  async REC(key_vals: any[]) {
-    let _key_vals = key_vals;
-    if (!_key_vals) _key_vals = [];
+  /**
+   * Build a record from an array of [key, value] pairs.
+   * Each pair must be an array of exactly 2 elements; otherwise a descriptive
+   * error is thrown that identifies the offending pair.
+   * @param key_vals - Array of [key, value] pairs (null/undefined treated as empty)
+   * @param wordName - Name of the calling word, used in error messages
+   */
+  private static build_record(key_vals: any[], wordName: string): any {
+    const _key_vals = key_vals || [];
 
     const result: any = {};
-    _key_vals.forEach((pair) => {
-      let key = null;
-      let val = null;
-      if (pair) {
-        if (pair.length >= 1) key = pair[0];
-        if (pair.length >= 2) val = pair[1];
+    _key_vals.forEach((pair, index) => {
+      if (!Array.isArray(pair)) {
+        throw new Error(
+          `${wordName} requires each pair to be a [key, value] array with exactly 2 elements; ` +
+            `pair at index ${index} is not an array (got ${typeof pair}).`,
+        );
       }
+      if (pair.length !== 2) {
+        const key = pair.length >= 1 ? JSON.stringify(pair[0]) : "(none)";
+        throw new Error(
+          `${wordName} requires each pair to be a [key, value] array with exactly 2 elements; ` +
+            `pair at index ${index} has ${pair.length} element(s) (key: ${key}).`,
+        );
+      }
+      const [key, val] = pair;
       result[key] = val;
     });
 
     return result;
+  }
+
+
+  @ForthicWord("( key_vals:any[] -- rec:any )", "Create record from [[key, val], ...] pairs")
+  async REC(key_vals: any[]) {
+    return RecordModule.build_record(key_vals, "REC");
   }
 
   @ForthicWord("( rec:any field:any -- value:any )", "Get value from record by field or array of fields", "REC@")
@@ -352,21 +371,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
     "ENTRIES>REC",
   )
   async ENTRIES_to_REC(pairs: any[]) {
-    let _key_vals = pairs;
-    if (!_key_vals) _key_vals = [];
-
-    const result: any = {};
-    _key_vals.forEach((pair) => {
-      let key = null;
-      let val = null;
-      if (pair) {
-        if (pair.length >= 1) key = pair[0];
-        if (pair.length >= 2) val = pair[1];
-      }
-      result[key] = val;
-    });
-
-    return result;
+    return RecordModule.build_record(pairs, "ENTRIES>REC");
   }
 
   @ForthicWord(

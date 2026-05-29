@@ -4,7 +4,7 @@
 
 String manipulation and processing operations with regex and URL encoding support.
 
-**25 words**
+**26 words**
 
 ## Categories
 
@@ -19,8 +19,8 @@ String manipulation and processing operations with regex and URL encoding suppor
 ## Examples
 
 ```forthic
-"hello" "world" CONCAT
-["a" "b" "c"] CONCAT
+["hello" " " "world"] CONCAT
+"hello world" STR-LENGTH
 "hello world" " " SPLIT
 ["hello" "world"] " " JOIN
 "Hello" LOWERCASE
@@ -62,9 +62,9 @@ Keep only ASCII characters (< 256)
 
 ### CONCAT
 
-**Stack Effect:** `( str1:string str2:string -- result:string ) OR ( arr1:any[] arr2:any[] -- result:any[] ) OR ( strings:string[] -- result:string )`
+**Stack Effect:** `( strings:string[] -- result:string )`
 
-Concatenate two strings, two arrays, or an array of strings. Dispatches on top-of-stack type.
+Concatenate an array of strings into one string. For two strings: write [s1 s2] CONCAT. For arrays of arrays, use FLATTEN.
 
 ---
 
@@ -185,6 +185,14 @@ Split string by separator
 **Stack Effect:** `( str:string prefix:string -- bool:boolean )`
 
 Returns true if str begins with prefix.
+
+---
+
+### STR-LENGTH
+
+**Stack Effect:** `( str:string -- length:number )`
+
+Length of a string in characters (0 if null/undefined).
 
 ---
 

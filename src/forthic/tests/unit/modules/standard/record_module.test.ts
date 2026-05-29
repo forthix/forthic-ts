@@ -18,6 +18,14 @@ test("REC", async () => {
   expect(rec.gamma).toBe(4);
 });
 
+test("REC - throws when a pair has too few elements", async () => {
+  await expect(interp.run(`[["alpha"]] REC`)).rejects.toThrow();
+});
+
+test("REC - throws when a pair has too many elements", async () => {
+  await expect(interp.run(`[["alpha" 1 2]] REC`)).rejects.toThrow();
+});
+
 test("REC@ simple", async () => {
   await interp.run(`
     [["alpha" 2] ["beta" 3] ["gamma" 4]] REC
