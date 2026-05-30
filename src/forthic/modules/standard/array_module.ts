@@ -905,6 +905,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
       push_error: options.push_error ?? null,
       depth: options.depth ?? null,
       push_rest: options.push_rest ?? null,
+      interps: options.interps ?? null,
     };
 
     const map_word = new MapWord(items, forthic, string_location, flags);
