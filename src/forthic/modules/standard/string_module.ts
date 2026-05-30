@@ -69,6 +69,33 @@ String manipulation and processing operations with regex and URL encoding suppor
     return strings.join(sep);
   }
 
+  @ForthicWord(
+    "( str:string start:number end:number -- substring:string )",
+    "Substring of str from start (inclusive) to end (exclusive), by character index. Indices clamp like String.slice (negatives count from the end).",
+    "SUBSTR",
+  )
+  async SUBSTR(str: any, start: number, end: number) {
+    if (str === null || str === undefined) return "";
+    if (typeof str !== "string") {
+      throw new Error("SUBSTR requires a string. For arrays/records, use SLICE.");
+    }
+    return str.slice(start, end);
+  }
+
+  @ForthicWord(
+    "( str:string start:number end:number newval:string -- result:string )",
+    "Replace the substring [start, end) of str with newval and return the result (a splice).",
+    "SPLICE",
+  )
+  async SPLICE(str: any, start: number, end: number, newval: any) {
+    if (str === null || str === undefined) str = "";
+    if (typeof str !== "string") {
+      throw new Error("SPLICE requires a string.");
+    }
+    const ins = newval === null || newval === undefined ? "" : String(newval);
+    return str.slice(0, start) + ins + str.slice(end);
+  }
+
   @ForthicWord("( -- char:string )", "Newline character", "/N")
   async slash_N() {
     return "\n";

@@ -14,7 +14,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - Variables: VARIABLES, !, @, !@
 - Module: USE-MODULES
 - Execution: RUN
-- Control: NOP, DEFAULT, DEFAULT-RUN, NULL, IF, IF-RUN, WHEN
+- Control: NOP, DEFAULT, DEFAULT-RUN, NULL, UNDEFINED, IF, IF-RUN, WHEN
 - Predicates: ARRAY?, NULL?, EMPTY?, STRING?, NUMBER?, RECORD?
 - Options: ~> (converts array to WordOptions)
 - String: INTERPOLATE, PRINT
