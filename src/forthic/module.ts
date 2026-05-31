@@ -195,6 +195,17 @@ export class DefinitionWord extends Word {
     const batches = planner.planExecution(this.words);
     const runtimeManager = RuntimeManager.getInstance();
 
+    // Word-local variable frame: dot-vars assigned inside this word are private
+    // to this call and cannot clobber the words it calls (or its caller).
+    interp.push_local_frame();
+    try {
+      await this.executeBatches(batches, interp, runtimeManager);
+    } finally {
+      interp.pop_local_frame();
+    }
+  }
+
+  private async executeBatches(batches: any[], interp: Interpreter, runtimeManager: any): Promise<void> {
     for (const batch of batches) {
       if (!batch.isRemote) {
         // Execute local words one by one

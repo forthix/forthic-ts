@@ -240,6 +240,10 @@ export class Interpreter {
    */
   private stringRedirectRouter: StringRedirectRouter;
   private literal_handlers: LiteralHandler[];
+  // Word-local variable frames. A new frame is pushed when a user-defined word
+  // (DefinitionWord) executes and popped when it returns, so dot-vars assigned
+  // inside a word are private to that call and don't clobber callees/callers.
+  private local_frames: { [name: string]: Variable }[] = [];
   on_word_defined?: (name: string) => void;
 
   constructor(modules: Module[] = [], timezone: Temporal.TimeZoneLike = "UTC") {
@@ -563,12 +567,36 @@ export class Interpreter {
     return result;
   }
 
-  find_variable(name: string): Variable | null {
+  // --- Word-local variable frames ---
+  push_local_frame(): void {
+    this.local_frames.push({});
+  }
+
+  pop_local_frame(): void {
+    this.local_frames.pop();
+  }
+
+  cur_local_frame(): { [name: string]: Variable } | null {
+    return this.local_frames.length > 0
+      ? this.local_frames[this.local_frames.length - 1]
+      : null;
+  }
+
+  // Module-scope lookup only (walks the module stack); used to decide whether a
+  // write targets an existing module variable before falling back to a local.
+  find_module_variable(name: string): Variable | null {
     for (let i = this.module_stack.length - 1; i >= 0; i--) {
       const m = this.module_stack[i];
       if (m.variables[name]) return m.variables[name];
     }
     return null;
+  }
+
+  // Read resolution: current word-local frame first, then module scope.
+  find_variable(name: string): Variable | null {
+    const frame = this.cur_local_frame();
+    if (frame && frame[name]) return frame[name];
+    return this.find_module_variable(name);
   }
 
   find_module(name: string): Module {
