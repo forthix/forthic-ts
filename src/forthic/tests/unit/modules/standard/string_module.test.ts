@@ -113,4 +113,29 @@ describe("StringModule", () => {
     await interp.run("'hello%20world' URL-DECODE");
     expect(interp.stack_pop()).toBe("hello world");
   });
+
+  test("INTERPOLATE fills {.var}@ holes from scope", async () => {
+    await interp.run("'world' .name ! 'hello {.name}@!' INTERPOLATE");
+    expect(interp.stack_pop()).toBe("hello world!");
+  });
+
+  test("INTERPOLATE treats the leading dot as optional", async () => {
+    await interp.run("'world' .name ! 'hi {name}@' INTERPOLATE");
+    expect(interp.stack_pop()).toBe("hi world");
+  });
+
+  test("INTERPOLATE leaves bare braces untouched", async () => {
+    await interp.run("'1' .a ! 'const x = { a: {.a}@ };' INTERPOLATE");
+    expect(interp.stack_pop()).toBe("const x = { a: 1 };");
+  });
+
+  test("INTERPOLATE renders a missing variable as empty string", async () => {
+    await interp.run("'[{.nope}@]' INTERPOLATE");
+    expect(interp.stack_pop()).toBe("[]");
+  });
+
+  test("INTERPOLATE renders a record hole as JSON", async () => {
+    await interp.run("[['a' 1]] REC .r ! '{.r}@' INTERPOLATE");
+    expect(interp.stack_pop()).toBe('{"a":1}');
+  });
 });
