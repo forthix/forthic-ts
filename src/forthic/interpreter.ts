@@ -976,90 +976,92 @@ export class Interpreter {
 
     this.tokenizer_stack.push(tokenizer);
 
-    // Gather tokens from the beginning.
-    while (true) {
-      const token = tokenizer.next_token();
-      if (!token) {
-        break;
-      }
+    try {
+      // Gather tokens from the beginning.
+      while (true) {
+        const token = tokenizer.next_token();
+        if (!token) {
+          break;
+        }
 
-      // If we hit an EOS token then push it and break.
-      if (token.type === TokenType.EOS) {
+        // If we hit an EOS token then push it and break.
+        if (token.type === TokenType.EOS) {
+          tokens.push(token);
+          eosFound = true;
+          break;
+        }
+
         tokens.push(token);
-        eosFound = true;
-        break;
       }
 
-      tokens.push(token);
-    }
+      const delta = eosFound ? undefined : tokenizer.get_string_delta();
 
-    const delta = eosFound ? undefined : tokenizer.get_string_delta();
+      let newStop = findLastWordOrEOS(tokens);
 
-    let newStop = findLastWordOrEOS(tokens);
-
-    if (eosFound && !done) {
-      newStop--;
-    }
-    if (!eosFound && !done) {
-      newStop++;
-    }
-
-    // Keep the resume pointer monotonic. findLastWordOrEOS only recognizes
-    // WORD/EOS tokens, so a tail of array brackets + an open string (e.g.
-    // `[ [ "…`) yields -1 and the nudge above collapses newStop toward 0 —
-    // rewinding below tokens we already executed. Clamping to the high-water
-    // mark means already-run tokens (e.g. START_ARRAY markers) are never
-    // re-executed on the next pump.
-    newStop = Math.max(newStop, this.streaming_token_index);
-
-    // Execute only tokens we have not executed previously.
-    for (let i = this.streaming_token_index; i < newStop; i++) {
-      const token = tokens[i];
-      if (!token) {
-        continue;
+      if (eosFound && !done) {
+        newStop--;
+      }
+      if (!eosFound && !done) {
+        newStop++;
       }
 
-      await this.handle_token(token);
+      // Keep the resume pointer monotonic. findLastWordOrEOS only recognizes
+      // WORD/EOS tokens, so a tail of array brackets + an open string (e.g.
+      // `[ [ "…`) yields -1 and the nudge above collapses newStop toward 0 —
+      // rewinding below tokens we already executed. Clamping to the high-water
+      // mark means already-run tokens (e.g. START_ARRAY markers) are never
+      // re-executed on the next pump.
+      newStop = Math.max(newStop, this.streaming_token_index);
 
-      if (
-        this.stream &&
-        (token.type !== TokenType.WORD || token.string !== "START-LOG")
-      ) {
-        yield token.string;
+      // Execute only tokens we have not executed previously.
+      for (let i = this.streaming_token_index; i < newStop; i++) {
+        const token = tokens[i];
+        if (!token) {
+          continue;
+        }
+
+        await this.handle_token(token);
+
+        if (
+          this.stream &&
+          (token.type !== TokenType.WORD || token.string !== "START-LOG")
+        ) {
+          yield token.string;
+        }
+        this.previous_token = token;
       }
-      this.previous_token = token;
-    }
 
-    // Done with this tokenizer
-    this.tokenizer_stack.pop();
+      if (this.stream && !eosFound) {
+        // Yield string delta if we're streaming and tokenizer has a delta.
+        // previous_delta_length tracks how much of the *current* open literal we've
+        // already yielded. When the open literal changes (new start offset, or no
+        // string open => -1), reset it so the new literal streams from its offset 0
+        // — otherwise a length leaked from the prior literal chops the new one's
+        // leading characters.
+        const deltaStart = tokenizer.get_string_delta_start();
+        if (deltaStart !== this.previous_delta_start) {
+          this.previous_delta_length = 0;
+          this.previous_delta_start = deltaStart;
+        }
+        const newPortion = delta.substring(this.previous_delta_length);
 
-    if (this.stream && !eosFound) {
-      // Yield string delta if we're streaming and tokenizer has a delta.
-      // previous_delta_length tracks how much of the *current* open literal we've
-      // already yielded. When the open literal changes (new start offset, or no
-      // string open => -1), reset it so the new literal streams from its offset 0
-      // — otherwise a length leaked from the prior literal chops the new one's
-      // leading characters.
-      const deltaStart = tokenizer.get_string_delta_start();
-      if (deltaStart !== this.previous_delta_start) {
-        this.previous_delta_length = 0;
-        this.previous_delta_start = deltaStart;
+        if (newPortion) {
+          yield { stringDelta: newPortion };
+        }
+        this.previous_delta_length = delta.length;
       }
-      const newPortion = delta.substring(this.previous_delta_length);
 
-      if (newPortion) {
-        yield { stringDelta: newPortion };
+      if (done) {
+        this.endStream();
+        return;
       }
-      this.previous_delta_length = delta.length;
-    }
 
-    if (done) {
-      this.endStream();
-      return;
+      // Update our pointer and reset if done
+      this.streaming_token_index = newStop;
+    } finally {
+      // Done with this tokenizer (even if execution throws or the caller breaks).
+      this.tokenizer_stack.pop();
     }
-
-    // Update our pointer and reset if done
-    this.streaming_token_index = newStop;
   }
 
   startStream() {
