@@ -141,6 +141,21 @@ Night brings peaceful rest""" EMAIL`;
     expect(interp.get_stack().get_items()).toEqual([3]);
   });
 
+  test("a thrown error mid-turn drops the session so the next turn starts from the top", async () => {
+    // Advance the execution cursor on a partial chunk (executes "1", resume at "2").
+    await interp.streamingRun("1 2", false).next();
+    expect(interp.get_stack().get_items()).toEqual([1]);
+
+    // The next chunk throws partway through (unknown word) after "2" has run.
+    await expect(interp.streamingRun("1 2 BOGUS", true).next()).rejects.toThrow();
+    expect(interp.get_stack().get_items()).toEqual([1, 2]);
+
+    // A brand-new turn must execute from token 0, not skip past the stale resume
+    // point left by the aborted turn.
+    await interp.streamingRun("10 20 +", true).next();
+    expect(interp.get_stack().get_items()).toEqual([1, 2, 30]);
+  });
+
   test("streaming complex arithmetic", async () => {
     const gen1 = interp.streamingRun("1 2 + 3", false);
     await gen1.next();

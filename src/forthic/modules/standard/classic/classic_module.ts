@@ -190,12 +190,12 @@ in the sibling standard modules.
 
   @ForthicWord("( -- )", "Starts logging interpreter stream", "START-LOG")
   async START_LOG() {
-    this.interp.startStream();
+    this.interp.startLogStream();
   }
 
   @ForthicWord("( -- )", "Ends logging interpreter stream", "END-LOG")
   async END_LOG() {
-    this.interp.endStream();
+    this.interp.endLogStream();
   }
 
   // ========================================
