@@ -386,6 +386,34 @@ Night brings peaceful rest""" EMAIL`;
       expect(interp.get_stack().get_items()).toEqual([]);
     });
   });
+
+  test("does not drop leading chars of a second string literal", async () => {
+    // Two consecutive string literals separated by a word. The chunk boundaries
+    // are arranged so that the close of literal 1, the separating word, and the
+    // open + first chars of literal 2 all arrive in a *single* streamingRun call
+    // (no call lands in the gap where no string is open). Previously the
+    // already-yielded length leaked from literal 1 and chopped literal 2's
+    // leading characters; now each literal streams from its own offset 0.
+    await interp.run(": SEP ;"); // no-op separator word
+    interp.startStream();
+
+    const lit2: string[] = [];
+    const drive = async (code: string, sink: string[] | null) => {
+      for await (const d of interp.streamingRun(code, false)) {
+        if (typeof d === "object" && "stringDelta" in d && sink) {
+          sink.push(d.stringDelta);
+        }
+      }
+    };
+
+    await drive("'''done", null); // literal 1 streaming; leaks length 4 ("done")
+    // One chunk closes literal 1, runs SEP, and opens literal 2 with content.
+    await drive("'''done''' SEP '''Hello world", lit2);
+    await drive("'''done''' SEP '''Hello world reply", lit2);
+
+    // The streamed deltas must reconstruct literal 2 in full, starting at offset 0.
+    expect(lit2.join("")).toBe("Hello world reply");
+  });
 });
 
 test("Unterminated string", async () => {

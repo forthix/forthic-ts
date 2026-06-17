@@ -228,6 +228,7 @@ export class Interpreter {
   private streaming_token_index: number = 0;
   private stream: boolean = false;
   private previous_delta_length: number = 0;
+  private previous_delta_start: number = -1;
   private literal_handlers: LiteralHandler[];
   on_word_defined?: (name: string) => void;
 
@@ -1033,7 +1034,17 @@ export class Interpreter {
     this.tokenizer_stack.pop();
 
     if (this.stream && !eosFound) {
-      // Yield string delta if we're streaming and tokenizer has a delta
+      // Yield string delta if we're streaming and tokenizer has a delta.
+      // previous_delta_length tracks how much of the *current* open literal we've
+      // already yielded. When the open literal changes (new start offset, or no
+      // string open => -1), reset it so the new literal streams from its offset 0
+      // — otherwise a length leaked from the prior literal chops the new one's
+      // leading characters.
+      const deltaStart = tokenizer.get_string_delta_start();
+      if (deltaStart !== this.previous_delta_start) {
+        this.previous_delta_length = 0;
+        this.previous_delta_start = deltaStart;
+      }
       const newPortion = delta.substring(this.previous_delta_length);
 
       if (newPortion) {
@@ -1054,12 +1065,14 @@ export class Interpreter {
   startStream() {
     this.stream = true;
     this.previous_delta_length = 0;
+    this.previous_delta_start = -1;
     this.streaming_token_index = 0;
   }
 
   endStream() {
     this.stream = false;
     this.previous_delta_length = 0;
+    this.previous_delta_start = -1;
     this.streaming_token_index = 0;
   }
 }

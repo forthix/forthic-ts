@@ -210,6 +210,15 @@ export class Tokenizer {
     );
   }
 
+  /**
+   * Start offset (into input_string) of the string currently being gathered,
+   * or -1 when no string is open. Lets callers detect when the open literal
+   * changes across re-tokenizations of a growing prefix.
+   */
+  get_string_delta_start(): number {
+    return this.string_delta ? this.string_delta.start : -1;
+  }
+
   transition_from_START(): Token {
     while (this.input_pos < this.input_string.length) {
       const char = this.input_string[this.input_pos];
