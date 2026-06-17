@@ -1003,6 +1003,14 @@ export class Interpreter {
       newStop++;
     }
 
+    // Keep the resume pointer monotonic. findLastWordOrEOS only recognizes
+    // WORD/EOS tokens, so a tail of array brackets + an open string (e.g.
+    // `[ [ "…`) yields -1 and the nudge above collapses newStop toward 0 —
+    // rewinding below tokens we already executed. Clamping to the high-water
+    // mark means already-run tokens (e.g. START_ARRAY markers) are never
+    // re-executed on the next pump.
+    newStop = Math.max(newStop, this.streaming_token_index);
+
     // Execute only tokens we have not executed previously.
     for (let i = this.streaming_token_index; i < newStop; i++) {
       const token = tokens[i];

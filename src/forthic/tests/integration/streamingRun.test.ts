@@ -340,6 +340,52 @@ Night brings peaceful rest""" EMAIL`;
     const val = interp.stack_pop();
     expect(val).toEqual({ "key with space": 1, "other key with space": 2 });
   });
+
+  // Drives the interpreter the way a live token stream does: one streamingRun
+  // call per growing prefix (done=false), then a final done=true with the whole
+  // string. This incremental path is the only one that exposed the resume
+  // pointer rewinding and re-executing already-run `[` (START_ARRAY) tokens,
+  // which pushed duplicate Token('[') markers onto the stack.
+  describe("incremental (per-delta) array streaming", () => {
+    async function driveIncrementally(
+      interp: StandardInterpreter,
+      code: string,
+    ): Promise<void> {
+      for (let i = 1; i <= code.length; i++) {
+        const gen = interp.streamingRun(code.slice(0, i), false);
+        while (!(await gen.next()).done) {
+          /* drain */
+        }
+      }
+      const gen = interp.streamingRun(code, true);
+      while (!(await gen.next()).done) {
+        /* drain */
+      }
+    }
+
+    test("nested array leaves no stray bracket markers", async () => {
+      const interp = new StandardInterpreter();
+      await driveIncrementally(interp, `[ [ "a" "b" ] ]`);
+      expect(interp.get_stack().get_items()).toEqual([[["a", "b"]]]);
+    });
+
+    test("record + trailing word receives the record, not a raw token", async () => {
+      const interp = new StandardInterpreter();
+      await driveIncrementally(interp, `[ [ "k1" 1 ] [ "k2" 2 ] ] REC`);
+      expect(interp.stack_pop()).toEqual({ k1: 1, k2: 2 });
+      expect(interp.get_stack().get_items()).toEqual([]);
+    });
+
+    test("triple-quoted string inside an array streams without corruption", async () => {
+      const interp = new StandardInterpreter();
+      await driveIncrementally(
+        interp,
+        `[ [ "instructions" '''do the thing''' ] ] REC`,
+      );
+      expect(interp.stack_pop()).toEqual({ instructions: "do the thing" });
+      expect(interp.get_stack().get_items()).toEqual([]);
+    });
+  });
 });
 
 test("Unterminated string", async () => {
