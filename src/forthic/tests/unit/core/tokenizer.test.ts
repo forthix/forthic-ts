@@ -530,3 +530,95 @@ describe("Dot symbol tokenization", () => {
     expect(tokens[4].string).toEqual(";");
   });
 });
+
+describe("Marked string-redirect (<<'''…''')", () => {
+  const reference_location = new CodeLocation({
+    source: "test",
+    line: 1,
+    column: 1,
+    start_pos: 0,
+  });
+
+  function tokenize(input: string, streaming = false) {
+    const tokenizer = new Tokenizer(input, reference_location, streaming);
+    const tokens = [];
+    let token = tokenizer.next_token();
+    while (token && token.type !== TokenType.EOS) {
+      tokens.push(token);
+      token = tokenizer.next_token();
+    }
+    return tokens;
+  }
+
+  test("<<'''…''' tokenizes as one STRING flagged is_string_redirect", () => {
+    const tokens = tokenize("<<'''hello world'''");
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].type).toEqual(TokenType.STRING);
+    expect(tokens[0].string).toEqual("hello world");
+    expect(tokens[0].is_string_redirect).toBe(true);
+  });
+
+  test(`<<"""…""" (double-quote form) tokenizes as a marked STRING`, () => {
+    const tokens = tokenize(`<<"""hello"""`);
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].type).toEqual(TokenType.STRING);
+    expect(tokens[0].string).toEqual("hello");
+    expect(tokens[0].is_string_redirect).toBe(true);
+  });
+
+  test("the marker is followed by ordinary tokens", () => {
+    const tokens = tokenize("REDIRECT< <<'''hi''' FINAL");
+    expect(tokens.map((t) => t.type)).toEqual([
+      TokenType.WORD,
+      TokenType.STRING,
+      TokenType.WORD,
+    ]);
+    expect(tokens[0].string).toEqual("REDIRECT<");
+    expect(tokens[0].is_string_redirect).toBe(false);
+    expect(tokens[1].string).toEqual("hi");
+    expect(tokens[1].is_string_redirect).toBe(true);
+    expect(tokens[2].string).toEqual("FINAL");
+  });
+
+  test("an ordinary triple-quoted string is not flagged", () => {
+    const tokens = tokenize("'''hello'''");
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].type).toEqual(TokenType.STRING);
+    expect(tokens[0].is_string_redirect).toBe(false);
+  });
+
+  test("the rule does not disturb < words or comparisons", () => {
+    // `<`, `<REC!`, and `1 2 <` must all stay ordinary WORDs.
+    expect(tokenize("<").map((t) => [t.type, t.string])).toEqual([[TokenType.WORD, "<"]]);
+    expect(tokenize("<REC!").map((t) => [t.type, t.string])).toEqual([[TokenType.WORD, "<REC!"]]);
+    expect(tokenize("1 2 <").map((t) => [t.type, t.string])).toEqual([
+      [TokenType.WORD, "1"],
+      [TokenType.WORD, "2"],
+      [TokenType.WORD, "<"],
+    ]);
+  });
+
+  test("<< not glued to a triple quote is not a marked string", () => {
+    // `<<` with a space before the quotes is just a word.
+    const tokens = tokenize("<< '''hello'''");
+    expect(tokens.map((t) => [t.type, t.string, t.is_string_redirect])).toEqual([
+      [TokenType.WORD, "<<", false],
+      [TokenType.STRING, "hello", false],
+    ]);
+  });
+
+  test("is_string_redirect() reports the open trailing string in streaming mode", () => {
+    // An open marked string (unterminated, streaming) reports true...
+    const marked = new Tokenizer("REDIRECT< <<'''hel", reference_location, true);
+    expect(marked.next_token().string).toEqual("REDIRECT<"); // WORD
+    expect(marked.next_token()).toBeNull(); // open string -> null in streaming mode
+    expect(marked.is_string_redirect()).toBe(true);
+    expect(marked.get_string_value()).toEqual("hel");
+
+    // ...while an open ordinary string reports false.
+    const plain = new Tokenizer("REDIRECT< '''hel", reference_location, true);
+    expect(plain.next_token().string).toEqual("REDIRECT<");
+    expect(plain.next_token()).toBeNull();
+    expect(plain.is_string_redirect()).toBe(false);
+  });
+});

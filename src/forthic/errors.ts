@@ -198,6 +198,13 @@ export class UnterminatedStringError extends ForthicError {
   }
 }
 
+export class StringRedirectError extends ForthicError {
+  constructor(forthic: string, note?: string, location?: CodeLocationData, cause?: Error) {
+    super(forthic, note || "Invalid string redirect", location, cause);
+    this.name = "StringRedirectError";
+  }
+}
+
 export class UnknownTokenError extends ForthicError {
   private token: string;
 

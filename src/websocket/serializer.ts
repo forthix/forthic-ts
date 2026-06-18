@@ -44,6 +44,13 @@ export function serializeValue(value: any, path: string = ''): StackValue {
       };
 
     case 'record': {
+      // Any record-classified value may control its own wire form via a `toJSON`
+      // method (standard JS hook); we serialize its return instead of walking the
+      // live object. General by design — a StringRedirectSink is one user. (Temporal
+      // types also have toJSON but are classified above, so they never reach here.)
+      if (typeof value.toJSON === 'function') {
+        return serializeValue(value.toJSON(), path);
+      }
       const fields: { [key: string]: StackValue } = {};
       for (const [key, val] of Object.entries(value)) {
         fields[key] = serializeValue(val, `${path}${pathSegmentForKey(key)}`);

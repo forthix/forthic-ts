@@ -13,7 +13,9 @@ import {
   WordExecutionError,
   ForthicError,
   IntentionalStopError,
+  StringRedirectError,
 } from "./errors.js";
+import { StringRedirectRouter } from "./string_redirect_router.js";
 import { LiteralHandler, to_bool, to_float, to_int, to_time, to_literal_date, to_zoned_datetime } from "./literals.js";
 import { CoreModule } from "./modules/standard/core_module.js";
 import { ArrayModule } from "./modules/standard/array_module.js";
@@ -225,16 +227,25 @@ export class Interpreter {
   private is_profiling: boolean;
   private start_profile_time: number | null;
   private timestamps: Timestamp[];
-  private streaming_token_index: number = 0;
-  private stream: boolean = false;
-  private previous_delta_length: number = 0;
-  private previous_delta_start: number = -1;
+  /**
+   * Per-turn incremental-execution state for streamingRun, reset in one place when
+   * a turn ends (done, abort, or thrown error). `tokenIndex` is the resume point in
+   * the token stream so a later chunk of the same turn re-tokenizes from the start
+   * but only executes tokens it hasn't run yet.
+   */
+  private streamingSession = { tokenIndex: 0 };
+  /**
+   * Redirects a designated string's text into a caller-supplied StringRedirectSink
+   * as it is generated. This is the streaming output path.
+   */
+  private stringRedirectRouter: StringRedirectRouter;
   private literal_handlers: LiteralHandler[];
   on_word_defined?: (name: string) => void;
 
   constructor(modules: Module[] = [], timezone: Temporal.TimeZoneLike = "UTC") {
     this.timezone = timezone;
     this.stack = new Stack(); // Use Stack class instead of []
+    this.stringRedirectRouter = new StringRedirectRouter(this);
 
     this.tokenizer_stack = [];
     this.maxAttempts = 3;
@@ -845,6 +856,16 @@ export class Interpreter {
   }
 
   async handle_string_token(token: Token) {
+    // A marked redirect string (`<<'''…'''`) routes its text into the StringRedirectSink
+    // on top of the stack — stack effect ( sink -- sink string ). This is the single
+    // chokepoint for completed string tokens, so it also covers the non-streaming
+    // run() path: a marked string with no sink on top throws via
+    // finish()->start()'s isStringRedirectSink check.
+    if (token.is_string_redirect) {
+      this.assertCanStringRedirect(token.location);
+      await this.stringRedirectRouter.finish(token);
+      return;
+    }
     const value = new PositionedString(token.string, token.location);
     await this.handle_word(new PushValueWord("<string>", value));
   }
@@ -959,121 +980,147 @@ export class Interpreter {
   /**
    * Execute streaming Forthic code.
    *
-   * @param fullCode - The complete Forthic code from the start up to the current point.
+   * Returns when the available tokens have been executed; it does not yield. A
+   * marked redirect string (`<<'''…'''`) streams its generated text out through
+   * its StringRedirectSink as it arrives — the caller drives that transport, not
+   * a pulled generator. Callers therefore just `await` this; there is nothing to
+   * drain to push execution forward.
+   *
+   * @param codeStream - The complete Forthic code from the start up to the current point.
    * @param done - When false, execute tokens up to (but not including) the last one (if more than one token exists).
    *               When true, execute the final token as well.
    */
-
-  async *streamingRun(
+  async streamingRun(
     codeStream: string,
     done: boolean,
     reference_location: CodeLocation | null = null,
-  ) {
+  ): Promise<void> {
     // Create a new Tokenizer for the full string.
     const tokenizer = new Tokenizer(codeStream, reference_location, done ? false : true);
     const tokens: Token[] = [];
     let eosFound = false;
+    let completedNormally = false;
 
     this.tokenizer_stack.push(tokenizer);
 
-    // Gather tokens from the beginning.
-    while (true) {
-      const token = tokenizer.next_token();
-      if (!token) {
-        break;
-      }
+    try {
+      // Gather tokens from the beginning.
+      while (true) {
+        const token = tokenizer.next_token();
+        if (!token) {
+          break;
+        }
 
-      // If we hit an EOS token then push it and break.
-      if (token.type === TokenType.EOS) {
+        // If we hit an EOS token then push it and break.
+        if (token.type === TokenType.EOS) {
+          tokens.push(token);
+          eosFound = true;
+          break;
+        }
+
         tokens.push(token);
-        eosFound = true;
-        break;
       }
 
-      tokens.push(token);
-    }
+      // Cumulative content-so-far of the trailing open string (canonical,
+      // escape-processed). The sink receives this value so the bytes it streams
+      // match the completed string that finish() leaves on the stack; feed()
+      // turns it into a delta by writing only the not-yet-sent suffix.
+      const openStringContent = eosFound ? undefined : tokenizer.get_string_value();
+      // Best-effort location for the trailing open string (informational only).
+      const openStringLocation = tokenizer.get_token_location();
 
-    const delta = eosFound ? undefined : tokenizer.get_string_delta();
+      let newStop = findLastWordOrEOS(tokens);
 
-    let newStop = findLastWordOrEOS(tokens);
-
-    if (eosFound && !done) {
-      newStop--;
-    }
-    if (!eosFound && !done) {
-      newStop++;
-    }
-
-    // Keep the resume pointer monotonic. findLastWordOrEOS only recognizes
-    // WORD/EOS tokens, so a tail of array brackets + an open string (e.g.
-    // `[ [ "…`) yields -1 and the nudge above collapses newStop toward 0 —
-    // rewinding below tokens we already executed. Clamping to the high-water
-    // mark means already-run tokens (e.g. START_ARRAY markers) are never
-    // re-executed on the next pump.
-    newStop = Math.max(newStop, this.streaming_token_index);
-
-    // Execute only tokens we have not executed previously.
-    for (let i = this.streaming_token_index; i < newStop; i++) {
-      const token = tokens[i];
-      if (!token) {
-        continue;
+      if (eosFound && !done) {
+        newStop--;
+      }
+      if (!eosFound && !done) {
+        newStop++;
       }
 
-      await this.handle_token(token);
+      // Keep the resume pointer monotonic. findLastWordOrEOS only recognizes
+      // WORD/EOS tokens, so a tail of array brackets + an open string (e.g.
+      // `[ [ "…`) yields -1 and the nudge above collapses newStop toward 0 —
+      // rewinding below tokens we already executed. Clamping to the high-water
+      // mark means already-run tokens (e.g. START_ARRAY markers) are never
+      // re-executed on the next pump.
+      newStop = Math.max(newStop, this.streamingSession.tokenIndex);
 
-      if (
-        this.stream &&
-        (token.type !== TokenType.WORD || token.string !== "START-LOG")
-      ) {
-        yield token.string;
+      // Execute only tokens we have not executed previously. A completed marked
+      // streaming string is routed into its sink inside handle_token (via
+      // handle_string_token), so it needs no special case here.
+      for (let i = this.streamingSession.tokenIndex; i < newStop; i++) {
+        const token = tokens[i];
+        if (!token) {
+          continue;
+        }
+
+        await this.handle_token(token);
+        this.previous_token = token;
       }
-      this.previous_token = token;
-    }
 
-    // Done with this tokenizer
-    this.tokenizer_stack.pop();
-
-    if (this.stream && !eosFound) {
-      // Yield string delta if we're streaming and tokenizer has a delta.
-      // previous_delta_length tracks how much of the *current* open literal we've
-      // already yielded. When the open literal changes (new start offset, or no
-      // string open => -1), reset it so the new literal streams from its offset 0
-      // — otherwise a length leaked from the prior literal chops the new one's
-      // leading characters.
-      const deltaStart = tokenizer.get_string_delta_start();
-      if (deltaStart !== this.previous_delta_start) {
-        this.previous_delta_length = 0;
-        this.previous_delta_start = deltaStart;
+      // Feed the trailing open (still-generating) string into its sink when that
+      // string is a marked redirect string (`<<'''…`). The tokenizer flag, not
+      // stack state, decides this. Only one open string can exist at the tail.
+      // feed() opens the sink stream lazily on the first delta.
+      if (!eosFound && openStringContent && tokenizer.is_string_redirect()) {
+        this.assertCanStringRedirect(openStringLocation);
+        await this.stringRedirectRouter.feed(openStringContent, openStringLocation);
       }
-      const newPortion = delta.substring(this.previous_delta_length);
 
-      if (newPortion) {
-        yield { stringDelta: newPortion };
+      if (done) {
+        // Turn complete: reset so the next turn starts fresh.
+        this.resetStreamingSession();
+      } else {
+        // Advance the resume point for the next chunk of this turn.
+        this.streamingSession.tokenIndex = newStop;
       }
-      this.previous_delta_length = delta.length;
+      completedNormally = true;
+    } finally {
+      if (!completedNormally) {
+        // A thrown error mid-turn: abandon any in-progress redirect and reset the
+        // session so reusing this interpreter for a fresh streaming turn starts
+        // from the top, not a stale resume point. The error then propagates out
+        // of finally unchanged — no catch needed.
+        await this.stringRedirectRouter.abort();
+        this.resetStreamingSession();
+      }
+      // Done with this tokenizer
+      this.tokenizer_stack.pop();
     }
-
-    if (done) {
-      this.endStream();
-      return;
-    }
-
-    // Update our pointer and reset if done
-    this.streaming_token_index = newStop;
   }
 
-  startStream() {
-    this.stream = true;
-    this.previous_delta_length = 0;
-    this.previous_delta_start = -1;
-    this.streaming_token_index = 0;
+  /** Reset streamingRun's per-turn state so the next turn starts from the top. */
+  private resetStreamingSession() {
+    this.streamingSession = { tokenIndex: 0 };
   }
 
-  endStream() {
-    this.stream = false;
-    this.previous_delta_length = 0;
-    this.previous_delta_start = -1;
-    this.streaming_token_index = 0;
+  /**
+   * Guard against redirecting a marked string literal (`<<'''…'''`) inside a word
+   * definition. v1 does not support this: a redirected string is fed and consumed
+   * at execution time, which has no meaning while compiling a definition body.
+   * Called before a marked string is routed to its sink (both the completed-token
+   * path in handle_string_token and the open-string feed in streamingRun).
+   */
+  private assertCanStringRedirect(location: CodeLocation | null = null): void {
+    if (this.is_compiling) {
+      throw new StringRedirectError(
+        this.get_top_input_string(),
+        "Cannot redirect a string literal inside a definition",
+        location ?? undefined,
+      );
+    }
+  }
+
+  /**
+   * Abandon any in-progress redirect and end the streaming turn. Safe to call at
+   * any time (a no-op when nothing is active). A caller invokes this if its
+   * upstream source ends mid-string; resetting the session ensures the next
+   * streamingRun turn starts from the top rather than a stale resume point.
+   */
+  async abortStreamingRun(_reason?: unknown) {
+    await this.stringRedirectRouter.abort();
+    this.resetStreamingSession();
   }
 }
 

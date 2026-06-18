@@ -141,7 +141,7 @@ in the sibling standard modules.
   }
 
   // ========================================
-  // Profiling / logging diagnostics
+  // Profiling diagnostics
   // ========================================
 
   @ForthicWord("( -- )", "Starts profiling word execution")
@@ -186,16 +186,6 @@ in the sibling standard modules.
     });
 
     return result;
-  }
-
-  @ForthicWord("( -- )", "Starts logging interpreter stream", "START-LOG")
-  async START_LOG() {
-    this.interp.startStream();
-  }
-
-  @ForthicWord("( -- )", "Ends logging interpreter stream", "END-LOG")
-  async END_LOG() {
-    this.interp.endStream();
   }
 
   // ========================================
