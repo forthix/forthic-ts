@@ -1,6 +1,11 @@
 import { UnterminatedStringError } from "../../tokenizer";
 import { StandardInterpreter } from "../../interpreter";
 import { Module } from "../../module";
+
+// streamingRun is a plain async method: callers `await` each chunk and execution
+// runs up to the resume point. There is nothing to drain — a marked redirect
+// string streams its text out through its StringRedirectSink (covered in
+// string_redirect.test.ts), so these tests only assert execution semantics.
 describe("Interpreter.streamingRun", () => {
   let interp: StandardInterpreter;
 
@@ -8,54 +13,13 @@ describe("Interpreter.streamingRun", () => {
     interp = new StandardInterpreter();
   });
 
-  test("general streaming test", async () => {
-    const items: (string | { stringDelta: string })[] = [];
-
-    // First chunk with START-LOG and beginning of string
-    for await (const delta of interp.streamingRun(
-      `START-LOG "The quick brown`,
-      false,
-    )) {
-      items.push(delta);
-    }
-
-    // Add more to the string
-    for await (const delta of interp.streamingRun(
-      `START-LOG "The quick brown fox jumps`,
-      false,
-    )) {
-      items.push(delta);
-    }
-
-    // Complete the string and END-LOG
-    for await (const delta of interp.streamingRun(
-      `START-LOG "The quick brown fox jumps over" END-LOG`,
-      false,
-    )) {
-      items.push(delta);
-    }
-
-    // Add UPPER (split across chunks)
-    for await (const delta of interp.streamingRun(
-      `START-LOG "The quick brown fox jumps over" END-LOG UPPER`,
-      false,
-    )) {
-      items.push(delta);
-    }
-
-    // Complete with CASE
-    for await (const delta of interp.streamingRun(
-      `START-LOG "The quick brown fox jumps over" END-LOG UPPERCASE`,
-      true,
-    )) {
-      items.push(delta);
-    }
-
-    expect(items).toEqual([
-      { stringDelta: "The quick brown" },
-      { stringDelta: " fox jumps" },
-      "The quick brown fox jumps over",
-    ]);
+  test("incrementally streams an open string, then executes a trailing word split across chunks", async () => {
+    await interp.streamingRun(`"The quick brown`, false);
+    await interp.streamingRun(`"The quick brown fox jumps`, false);
+    await interp.streamingRun(`"The quick brown fox jumps over"`, false);
+    // UPPER is the start of UPPERCASE — an incomplete trailing word, not executed yet.
+    await interp.streamingRun(`"The quick brown fox jumps over" UPPER`, false);
+    await interp.streamingRun(`"The quick brown fox jumps over" UPPERCASE`, true);
 
     expect(interp.get_stack().get_items()).toEqual([
       "THE QUICK BROWN FOX JUMPS OVER",
@@ -80,12 +44,7 @@ Night brings peaceful rest""" EMAIL`;
       const substring = input.substring(0, i);
       const isDone = i === input.length; // Only mark as done on the final iteration
 
-      const streamGenerator = interp.streamingRun(substring, isDone);
-
-      // Exhaust the generator for this chunk
-      for await (const _ of streamGenerator) {
-        // We don't need to do anything with the yield values in this test
-      }
+      await interp.streamingRun(substring, isDone);
 
       // If we're done, verify the EMAIL word was executed
       if (isDone) {
@@ -100,8 +59,7 @@ Night brings peaceful rest""" EMAIL`;
   test("executes complete tokens and skips the last incomplete token (done=false)", async () => {
     // Imagine the Forthic code "1 2 +"
     // When the code is not final (done=false), streamingRun should execute only "1" and "2"
-    const gen = interp.streamingRun("1 2 +", true);
-    await gen.next();
+    await interp.streamingRun("1 2 +", true);
 
     // The literal handlers should push numeric values.
     // In this case only tokens for "1" and "2" were executed.
@@ -110,14 +68,12 @@ Night brings peaceful rest""" EMAIL`;
 
   test("executes the final token when done flag is true", async () => {
     // First call: pass the incomplete code. Only tokens "1" and "2" will execute.
-    const gen1 = interp.streamingRun("1 2 +", false);
-    await gen1.next();
+    await interp.streamingRun("1 2 +", false);
     expect(interp.get_stack().get_items()).toEqual([1, 2]);
 
     // Second call: pass the full code, and now indicate that the stream is done.
     // The final plus token is now executed – which pops 1 and 2 and pushes 3.
-    const gen2 = interp.streamingRun("1 2 +", true);
-    await gen2.next();
+    await interp.streamingRun("1 2 +", true);
 
     expect(interp.get_stack().get_items()).toEqual([3]);
   });
@@ -125,235 +81,66 @@ Night brings peaceful rest""" EMAIL`;
   test("executes only new tokens between calls", async () => {
     // Simulate streaming where each call gets the full code so far.
     // First, the interpreter sees only "1".
-    const gen1 = interp.streamingRun("1", false);
-    await gen1.next();
+    await interp.streamingRun("1", false);
     expect(interp.get_stack().get_items()).toEqual([]);
 
     // Then, the code grows to "1 2". The new token "2" is executed.
-    const gen2 = interp.streamingRun("1 2", false);
-    await gen2.next();
+    await interp.streamingRun("1 2", false);
     expect(interp.get_stack().get_items()).toEqual([1]);
 
     // Finally, the full code "1 2 +" is provided, and done=true executes the final token (plus).
-    const gen3 = interp.streamingRun("1 2 +", true);
-    await gen3.next();
+    await interp.streamingRun("1 2 +", true);
     // With the plus executed, 1 and 2 are replaced by 3.
     expect(interp.get_stack().get_items()).toEqual([3]);
   });
 
   test("a thrown error mid-turn drops the session so the next turn starts from the top", async () => {
     // Advance the execution cursor on a partial chunk (executes "1", resume at "2").
-    await interp.streamingRun("1 2", false).next();
+    await interp.streamingRun("1 2", false);
     expect(interp.get_stack().get_items()).toEqual([1]);
 
     // The next chunk throws partway through (unknown word) after "2" has run.
-    await expect(interp.streamingRun("1 2 BOGUS", true).next()).rejects.toThrow();
+    await expect(interp.streamingRun("1 2 BOGUS", true)).rejects.toThrow();
     expect(interp.get_stack().get_items()).toEqual([1, 2]);
 
     // A brand-new turn must execute from token 0, not skip past the stale resume
     // point left by the aborted turn.
-    await interp.streamingRun("10 20 +", true).next();
+    await interp.streamingRun("10 20 +", true);
     expect(interp.get_stack().get_items()).toEqual([1, 2, 30]);
   });
 
   test("streaming complex arithmetic", async () => {
-    const gen1 = interp.streamingRun("1 2 + 3", false);
-    await gen1.next();
+    await interp.streamingRun("1 2 + 3", false);
     expect(interp.get_stack().get_items()).toEqual([3]);
 
-    const gen2 = interp.streamingRun("1 2 + 3 +", false);
-    await gen2.next();
+    await interp.streamingRun("1 2 + 3 +", false);
     expect(interp.get_stack().get_items()).toEqual([3, 3]);
 
-    const gen3 = interp.streamingRun("1 2 + 3 + 4 + 5 + 2 * 4 -", true);
-    await gen3.next();
+    await interp.streamingRun("1 2 + 3 + 4 + 5 + 2 * 4 -", true);
     expect(interp.get_stack().get_items()).toEqual([26]);
   });
 
   test("streaming MAP", async () => {
-    const gen = interp.streamingRun(`[1 2 3] `, false);
-    await gen.next();
+    await interp.streamingRun(`[1 2 3] `, false);
     expect(interp.stack_peek()).toEqual(3);
 
-    const gen2 = interp.streamingRun(`[1 2 3] "2 *"`, false);
-    await gen2.next();
+    await interp.streamingRun(`[1 2 3] "2 *"`, false);
     expect(interp.stack_peek()).toEqual([1, 2, 3]);
 
-    const gen3 = interp.streamingRun(`[1 2 3] "2 *" MAP`, false);
-    await gen3.next();
+    await interp.streamingRun(`[1 2 3] "2 *" MAP`, false);
     expect(interp.stack_peek()).toEqual("2 *");
 
-    const gen4 = interp.streamingRun(`[1 2 3] "2 *" MAP`, true);
-    await gen4.next();
+    await interp.streamingRun(`[1 2 3] "2 *" MAP`, true);
     expect(interp.stack_peek()).toEqual([2, 4, 6]);
   });
 
   test("streaming MAP with module", async () => {
     const myInterp = new StandardInterpreter([new SampleModule()]);
-    const gen = myInterp.streamingRun(`[1 2 3] "SEND-EMAIL"`, false);
-    await gen.next();
+    await myInterp.streamingRun(`[1 2 3] "SEND-EMAIL"`, false);
     expect(myInterp.stack_peek()).toEqual([1, 2, 3]);
 
-    const gen2 = myInterp.streamingRun(`[1 2 3] "SEND-EMAIL" MAP`, true);
-    await gen2.next();
+    await myInterp.streamingRun(`[1 2 3] "SEND-EMAIL" MAP`, true);
     expect(myInterp.stack_peek()).toEqual(["sent 1", "sent 2", "sent 3"]);
-  });
-
-  test("yields string deltas between START-LOG and END-LOG", async () => {
-    const items: ({ stringDelta: string } | string)[] = [];
-
-    for await (const fullValue of interp.streamingRun(
-      `123 START-LOG "hello world" END-LOG`,
-      true,
-    )) {
-      items.push(fullValue);
-    }
-
-    for await (const delta of interp.streamingRun(
-      `123 START-LOG "hello world`,
-      false,
-    )) {
-      items.push(delta);
-    }
-
-    //123 STR
-
-    for await (const delta of interp.streamingRun(
-      `123 START-LOG "hello world how`,
-      false,
-    )) {
-      items.push(delta);
-    }
-
-    for await (const delta of interp.streamingRun(
-      `123 START-LOG "hello world how are you`,
-      false,
-    )) {
-      items.push(delta);
-    }
-
-    for await (const delta of interp.streamingRun(
-      `123 START-LOG "hello world how are you doing today"`,
-      true,
-    )) {
-      items.push(delta);
-    }
-
-    expect(items).toEqual([
-      "hello world",
-      { stringDelta: "hello world" },
-      { stringDelta: " how" },
-      { stringDelta: " are you" },
-      "hello world how are you doing today",
-    ]);
-  });
-
-  test("multiple START-LOG/END-LOG blocks", async () => {
-    const deltas: ({ stringDelta: string } | string)[] = [];
-
-    for await (const delta of interp.streamingRun(
-      `START-LOG "first" END-LOG 123 START-LOG "second" END-LOG`,
-      true,
-    )) {
-      deltas.push(delta);
-    }
-    expect(deltas).toEqual(["first", "second"]);
-  });
-
-  test("handles split words across streaming chunks", async () => {
-    const items: ({ stringDelta: string } | string)[] = [];
-
-    // First chunk with START-LOG and beginning of string
-    for await (const delta of interp.streamingRun(
-      `START-LOG "The quick brown`,
-      false,
-    )) {
-      items.push(delta);
-    }
-
-    // Add more to the string
-    for await (const delta of interp.streamingRun(
-      `START-LOG "The quick brown fox jumps`,
-      false,
-    )) {
-      items.push(delta);
-    }
-
-    // Complete the string and END-LOG
-    for await (const delta of interp.streamingRun(
-      `START-LOG "The quick brown fox jumps over" END-LOG`,
-      false,
-    )) {
-      items.push(delta);
-    }
-
-    // Add UPPER (split across chunks)
-    for await (const delta of interp.streamingRun(
-      `START-LOG "The quick brown fox jumps over" END-LOG UPPER`,
-      false,
-    )) {
-      items.push(delta);
-    }
-
-    // Complete with CASE
-    for await (const delta of interp.streamingRun(
-      `START-LOG "The quick brown fox jumps over" END-LOG UPPERCASE`,
-      true,
-    )) {
-      items.push(delta);
-    }
-
-    expect(items).toEqual([
-      { stringDelta: "The quick brown" },
-      { stringDelta: " fox jumps" },
-      "The quick brown fox jumps over",
-    ]);
-
-    expect(interp.get_stack().get_items()).toEqual([
-      "THE QUICK BROWN FOX JUMPS OVER",
-    ]);
-  });
-
-  test("START-LOG/END-LOG with numbers", async () => {
-    const deltas: ({ stringDelta: string } | string)[] = [];
-
-    for await (const delta of interp.streamingRun(
-      "START-LOG 1 2 3 END-LOG",
-      true,
-    )) {
-      deltas.push(delta);
-    }
-    expect(deltas).toEqual(["1", "2", "3"]);
-    const val = interp.stack_pop();
-    expect(val).toEqual(3);
-    expect(interp.get_stack().get_items()).toEqual([1, 2]);
-  });
-
-  test("START-LOG/END-LOG with objects", async () => {
-    const deltas: ({ stringDelta: string } | string)[] = [];
-
-    for await (const delta of interp.streamingRun(
-      `START-LOG [["key with space" 1] ["other key with space" 2] ] REC END-LOG`,
-      true,
-    )) {
-      deltas.push(delta);
-    }
-
-    expect(deltas).toEqual([
-      "[",
-      "[",
-      "key with space",
-      "1",
-      "]",
-      "[",
-      "other key with space",
-      "2",
-      "]",
-      "]",
-      "REC",
-    ]);
-    const val = interp.stack_pop();
-    expect(val).toEqual({ "key with space": 1, "other key with space": 2 });
   });
 
   // Drives the interpreter the way a live token stream does: one streamingRun
@@ -367,15 +154,9 @@ Night brings peaceful rest""" EMAIL`;
       code: string,
     ): Promise<void> {
       for (let i = 1; i <= code.length; i++) {
-        const gen = interp.streamingRun(code.slice(0, i), false);
-        while (!(await gen.next()).done) {
-          /* drain */
-        }
+        await interp.streamingRun(code.slice(0, i), false);
       }
-      const gen = interp.streamingRun(code, true);
-      while (!(await gen.next()).done) {
-        /* drain */
-      }
+      await interp.streamingRun(code, true);
     }
 
     test("nested array leaves no stray bracket markers", async () => {
@@ -402,56 +183,27 @@ Night brings peaceful rest""" EMAIL`;
     });
   });
 
-  test("does not drop leading chars of a second string literal", async () => {
-    // Two consecutive string literals separated by a word. The chunk boundaries
-    // are arranged so that the close of literal 1, the separating word, and the
-    // open + first chars of literal 2 all arrive in a *single* streamingRun call
-    // (no call lands in the gap where no string is open). Previously the
-    // already-yielded length leaked from literal 1 and chopped literal 2's
-    // leading characters; now each literal streams from its own offset 0.
-    await interp.run(": SEP ;"); // no-op separator word
-    interp.startStream();
-
-    const lit2: string[] = [];
-    const drive = async (code: string, sink: string[] | null) => {
-      for await (const d of interp.streamingRun(code, false)) {
-        if (typeof d === "object" && "stringDelta" in d && sink) {
-          sink.push(d.stringDelta);
-        }
-      }
-    };
-
-    await drive("'''done", null); // literal 1 streaming; leaks length 4 ("done")
-    // One chunk closes literal 1, runs SEP, and opens literal 2 with content.
-    await drive("'''done''' SEP '''Hello world", lit2);
-    await drive("'''done''' SEP '''Hello world reply", lit2);
-
-    // The streamed deltas must reconstruct literal 2 in full, starting at offset 0.
-    expect(lit2.join("")).toBe("Hello world reply");
-  });
 });
 
 test("Unterminated string", async () => {
   const interp = new StandardInterpreter();
-  const gen = interp.streamingRun(`''''`, false);
-  await gen.next();
+  await interp.streamingRun(`''''`, false);
 
-  const gen2 = interp.streamingRun(`''''`, true);
-  await expect(gen2.next()).rejects.toThrow(UnterminatedStringError);
+  await expect(interp.streamingRun(`''''`, true)).rejects.toThrow(
+    UnterminatedStringError,
+  );
 });
-
 
 test("Nested string issue", async () => {
   // Won't throw an error because we're not done yet
   let interp = new StandardInterpreter();
-  const gen = interp.streamingRun(`"""Reply saying "Thanks`, false);
-  await gen.next();
+  await interp.streamingRun(`"""Reply saying "Thanks`, false);
 
   // Should now handle nested quotes correctly (no longer throws error)
   interp = new StandardInterpreter();
-  const gen2 = interp.streamingRun(`"""Reply saying "Thanks""""`, true);
-  const result = await gen2.next();
-  expect(result.done).toBe(true);
+  await expect(
+    interp.streamingRun(`"""Reply saying "Thanks""""`, true),
+  ).resolves.toBeUndefined();
 });
 
 class SampleModule extends Module {

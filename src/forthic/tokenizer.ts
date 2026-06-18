@@ -15,11 +15,6 @@ export enum TokenType {
   EOS,
 }
 
-interface StringDelta {
-  start: number;
-  end: number;
-}
-
 export class CodeLocation {
   source?: string;
   line: number;
@@ -46,11 +41,20 @@ export class Token {
   type: TokenType;
   string: string;
   location: CodeLocation;
+  // True only for a marked redirect string (`<<'''…'''`); the interpreter routes
+  // these into a StringRedirectSink instead of pushing them. Ordinary strings leave it false.
+  is_string_redirect: boolean;
 
-  constructor(type: TokenType, string: string, location: CodeLocation) {
+  constructor(
+    type: TokenType,
+    string: string,
+    location: CodeLocation,
+    is_string_redirect: boolean = false,
+  ) {
     this.type = type;
     this.string = string;
     this.location = location;
+    this.is_string_redirect = is_string_redirect;
   }
 }
 
@@ -81,7 +85,10 @@ export class Tokenizer {
   token_line: number;
   token_column: number;
   token_string: string;
-  string_delta: StringDelta | undefined;
+  // True while the most recently gathered string is a marked redirect string
+  // (`<<'''…'''`). Read after tokenizing to tell whether a trailing *open* string
+  // should redirect. Reset at the start of every `next_token()`.
+  string_redirect_open: boolean;
   private streaming: boolean;
 
   constructor(
@@ -106,12 +113,16 @@ export class Tokenizer {
     this.token_line = 0;
     this.token_column = 0;
     this.token_string = "";
-    this.string_delta = undefined;
+    this.string_redirect_open = false;
     this.streaming = streaming;
   }
 
   next_token(): Token {
     this.clear_token_string();
+    // Each token starts unmarked; the marked-string gather sets this true. For an
+    // open trailing string the gather returns null and next_token is not called
+    // again, so the flag stays true exactly when is_string_redirect() is read.
+    this.string_redirect_open = false;
     return this.transition_from_START();
   }
 
@@ -158,6 +169,15 @@ export class Tokenizer {
     );
   }
 
+  // A marked redirect string opens with `<<` glued to a triple quote: `<<'''…`
+  // or `<<"""…`. `index` points at the second `<` (the first was already
+  // consumed by transition_from_START). The rule is intentionally narrow so the
+  // `<` comparison word and words like `<REC!` are never affected.
+  is_string_redirect_start(index: number): boolean {
+    if (this.input_string[index] !== "<") return false;
+    return this.is_triple_quote(index + 1, this.input_string[index + 1]);
+  }
+
   advance_position(num_chars: number): number {
     let i: number;
     if (num_chars >= 0) {
@@ -202,21 +222,24 @@ export class Tokenizer {
     return this.input_string;
   }
 
-  get_string_delta(): string {
-    if (!this.string_delta) return "";
-    return this.input_string.slice(
-      this.string_delta.start,
-      this.string_delta.end,
-    );
+  /**
+   * Canonical content of the string token currently being gathered, accumulated
+   * so far, with escape sequences already processed — so for an open regular
+   * string it equals the prefix of the value the completed STRING token will
+   * carry. This is what a redirect string streams into its sink. Empty when no
+   * string is open.
+   */
+  get_string_value(): string {
+    return this.token_string;
   }
 
   /**
-   * Start offset (into input_string) of the string currently being gathered,
-   * or -1 when no string is open. Lets callers detect when the open literal
-   * changes across re-tokenizations of a growing prefix.
+   * True when the string currently being gathered is a marked redirect string
+   * (`<<'''…'''`). Used by streamingRun to decide whether a trailing *open* string
+   * should be fed to a StringRedirectSink. False for ordinary strings and when none is open.
    */
-  get_string_delta_start(): number {
-    return this.string_delta ? this.string_delta.start : -1;
+  is_string_redirect(): boolean {
+    return this.string_redirect_open;
   }
 
   transition_from_START(): Token {
@@ -248,6 +271,13 @@ export class Tokenizer {
       else if (char === "}") {
         this.token_string = char;
         return new Token(TokenType.END_MODULE, char, this.get_token_location());
+      } else if (char === "<" && this.is_string_redirect_start(this.input_pos)) {
+        // Marked redirect string `<<'''…` / `<<"""…`. The first `<` is `char`;
+        // skip the second `<` plus the three opening quotes, then gather as a
+        // raw triple-quoted string flagged for redirect.
+        const quote = this.input_string[this.input_pos + 1];
+        this.advance_position(4);
+        return this.transition_from_GATHER_TRIPLE_QUOTE_STRING(quote, true);
       } else if (this.is_triple_quote(this.input_pos - 1, char)) {
         this.advance_position(2); // Skip over 2nd and 3rd quote chars
         return this.transition_from_GATHER_TRIPLE_QUOTE_STRING(char);
@@ -393,13 +423,15 @@ export class Tokenizer {
     );
   }
 
-  transition_from_GATHER_TRIPLE_QUOTE_STRING(delim: string): Token {
+  transition_from_GATHER_TRIPLE_QUOTE_STRING(
+    delim: string,
+    is_string_redirect: boolean = false,
+  ): Token {
     this.note_start_token();
     const string_delimiter = delim;
-    this.string_delta = {
-      start: this.input_pos,
-      end: this.input_pos,
-    };
+    // Records whether this string is a marked redirect string so is_string_redirect()
+    // reports correctly while it is still open (the streaming `return null` path).
+    this.string_redirect_open = is_string_redirect;
 
     while (this.input_pos < this.input_string.length) {
       const char = this.input_string[this.input_pos];
@@ -415,23 +447,20 @@ export class Tokenizer {
           // Greedy mode: include this quote as content and continue looking for the end
           this.advance_position(1); // Advance by 1 to catch overlapping sequences
           this.token_string += string_delimiter;
-          this.string_delta.end = this.input_pos;
           continue;
         }
 
         // Normal behavior: close at first triple quote
         this.advance_position(3);
-        const token = new Token(
+        return new Token(
           TokenType.STRING,
           this.token_string,
           this.get_token_location(),
+          is_string_redirect,
         );
-        this.string_delta = undefined;
-        return token;
       } else {
         this.advance_position(1);
         this.token_string += char;
-        this.string_delta.end = this.input_pos;
       }
     }
 
@@ -447,10 +476,6 @@ export class Tokenizer {
   transition_from_GATHER_STRING(delim: string): Token {
     this.note_start_token();
     const string_delimiter = delim;
-    this.string_delta = {
-      start: this.input_pos,
-      end: this.input_pos,
-    };
 
     // Whitelist of escape sequences interpreted in regular (single-delimiter)
     // strings. Anything else after a backslash (e.g., \d, \w, \U) stays as
@@ -476,27 +501,22 @@ export class Tokenizer {
         if (Object.prototype.hasOwnProperty.call(escape_map, next_char)) {
           this.advance_position(1);
           this.token_string += escape_map[next_char];
-          this.string_delta.end = this.input_pos;
           continue;
         }
         // Unrecognized escape: leave both characters literal so regex
         // patterns like '\d+' and Windows paths like 'C:\Users' keep working.
         this.token_string += char;
-        this.string_delta.end = this.input_pos;
         continue;
       }
 
       if (char === string_delimiter) {
-        const token = new Token(
+        return new Token(
           TokenType.STRING,
           this.token_string,
           this.get_token_location(),
         );
-        this.string_delta = undefined;
-        return token;
       } else {
         this.token_string += char;
-        this.string_delta.end = this.input_pos;
       }
     }
 
