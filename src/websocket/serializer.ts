@@ -44,10 +44,10 @@ export function serializeValue(value: any, path: string = ''): StackValue {
       };
 
     case 'record': {
-      // A host capability (e.g. a StringRedirectSink) can opt into custom serialization
-      // via the standard `toJSON` convention: serialize whatever it returns
-      // instead of trying to walk a live object into a record. (Temporal types
-      // also have toJSON but are classified above, so they never reach here.)
+      // Any record-classified value may control its own wire form via a `toJSON`
+      // method (standard JS hook); we serialize its return instead of walking the
+      // live object. General by design — a StringRedirectSink is one user. (Temporal
+      // types also have toJSON but are classified above, so they never reach here.)
       if (typeof value.toJSON === 'function') {
         return serializeValue(value.toJSON(), path);
       }

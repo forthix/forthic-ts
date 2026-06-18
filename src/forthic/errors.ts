@@ -205,7 +205,6 @@ export class StringRedirectError extends ForthicError {
   }
 }
 
-
 export class UnknownTokenError extends ForthicError {
   private token: string;
 

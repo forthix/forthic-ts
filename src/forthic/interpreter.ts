@@ -1076,15 +1076,12 @@ export class Interpreter {
         this.streamingSession.tokenIndex = newStop;
       }
       completedNormally = true;
-    } catch (e) {
-      // Abandon any in-progress redirect before the error propagates.
-      await this.stringRedirectRouter.abort();
-      throw e;
     } finally {
       if (!completedNormally) {
-        // A thrown error mid-turn: close any in-progress redirect and reset the
+        // A thrown error mid-turn: abandon any in-progress redirect and reset the
         // session so reusing this interpreter for a fresh streaming turn starts
-        // from the top, not a stale resume point.
+        // from the top, not a stale resume point. The error then propagates out
+        // of finally unchanged — no catch needed.
         await this.stringRedirectRouter.abort();
         this.resetStreamingSession();
       }

@@ -2,7 +2,7 @@
 
 [← Back to Index](../index.md)
 
-**36 words**
+**34 words**
 
 ## Words
 
@@ -67,14 +67,6 @@ Convert date to integer (YYYYMMDD)
 **Stack Effect:** `( a:number b:number -- quotient:number )`
 
 Divide a by b
-
----
-
-### END-LOG
-
-**Stack Effect:** `( -- )`
-
-Ends logging interpreter stream
 
 ---
 
@@ -235,14 +227,6 @@ Filter items with predicate. Surfaced as FILTER in array_module.
 **Stack Effect:** `( array:any[] -- array:any[] )`
 
 Shuffle array randomly
-
----
-
-### START-LOG
-
-**Stack Effect:** `( -- )`
-
-Starts logging interpreter stream
 
 ---
 
