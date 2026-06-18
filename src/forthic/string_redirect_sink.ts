@@ -11,6 +11,7 @@
 //     write(delta) { this.socket.send(delta); }
 //     close()      { this.socket.close(); }
 //     abort()      { this.socket.close(); }
+//     toJSON()     { return { __type: "SocketSink", id: this.id }; }
 //   }
 //
 // CONTRACT: a sink owns its transport errors and MUST NOT throw — the interpreter
@@ -21,7 +22,7 @@
 //
 // Stack effect `( sink -- sink string )`: the redirect leaves the completed string on
 // top and the sink beneath (it does NOT consume it); the caller drops/keeps the sink.
-// The sink is a transient, turn-scoped object — not meant to be serialized.
+// Because the sink stays on the stack, a sink must also implement `toJSON` (see below).
 
 export const STRING_REDIRECT_SINK_BRAND: unique symbol = Symbol.for("@forthix/forthic.StringRedirectSink");
 
@@ -40,7 +41,16 @@ export abstract class StringRedirectSink {
   /** The redirected string completed; flush/close the transport. Awaited. */
   abstract close(): void | Promise<void>;
   /** The redirect was abandoned; tear the transport down. Awaited. */
-  abstract abort(reason?: unknown): void | Promise<void>;
+  abstract abort(reason?: string): void | Promise<void>;
+
+  /**
+   * JSON-safe wire form for the websocket serializer, which encounters the sink
+   * because the redirect leaves it on the stack (`( sink -- sink string )`). Required:
+   * Forthic can't usefully serialize a live transport, so the host returns a value it
+   * can recognize and rehydrate (e.g. `{ __type, id }`). Without it the serializer
+   * would walk the subclass's instance fields and leak the transport.
+   */
+  abstract toJSON(): unknown;
 }
 
 /**

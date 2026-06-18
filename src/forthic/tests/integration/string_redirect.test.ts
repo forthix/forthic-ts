@@ -19,6 +19,9 @@ class RecordingSink extends StringRedirectSink {
   abort() {
     this.record.push({ closed: true });
   }
+  toJSON() {
+    return { __type: "RecordingSink" };
+  }
 }
 function recordingSink(record: any[]): StringRedirectSink {
   return new RecordingSink(record);
@@ -40,6 +43,9 @@ class ThrowingSink extends StringRedirectSink {
   }
   abort() {
     this.record.push({ closed: true });
+  }
+  toJSON() {
+    return { __type: "ThrowingSink" };
   }
 }
 function throwingSink(record: any[]): StringRedirectSink {
