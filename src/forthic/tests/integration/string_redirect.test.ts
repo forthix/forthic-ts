@@ -273,6 +273,103 @@ describe("Interpreter.streamingRun — marked string redirect into a StringRedir
     expect(interp.stack_peek()).toBe("again");
   });
 
+  // The recorded deltas (writes) excluding the { closed: true } close marker.
+  function recordedText(record: any[]): string {
+    return record.filter((d) => typeof d === "string").join("");
+  }
+
+  test("closing ''' split across done=false chunks emits no stray trailing quotes", async () => {
+    const record: any[] = [];
+    const interp = makeInterp(() => recordingSink(record));
+
+    // The closing delimiter arrives one quote at a time. Each not-yet-confirmed
+    // quote must be held back, so the boundary chunks emit NOTHING new — the stray
+    // `'` writes were the bug. Assert the exact record after every feed.
+    await interp.streamingRun(`REDIRECT< <<'''hello world`, false);
+    expect(record).toEqual(["hello world"]);
+    await interp.streamingRun(`REDIRECT< <<'''hello world'`, false);
+    expect(record).toEqual(["hello world"]); // held-back `'`, no write
+    await interp.streamingRun(`REDIRECT< <<'''hello world''`, false);
+    expect(record).toEqual(["hello world"]); // held-back `''`, no write
+    await interp.streamingRun(`REDIRECT< <<'''hello world'''`, true);
+    expect(record).toEqual(["hello world", { closed: true }]); // closes, no extra write
+
+    expectSinkThenString(interp, "hello world");
+  });
+
+  test('closing """ split across done=false chunks emits no stray trailing quotes', async () => {
+    const record: any[] = [];
+    const interp = makeInterp(() => recordingSink(record));
+
+    await interp.streamingRun(`REDIRECT< <<"""hello world`, false);
+    expect(record).toEqual(["hello world"]);
+    await interp.streamingRun(`REDIRECT< <<"""hello world"`, false);
+    expect(record).toEqual(["hello world"]);
+    await interp.streamingRun(`REDIRECT< <<"""hello world""`, false);
+    expect(record).toEqual(["hello world"]);
+    await interp.streamingRun(`REDIRECT< <<"""hello world"""`, true);
+    expect(record).toEqual(["hello world", { closed: true }]);
+
+    expectSinkThenString(interp, "hello world");
+  });
+
+  test("a held-back quote flushes once a non-quote char proves it content", async () => {
+    const record: any[] = [];
+    const interp = makeInterp(() => recordingSink(record));
+
+    await interp.streamingRun(`REDIRECT< <<'''ab'`, false);
+    expect(record).toEqual(["ab"]); // `'` held back as a possible closing delimiter
+    await interp.streamingRun(`REDIRECT< <<'''ab'c`, false);
+    expect(record).toEqual(["ab", "'c"]); // `c` proves the `'` is content; it flushes
+    await interp.streamingRun(`REDIRECT< <<'''ab'c'''`, true);
+    expect(record).toEqual(["ab", "'c", { closed: true }]);
+
+    expectSinkThenString(interp, "ab'c");
+  });
+
+  test("content that genuinely ends in a quote still emits it at close", async () => {
+    const record: any[] = [];
+    const interp = makeInterp(() => recordingSink(record));
+
+    // Greedy literal: `<<'''hello''''` carries content `hello'` (the 4th quote is
+    // content, the trailing `'''` closes). Feeding the closing `''''` one quote at a
+    // time holds every quote back, then the genuine trailing `'` flushes at close —
+    // it must not be over-stripped.
+    await interp.streamingRun(`REDIRECT< <<'''hello`, false);
+    expect(record).toEqual(["hello"]);
+    await interp.streamingRun(`REDIRECT< <<'''hello'`, false);
+    expect(record).toEqual(["hello"]);
+    await interp.streamingRun(`REDIRECT< <<'''hello''`, false);
+    expect(record).toEqual(["hello"]);
+    await interp.streamingRun(`REDIRECT< <<'''hello'''`, false);
+    expect(record).toEqual(["hello"]); // tokenizer closes early here, but nothing commits
+    await interp.streamingRun(`REDIRECT< <<'''hello''''`, true);
+    expect(record).toEqual(["hello", "'", { closed: true }]); // real trailing `'` flushes
+
+    expectSinkThenString(interp, "hello'");
+  });
+
+
+
+  test("every chunk boundary yields the finalized string with no stray quotes", async () => {
+    // The ticket's invariant: for EVERY chunking of a marked literal, the streamed
+    // deltas must concat to exactly the string left on the stack. Split the program
+    // at each byte position (an open done=false feed, then the whole thing on done),
+    // which exercises both the 1-quote and 2-quote mid-delimiter boundaries.
+    const program = `REDIRECT< <<'''hello world'''`;
+    for (let cut = 1; cut < program.length; cut++) {
+      const record: any[] = [];
+      const interp = makeInterp(() => recordingSink(record));
+
+      await interp.streamingRun(program.slice(0, cut), false);
+      await interp.streamingRun(program, true);
+
+      expect(recordedText(record)).toBe("hello world"); // concat === finalized, every cut
+      expect(record[record.length - 1]).toEqual({ closed: true });
+      expectSinkThenString(interp, "hello world");
+    }
+  });
+
   test("a marked redirect string inside a definition is rejected", async () => {
     const interp = makeInterp(() => recordingSink([]));
 

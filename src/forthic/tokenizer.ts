@@ -89,6 +89,11 @@ export class Tokenizer {
   // (`<<'''…'''`). Read after tokenizing to tell whether a trailing *open* string
   // should redirect. Reset at the start of every `next_token()`.
   string_redirect_open: boolean;
+  // Delimiter of the triple-quoted string currently being gathered, or null when
+  // none is open. Set while gathering and cleared when the string closes, so
+  // get_string_value() can hold back a trailing run of not-yet-confirmed closing
+  // quotes from an open (streaming) string. Reset at the start of every `next_token()`.
+  private open_triple_quote_delim: string | null;
   private streaming: boolean;
 
   constructor(
@@ -114,6 +119,7 @@ export class Tokenizer {
     this.token_column = 0;
     this.token_string = "";
     this.string_redirect_open = false;
+    this.open_triple_quote_delim = null;
     this.streaming = streaming;
   }
 
@@ -123,6 +129,7 @@ export class Tokenizer {
     // open trailing string the gather returns null and next_token is not called
     // again, so the flag stays true exactly when is_string_redirect() is read.
     this.string_redirect_open = false;
+    this.open_triple_quote_delim = null;
     return this.transition_from_START();
   }
 
@@ -228,9 +235,21 @@ export class Tokenizer {
    * string it equals the prefix of the value the completed STRING token will
    * carry. This is what a redirect string streams into its sink. Empty when no
    * string is open.
+   *
+   * For an *open* triple-quoted string a trailing run of the delimiter char is
+   * held back, since those quotes may yet be the start of the closing `'''`/`"""`
+   * rather than content — so the sink never receives a quote that turns out to be
+   * a delimiter. The held-back quote is not explicitly tracked or replayed: the caller
+   * re-feeds the full cumulative content each chunk, so it just gets picked up naturally
+   * in the next chunk.
    */
   get_string_value(): string {
-    return this.token_string;
+    if (this.open_triple_quote_delim === null) return this.token_string;
+    let end = this.token_string.length;
+    while (end > 0 && this.token_string[end - 1] === this.open_triple_quote_delim) {
+      end--;
+    }
+    return this.token_string.slice(0, end);
   }
 
   /**
@@ -432,6 +451,10 @@ export class Tokenizer {
     // Records whether this string is a marked redirect string so is_string_redirect()
     // reports correctly while it is still open (the streaming `return null` path).
     this.string_redirect_open = is_string_redirect;
+    // Mark this triple string as open with its delimiter so get_string_value() can
+    // hold back an unconfirmed trailing delimiter run while it is still gathering.
+    // Cleared on the normal close path below; left set on the streaming `return null`.
+    this.open_triple_quote_delim = string_delimiter;
 
     while (this.input_pos < this.input_string.length) {
       const char = this.input_string[this.input_pos];
@@ -452,6 +475,7 @@ export class Tokenizer {
 
         // Normal behavior: close at first triple quote
         this.advance_position(3);
+        this.open_triple_quote_delim = null; // string closed: nothing to hold back
         return new Token(
           TokenType.STRING,
           this.token_string,
