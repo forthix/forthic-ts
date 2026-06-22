@@ -69,6 +69,33 @@ String manipulation and processing operations with regex and URL encoding suppor
     return strings.join(sep);
   }
 
+  @ForthicWord(
+    "( str:string start:number end:number -- substring:string )",
+    "Substring of str from start (inclusive) to end (exclusive), by character index. Indices clamp like String.slice (negatives count from the end).",
+    "SUBSTR",
+  )
+  async SUBSTR(str: any, start: number, end: number) {
+    if (str === null || str === undefined) return "";
+    if (typeof str !== "string") {
+      throw new Error("SUBSTR requires a string. For arrays/records, use SLICE.");
+    }
+    return str.slice(start, end);
+  }
+
+  @ForthicWord(
+    "( str:string start:number end:number newval:string -- result:string )",
+    "Replace the substring [start, end) of str with newval and return the result (a splice).",
+    "SPLICE",
+  )
+  async SPLICE(str: any, start: number, end: number, newval: any) {
+    if (str === null || str === undefined) str = "";
+    if (typeof str !== "string") {
+      throw new Error("SPLICE requires a string.");
+    }
+    const ins = newval === null || newval === undefined ? "" : String(newval);
+    return str.slice(0, start) + ins + str.slice(end);
+  }
+
   @ForthicWord("( -- char:string )", "Newline character", "/N")
   async slash_N() {
     return "\n";
@@ -174,6 +201,25 @@ String manipulation and processing operations with regex and URL encoding suppor
     if (string === null || string === undefined) return string;
     if (text === null || text === undefined || text === "") return string;
     return string.split(text).join(replace ?? "");
+  }
+
+  @ForthicWord(
+    "( template:string -- result:string )",
+    "Interpolate {.var}@ holes with variable values from the current scope. {...} marks off a raw " +
+      "block and the postfix @ fetches it as a variable (a leading dot is optional, so {.x}@ and {x}@ " +
+      "are equivalent). Only a } immediately followed by @ is a hole, so bare braces in the text pass " +
+      'through untouched. null/undefined render as ""; records/arrays render as JSON.',
+    "INTERPOLATE",
+  )
+  async INTERPOLATE(template: string) {
+    if (template === null || template === undefined) return template;
+    return String(template).replace(/\{([^{}]*)\}@/g, (_match, raw) => {
+      let name = String(raw).trim();
+      if (name.startsWith(".")) name = name.slice(1);
+      const variable = this.get_interp().find_variable(name);
+      const value = variable ? variable.get_value() : null;
+      return render_interpolation_value(value);
+    });
   }
 
   @ForthicWord(
@@ -284,4 +330,13 @@ String manipulation and processing operations with regex and URL encoding suppor
     });
   }
 
+}
+
+// Render a variable's value into an INTERPOLATE hole: strings pass through, null/
+// undefined become empty, primitives stringify, and records/arrays become JSON.
+function render_interpolation_value(value: any): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
 }

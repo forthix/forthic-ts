@@ -240,6 +240,10 @@ export class Interpreter {
    */
   private stringRedirectRouter: StringRedirectRouter;
   private literal_handlers: LiteralHandler[];
+  // Word-local variable frames. A new frame is pushed when a user-defined word
+  // (DefinitionWord) executes and popped when it returns, so dot-vars assigned
+  // inside a word are private to that call and don't clobber callees/callers.
+  private local_frames: { [name: string]: Variable }[] = [];
   on_word_defined?: (name: string) => void;
 
   constructor(modules: Module[] = [], timezone: Temporal.TimeZoneLike = "UTC") {
@@ -563,12 +567,36 @@ export class Interpreter {
     return result;
   }
 
-  find_variable(name: string): Variable | null {
+  // --- Word-local variable frames ---
+  push_local_frame(): void {
+    this.local_frames.push({});
+  }
+
+  pop_local_frame(): void {
+    this.local_frames.pop();
+  }
+
+  cur_local_frame(): { [name: string]: Variable } | null {
+    return this.local_frames.length > 0
+      ? this.local_frames[this.local_frames.length - 1]
+      : null;
+  }
+
+  // Module-scope lookup only (walks the module stack); used to decide whether a
+  // write targets an existing module variable before falling back to a local.
+  find_module_variable(name: string): Variable | null {
     for (let i = this.module_stack.length - 1; i >= 0; i--) {
       const m = this.module_stack[i];
       if (m.variables[name]) return m.variables[name];
     }
     return null;
+  }
+
+  // Read resolution: current word-local frame first, then module scope.
+  find_variable(name: string): Variable | null {
+    const frame = this.cur_local_frame();
+    if (frame && frame[name]) return frame[name];
+    return this.find_module_variable(name);
   }
 
   find_module(name: string): Module {
@@ -1139,6 +1167,53 @@ interface InterpreterInternal {
   handleError?: HandleErrorFunction;
 }
 
+/**
+ * Rebuild a target app_module so that its imported words are bound to the
+ * TARGET-bound module clones, not the source. Replays the source app_module's
+ * imports against `cloned`, then re-attaches the source's own top-level words
+ * (user definitions) and variables.
+ *
+ * Known limitation: a pre-existing user definition whose BODY calls a stateful
+ * decorated word (VARIABLES/!/@/RUN/...) keeps its source-bound internal word
+ * references (they were resolved at definition time). Code that re-defines such
+ * words on the dup (e.g. re-running a bootstrap) is unaffected, since the fresh
+ * definition resolves against the dup. Re-resolving copied definition bodies is
+ * a deeper follow-up.
+ */
+function rebuild_app_module(
+  srcApp: Module,
+  cloned: { [name: string]: Module },
+  interp: Interpreter,
+): Module {
+  const app = new Module(srcApp.name);
+
+  // Replay imports against the target-bound clones so app_module.words resolve
+  // to clone-bound (target-bound) words.
+  Object.entries(srcApp.module_prefixes).forEach(([module_name, prefixes]) => {
+    const target_mod = cloned[module_name];
+    if (!target_mod) return;
+    prefixes.forEach((prefix) => {
+      app.import_module(prefix, target_mod, interp);
+    });
+  });
+
+  // Re-attach the app_module's own top-level words (user definitions) — those
+  // whose names weren't contributed by the import replay. Appended last so they
+  // shadow imports (find_dictionary_word scans backwards). Definition words are
+  // safe to share by reference (they execute against the passed interp).
+  const imported = new Set(app.words.map((w) => w.name));
+  srcApp.words.forEach((w) => {
+    if (!imported.has(w.name)) app.words.push(w);
+  });
+
+  Object.keys(srcApp.variables).forEach(
+    (key) => (app.variables[key] = srcApp.variables[key].dup()),
+  );
+  app.forthic_code = srcApp.forthic_code;
+  app.set_interp(interp);
+  return app;
+}
+
 export function dup_interpreter(interp: Interpreter): Interpreter {
   const source = interp as unknown as InterpreterInternal;
   // Create new interpreter of the same type as the source
@@ -1146,15 +1221,26 @@ export function dup_interpreter(interp: Interpreter): Interpreter {
   const result_interp = new constructor([], interp.get_timezone());
   const target = result_interp as unknown as InterpreterInternal;
 
-  // Use copy() instead of dup() to preserve module_prefixes
-  target.app_module = source.app_module.copy(result_interp);
+  // Clone every registered module, bound to the target interpreter. Cloning
+  // (not sharing) is what makes the dup independent: a clone's stateful words
+  // operate on the target, and the source is never mutated.
+  const cloned: { [name: string]: Module } = {};
+  Object.entries(source.registered_modules).forEach(([name, mod]) => {
+    cloned[name] = mod.clone(result_interp);
+  });
+  target.registered_modules = cloned;
+
+  // Rebuild the app_module so its imported words come from the target-bound
+  // clones rather than the source-bound originals.
+  target.app_module = rebuild_app_module(
+    source.app_module,
+    cloned,
+    result_interp,
+  );
   target.module_stack = [target.app_module];
 
   // Use Stack.dup() method
   target.stack = source.stack.dup();
-
-  // Share registered modules reference (modules are shared, not copied)
-  target.registered_modules = source.registered_modules;
 
   // Copy error handler if present
   if (source.handleError) {

@@ -195,6 +195,17 @@ export class DefinitionWord extends Word {
     const batches = planner.planExecution(this.words);
     const runtimeManager = RuntimeManager.getInstance();
 
+    // Word-local variable frame: dot-vars assigned inside this word are private
+    // to this call and cannot clobber the words it calls (or its caller).
+    interp.push_local_frame();
+    try {
+      await this.executeBatches(batches, interp, runtimeManager);
+    } finally {
+      interp.pop_local_frame();
+    }
+  }
+
+  private async executeBatches(batches: any[], interp: Interpreter, runtimeManager: any): Promise<void> {
     for (const batch of batches) {
       if (!batch.isRemote) {
         // Execute local words one by one
@@ -482,6 +493,49 @@ export class Module {
       });
     });
 
+    result.forthic_code = this.forthic_code;
+    return result;
+  }
+
+  /**
+   * Produce an independent instance of the SAME subclass, bound to `interp`.
+   *
+   * Unlike dup()/copy() (which always build a base Module and slice in the
+   * source's Word objects), clone() preserves the concrete subclass and
+   * custom instance state, and re-derives its words bound to the clone — so a
+   * duplicated interpreter's stateful words (VARIABLES, !, @, RUN, ...) operate
+   * on the duplicate, never the source. Does NOT call the constructor (avoids
+   * required args / side effects like warmups).
+   */
+  clone(interp: Interpreter): Module {
+    // Same prototype => same subclass => same decorator word metadata.
+    const result: Module = Object.create(Object.getPrototypeOf(this));
+    // Carry over custom instance fields (e.g. injected resolver closures).
+    Object.assign(result, this);
+    // Reset the per-interpreter collections to fresh containers.
+    result.words = [];
+    result.exportable = [];
+    result.variables = {};
+    result.modules = {};
+    result.module_prefixes = {};
+    result.interp = null;
+
+    // For DecoratedModule, set_interp re-registers decorated words bound to
+    // `result` (whose interp is now the target). For a base Module it is a
+    // no-op for words; the manual words are restored below.
+    result.set_interp(interp);
+
+    // Preserve any manually-added (non-decorated) words not regenerated above.
+    const have = new Set(result.words.map((w) => w.name));
+    this.words.forEach((w) => {
+      if (!have.has(w.name)) result.words.push(w);
+    });
+    result.exportable = Array.from(
+      new Set([...result.exportable, ...this.exportable]),
+    );
+    Object.keys(this.variables).forEach(
+      (key) => (result.variables[key] = this.variables[key].dup()),
+    );
     result.forthic_code = this.forthic_code;
     return result;
   }

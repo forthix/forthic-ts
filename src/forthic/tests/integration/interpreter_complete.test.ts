@@ -1,5 +1,21 @@
 import { StandardInterpreter, Stack, dup_interpreter, export_state, import_state, InterpreterState } from "../../interpreter";
 import { Module, Word, PushValueWord, DefinitionWord, ModuleMemoWord } from "../../module";
+import { DecoratedModule, ForthicWord } from "../../decorators/word";
+
+// A module carrying custom instance state injected after construction, used to
+// verify dup_interpreter clones preserve that state and bind to the duplicate.
+class GreetModule extends DecoratedModule {
+  greeting: string;
+  constructor(greeting: string) {
+    super("greet");
+    this.greeting = greeting;
+  }
+
+  @ForthicWord("( -- greeting )", "Push the injected greeting", "GREETING")
+  async GREETING() {
+    return this.greeting;
+  }
+}
 
 describe("Interpreter - Complete End-to-End Tests", () => {
   let interp: StandardInterpreter;
@@ -248,6 +264,72 @@ describe("Interpreter - Complete End-to-End Tests", () => {
       const dup = dup_interpreter(interp);
 
       expect(dup.get_error_handler()).toBe(handler);
+    });
+
+    test("dup runs stateful words (VARIABLES/!/@) against ITS OWN app_module", async () => {
+      const dup = dup_interpreter(interp);
+
+      await dup.run("[ 'x' ] VARIABLES 5 x ! x @");
+      expect(dup.stack_pop()).toBe(5);
+
+      // The source must NOT have learned `x`.
+      expect(interp.get_app_module().variables["x"]).toBeUndefined();
+      await expect(interp.run("x @")).rejects.toThrow();
+    });
+
+    test("dup and source are isolated both ways", async () => {
+      const dup = dup_interpreter(interp);
+
+      // Declare on the source AFTER the dup was made.
+      await interp.run("[ 'y' ] VARIABLES 1 y !");
+      // Declare on the dup.
+      await dup.run("[ 'z' ] VARIABLES 2 z !");
+
+      expect(dup.get_app_module().variables["y"]).toBeUndefined();
+      expect(interp.get_app_module().variables["z"]).toBeUndefined();
+
+      await dup.run("z @");
+      expect(dup.stack_pop()).toBe(2);
+      await interp.run("y @");
+      expect(interp.stack_pop()).toBe(1);
+    });
+
+    test("concurrent dups run VARIABLES independently", async () => {
+      const a = dup_interpreter(interp);
+      const b = dup_interpreter(interp);
+
+      await Promise.all([
+        a.run("[ 'v' ] VARIABLES 1 v !"),
+        b.run("[ 'v' ] VARIABLES 2 v !"),
+      ]);
+
+      await a.run("v @");
+      expect(a.stack_pop()).toBe(1);
+      await b.run("v @");
+      expect(b.stack_pop()).toBe(2);
+      expect(interp.get_app_module().variables["v"]).toBeUndefined();
+    });
+
+    test("dup preserves custom module instance state and binds it to the dup", async () => {
+      const host = new StandardInterpreter();
+      host.import_module(new GreetModule("hello"));
+
+      const dup = dup_interpreter(host);
+      await dup.run("GREETING");
+      expect(dup.stack_pop()).toBe("hello");
+
+      // Source still works too.
+      await host.run("GREETING");
+      expect(host.stack_pop()).toBe("hello");
+    });
+
+    test("MAP with parallel interps runs stateful body words correctly", async () => {
+      await interp.run(
+        "[1 2 3 4] '[ \"n\" ] VARIABLES DUP n ! n @ 10 +' [.interps 2] ~> MAP",
+      );
+      expect(interp.stack_pop()).toEqual([11, 12, 13, 14]);
+      // The parallel dups must not have leaked `n` onto the source.
+      expect(interp.get_app_module().variables["n"]).toBeUndefined();
     });
   });
 

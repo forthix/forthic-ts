@@ -14,7 +14,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - Variables: VARIABLES, !, @, !@
 - Module: USE-MODULES
 - Execution: RUN
-- Control: NOP, DEFAULT, DEFAULT-RUN, NULL, IF, IF-RUN, WHEN
+- Control: NOP, DEFAULT, DEFAULT-RUN, NULL, UNDEFINED, IF, IF-RUN, WHEN
 - Predicates: ARRAY?, NULL?, EMPTY?, STRING?, NUMBER?, RECORD?
 - Options: ~> (converts array to WordOptions)
 - String: INTERPOLATE, PRINT
@@ -52,18 +52,24 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
       );
     }
 
-    const cur_module = interp.cur_module();
+    // An existing module variable (e.g. declared via VARIABLES) always wins —
+    // words can still write intentional module/shared state by name.
+    const moduleVar = interp.find_module_variable(name);
+    if (moduleVar) return moduleVar;
 
-    // Check if variable already exists
-    let variable = cur_module.variables[name];
-
-    // Create it if it doesn't exist
-    if (!variable) {
-      cur_module.add_variable(name);
-      variable = cur_module.variables[name];
+    // Inside a user-defined word with no matching module variable: the name is
+    // a word-local. Create/reuse it in the current local frame so it can't
+    // clobber the variables of the words this one calls (or its caller).
+    const frame = interp.cur_local_frame();
+    if (frame) {
+      if (!frame[name]) frame[name] = new Variable(name);
+      return frame[name];
     }
 
-    return variable;
+    // Top-level (no active frame): module variable, as before.
+    const cur_module = interp.cur_module();
+    cur_module.add_variable(name);
+    return cur_module.variables[name];
   }
 
   private static get_existing_variable(interp: Interpreter, name: string): Variable {
