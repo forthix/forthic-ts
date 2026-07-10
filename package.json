@@ -43,9 +43,11 @@
     "forthic": "tsx scripts/forthic.ts",
     "repl": "tsx scripts/forthic.ts --repl",
     "pretty": "prettier --print-width 120 --write \"./**/*.{js,jsx,mjs,cjs,ts,tsx,json}\"",
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
     "build:cjs": "tsc --project tsconfig.cjs.json",
     "build:esm": "tsc --project tsconfig.esm.json",
     "build:stamp": "node -e \"require('fs').writeFileSync('dist/esm/package.json', JSON.stringify({type:'module'})); require('fs').writeFileSync('dist/cjs/package.json', JSON.stringify({type:'commonjs'}))\"",
+    "prebuild": "npm run clean",
     "build": "npm run build:cjs && npm run build:esm && npm run build:stamp",
     "prepublishOnly": "npm run build && npm test",
     "test": "jest",
@@ -82,6 +84,14 @@
   "homepage": "https://github.com/forthix/forthic-ts#readme",
   "dependencies": {
     "yaml": "^2.8.1"
+  },
+  "peerDependencies": {
+    "temporal-polyfill": "^0.3.0"
+  },
+  "peerDependenciesMeta": {
+    "temporal-polyfill": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@babel/cli": "^7.25.9",

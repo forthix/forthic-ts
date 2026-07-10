@@ -81,6 +81,23 @@ npm install @forthix/forthic
 yarn add @forthix/forthic
 ```
 
+### Requirement: a global `Temporal`
+
+Forthic's date and time values are built on the [TC39 Temporal API](https://tc39.es/proposal-temporal/). The runtime references a **global `Temporal` object** and does not bundle a polyfill, so the host is responsible for providing one. Any Forthic program that uses dates/times (`TODAY`, `NOW`, date literals like `2020-06-05`, the `datetime` module, or wire serialization of temporal values) will throw `Temporal is not defined` if no global `Temporal` is available.
+
+Native `Temporal` is not yet shipped unflagged in Node.js, Chrome, or Safari, so most consumers need a polyfill. Install [`temporal-polyfill`](https://www.npmjs.com/package/temporal-polyfill) and import it **once** at your application's entry point, before running any Forthic:
+
+```bash
+npm install temporal-polyfill
+```
+
+```typescript
+import "temporal-polyfill/global"; // installs globalThis.Temporal
+import { Interpreter } from "@forthix/forthic";
+```
+
+`temporal-polyfill` is declared as an **optional peer dependency**: skip it only if your runtime already provides a native global `Temporal`, or if your programs never touch dates/times. For TypeScript type-checking of Temporal types, also add `temporal-spec` as a dev dependency.
+
 ---
 
 ## Getting Started
