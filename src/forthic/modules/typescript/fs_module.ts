@@ -70,7 +70,11 @@ TypeScript-specific file system operations for Node.js runtime.
   }
 
   @ForthicWord("( parts:string[] -- path:string )", "Join path components", "JOIN-PATH")
-  async JOIN_PATH(...parts: string[]) {
+  async JOIN_PATH(parts: string[]) {
+    // The decorator pops the single array argument named `parts`; spread it
+    // into path.join. A rest parameter (...parts) would receive [parts] and
+    // make path.join throw on the nested array.
+    if (!Array.isArray(parts)) return "";
     return path.join(...parts);
   }
 

@@ -1,6 +1,24 @@
 import { Interpreter, dup_interpreter } from "../../interpreter.js";
 import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 
+/**
+ * Natural ordering comparator: numbers sort numerically and strings sort
+ * lexicographically, using the relational operators rather than Array.sort's
+ * default string coercion (which would order [10, 9, 2] as [10, 2, 9]).
+ * null/undefined sort to the end (matching the prior string-coercion behavior,
+ * but made explicit rather than incidental).
+ */
+function natural_cmp(l: any, r: any): number {
+  const l_nil = l === null || l === undefined;
+  const r_nil = r === null || r === undefined;
+  if (l_nil && r_nil) return 0;
+  if (l_nil) return 1;
+  if (r_nil) return -1;
+  if (l < r) return -1;
+  if (l > r) return 1;
+  return 0;
+}
+
 export class ArrayModule extends DecoratedModule {
   static {
     registerModuleDoc(ArrayModule, `
@@ -316,14 +334,17 @@ Several words support options via the ~> operator using syntax: [.option_name va
     if (!rcontainer) rcontainer = [];
 
     function union(l, r) {
-      const keyset = {};
-      l.forEach((item) => {
-        keyset[item] = true;
-      });
-      r.forEach((item) => {
-        keyset[item] = true;
-      });
-      const res = Object.keys(keyset);
+      // Preserve element identity and type (numbers stay numbers, distinct
+      // objects stay distinct) and dedup by value. Using elements as object
+      // keys — the previous approach — coerced everything to strings.
+      const seen = new Set();
+      const res: any[] = [];
+      for (const item of [...l, ...r]) {
+        if (!seen.has(item)) {
+          seen.add(item);
+          res.push(item);
+        }
+      }
       return res;
     }
 
@@ -364,7 +385,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     // -----
     // Default sort
     function sort_without_comparator() {
-      return container.sort();
+      return container.sort(natural_cmp);
     }
 
     // -----
@@ -486,8 +507,11 @@ Several words support options via the ~> operator using syntax: [.option_name va
     };
 
     const is_record = (obj: any) => {
-      const keys = Object.keys(obj);
-      return keys.length > 0;
+      // Only non-null objects can be records. Guards against Object.keys(null)
+      // throwing and against strings (Object.keys("hi") -> ["0","1"]) being
+      // recursed into as if they were records.
+      if (obj === null || typeof obj !== "object") return false;
+      return Object.keys(obj).length > 0;
     };
 
     const add_to_record_result = (item: any, key: string, keys: string[], result: any) => {
@@ -1163,7 +1187,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
   )
   async SORT_U(strings: any) {
     if (!Array.isArray(strings)) return strings;
-    const sorted = [...strings].sort();
+    const sorted = [...strings].sort(natural_cmp);
     const seen = new Set<string>();
     const result: any[] = [];
     for (const s of sorted) {

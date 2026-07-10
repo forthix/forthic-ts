@@ -274,3 +274,40 @@ test("GROUP-BY with options - with_key", async () => {
   // But index comes first, so result is different
   expect(Object.keys(grouped).length).toBeGreaterThan(0);
 });
+
+// ========================================
+// Correctness-sweep regressions
+// ========================================
+
+test("SORT orders numbers numerically, not lexicographically", async () => {
+  await interp.run(`[10 9 2 100 21] SORT`);
+  expect(interp.stack_pop()).toEqual([2, 9, 10, 21, 100]);
+});
+
+test("SORT-U orders numbers numerically and dedups", async () => {
+  await interp.run(`[10 9 2 9 100 10] SORT-U`);
+  expect(interp.stack_pop()).toEqual([2, 9, 10, 100]);
+});
+
+test("UNION preserves element type (does not stringify numbers)", async () => {
+  await interp.run(`[1 2] [3 2] UNION`);
+  const result = interp.stack_pop();
+  expect(result).toEqual([1, 2, 3]);
+  expect(result.every((x: any) => typeof x === "number")).toBe(true);
+});
+
+test("UNION keeps distinct objects distinct", async () => {
+  await interp.run(`[[["id" 1]] REC] [[["id" 2]] REC] UNION`);
+  const result = interp.stack_pop();
+  expect(result.map((r: any) => r.id).sort()).toEqual([1, 2]);
+});
+
+test("FLATTEN handles null values in a record without throwing", async () => {
+  await interp.run(`[["a" NULL] ["b" 1]] REC FLATTEN`);
+  expect(interp.stack_pop()).toEqual({ a: null, b: 1 });
+});
+
+test("FLATTEN treats string values as leaves, not records", async () => {
+  await interp.run(`[["a" "hi"]] REC FLATTEN`);
+  expect(interp.stack_pop()).toEqual({ a: "hi" });
+});

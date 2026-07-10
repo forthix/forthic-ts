@@ -138,4 +138,14 @@ describe("StringModule", () => {
     await interp.run("[['a' 1]] REC .r ! '{.r}@' INTERPOLATE");
     expect(interp.stack_pop()).toBe('{"a":1}');
   });
+
+  test("RE-MATCH-ALL returns full matches when the pattern has no capture group", async () => {
+    await interp.run("'a1b2c3' '[0-9]' RE-MATCH-ALL");
+    expect(interp.stack_pop()).toEqual(["1", "2", "3"]);
+  });
+
+  test("RE-MATCH-ALL still returns capture group 1 when present", async () => {
+    await interp.run("'test1 test2 test3' 'test([0-9])' RE-MATCH-ALL");
+    expect(interp.stack_pop()).toEqual(["1", "2", "3"]);
+  });
 });
