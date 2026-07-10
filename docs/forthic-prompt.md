@@ -93,7 +93,7 @@ ALWAYS generate code in this structure:
 
 ## Words
 
-8 modules · 162 surface words.
+8 modules · 163 surface words.
 
 ### array
 - `APPEND` `( array:any[] item:any -- array:any[] )` — Append item to array. For records, use JQ! to set a key.
@@ -229,7 +229,6 @@ ALWAYS generate code in this structure:
 
 ### record
 - `<REC!` `( rec:any value:any field:any -- rec:any )` — Set value in record at field path
-- `|REC@` `( records:any field:any -- values:any )` — Map REC@ over array of records
 - `DELETE` `( container:any key:any -- container:any )` — Delete key from record or index from array
 - `ENTRIES>REC` `( pairs:any[] -- rec:any )` — Build a record from an array of [key, value] pairs. Alias of REC, surfaced for symmetry with REC>ENTRIES.
 - `HAS-KEY?` `( rec:any key:any -- bool:boolean )` — Returns true if rec has the given key (own property). Distinct from REC@ NULL == — handles intentional null values correctly.
@@ -264,10 +263,12 @@ ALWAYS generate code in this structure:
 - `RE-REPLACE` `( string:string pattern:string replace:string -- result:string )` — Replace all regex matches of pattern with replace. Same as classic REPLACE behavior.
 - `REPLACE` `( string:string text:string replace:string -- result:string )` — Replace all literal occurrences of text with replace. For regex matching use RE-REPLACE.
 - `SED` `( strings:string[] pattern:string repl:string -- strings:string[] )` — Apply RE-REPLACE to each string in the array (bash sed s/pattern/repl/g).
+- `SPLICE` `( str:string start:number end:number newval:string -- result:string )` — Replace the substring [start, end) of str with newval and return the result (a splice).
 - `SPLIT` `( string:string sep:string -- items:any[] )` — Split string by separator
 - `STARTS-WITH?` `( str:string prefix:string -- bool:boolean )` — Returns true if str begins with prefix.
 - `STR-LENGTH` `( str:string -- length:number )` — Length of a string in characters (0 if null/undefined).
 - `STRIP` `( string:string -- result:string )` — Trim whitespace from string
+- `SUBSTR` `( str:string start:number end:number -- substring:string )` — Substring of str from start (inclusive) to end (exclusive), by character index. Indices clamp like String.slice (negatives count from the end).
 - `TRIM-PREFIX` `( str:string prefix:string -- result:string )` — Strip prefix from start of str if present (otherwise return str unchanged).
 - `TRIM-SUFFIX` `( str:string suffix:string -- result:string )` — Strip suffix from end of str if present (otherwise return str unchanged).
 - `UNLINES` `( lines:string[] -- str:string )` — Join an array of lines with newlines. Equivalent to /N JOIN.

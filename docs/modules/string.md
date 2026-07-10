@@ -4,7 +4,7 @@
 
 String manipulation and processing operations with regex and URL encoding support.
 
-**26 words**
+**28 words**
 
 ## Categories
 
@@ -172,6 +172,14 @@ Apply RE-REPLACE to each string in the array (bash sed s/pattern/repl/g).
 
 ---
 
+### SPLICE
+
+**Stack Effect:** `( str:string start:number end:number newval:string -- result:string )`
+
+Replace the substring [start, end) of str with newval and return the result (a splice).
+
+---
+
 ### SPLIT
 
 **Stack Effect:** `( string:string sep:string -- items:any[] )`
@@ -201,6 +209,14 @@ Length of a string in characters (0 if null/undefined).
 **Stack Effect:** `( string:string -- result:string )`
 
 Trim whitespace from string
+
+---
+
+### SUBSTR
+
+**Stack Effect:** `( str:string start:number end:number -- substring:string )`
+
+Substring of str from start (inclusive) to end (exclusive), by character index. Indices clamp like String.slice (negatives count from the end).
 
 ---
 

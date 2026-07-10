@@ -1762,14 +1762,14 @@ test("Parallel map over record", async () => {
   expect(interp.stack_pop()).toEqual({ a: 3, b: 6, c: 9, d: 12 });
 });
 
-test("|REC@|", async () => {
+test("[].field JQ@ maps a field over an array of records (was |REC@)", async () => {
   interp.stack_push([{ a: 1 }, { a: 2 }, { a: 3 }]);
-  await interp.run(`'a' |REC@`);
+  await interp.run(`'[].a' JQ@`);
 
   expect(interp.stack_pop()).toEqual([1, 2, 3]);
 
   interp.stack_push([{ a: { b: 1 } }, { a: { b: 2 } }, { a: { b: 3 } }]);
-  await interp.run(`['a' 'b'] |REC@`);
+  await interp.run(`'[].a.b' JQ@`);
 
   expect(interp.stack_pop()).toEqual([1, 2, 3]);
 });

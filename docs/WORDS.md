@@ -1,8 +1,8 @@
 # Forthic — Standard Words
 
-Generated: 2026-06-18T20:15:55.771Z
+Generated: 2026-07-10T23:01:57.765Z
 
-**8 modules · 162 surface words**
+**8 modules · 163 surface words**
 
 Classic/back-compat words live in `classic/classic_module.ts` and are
 intentionally omitted from this index.
@@ -147,6 +147,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - **DEFAULT** `( value:any default_value:any -- result:any )` — Returns value or default if value is null/undefined/empty string
 - **DEFAULT-RUN** `( value:any forthic:string -- result:any )` — Lazy default: returns value if non-empty, otherwise runs forthic and uses its result. The forthic is only evaluated when needed.
 - **NULL** `( -- null:null )` — Pushes null onto stack
+- **UNDEFINED** `( -- undefined:undefined )` — Pushes undefined onto stack
 - **IF** `( bool:boolean then_value:any else_value:any -- chosen:any )` — Pure value selection: push then_value if bool is truthy, else push else_value. For lazy code execution use IF-RUN; for one-sided side effects use WHEN.
 - **IF-RUN** `( bool:boolean then_forthic:string else_forthic:string -- ? )` — Conditional code execution: if bool is truthy run then_forthic, otherwise run else_forthic. Branches are Forthic strings.
 - **WHEN** `( bool:boolean forthic:string -- ? )` — If bool is truthy run forthic, otherwise do nothing. The forthic argument is always treated as code (executed in current context).
@@ -177,7 +178,6 @@ Essential interpreter operations for stack manipulation, variables, control flow
 ### Other
 
 - **~>** `( array:any[] -- options:WordOptions )` — Convert options array to WordOptions. Format: [.key1 val1 .key2 val2]
-- **UNDEFINED** `( -- undefined:undefined )` — Pushes undefined onto stack
 
 ## datetime
 
@@ -274,14 +274,13 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
 - **REC** `( key_vals:any[] -- rec:any )` — Create record from [[key, val], ...] pairs
 - **REC@** `( rec:any field:any -- value:any )` — Get value from record by field or array of fields
-- **|REC@** `( records:any field:any -- values:any )` — Map REC@ over array of records
 - **<REC!** `( rec:any value:any field:any -- rec:any )` — Set value in record at field path
 
 ### Path access (jq-style)
 
 - **JQ@** `( container:any path:any -- value:any )` — Get value at jq-style path (e.g., .users[].name). Returns null on miss; [] iterates and flattens. Path arrays accepted for dynamic keys.
 - **JQ!** `( container:any value:any path:any -- container:any )` — Set value at jq-style path. Auto-creates missing intermediates (record for field, array for index). [] iteration not supported.
-- **JQ-DEL** `( container:any path:any -- container:any )` — Delete value at jq-style path. No-op if path doesn't exist. [] iteration not supported.
+- **JQ-DEL (use "[].field" JQ@ to map a field over an array of records)** _(declared in category but not found in module)_
 
 ### Construct
 
@@ -312,6 +311,10 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
 - **KEYS** `( container:any -- keys:any[] )` — Get keys from record or indices from array
 - **VALUES** `( container:any -- values:any[] )` — Get values from record or elements from array
+
+### Other
+
+- **JQ-DEL** `( container:any path:any -- container:any )` — Delete value at jq-style path. No-op if path doesn't exist. [] iteration not supported.
 
 ## string
 
@@ -366,5 +369,7 @@ String manipulation and processing operations with regex and URL encoding suppor
 
 ### Other
 
+- **SPLICE** `( str:string start:number end:number newval:string -- result:string )` — Replace the substring [start, end) of str with newval and return the result (a splice).
 - **STR-LENGTH** `( str:string -- length:number )` — Length of a string in characters (0 if null/undefined).
+- **SUBSTR** `( str:string start:number end:number -- substring:string )` — Substring of str from start (inclusive) to end (exclusive), by character index. Indices clamp like String.slice (negatives count from the end).
 

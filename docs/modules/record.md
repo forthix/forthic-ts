@@ -4,12 +4,12 @@
 
 Record (object/dictionary) manipulation operations for working with key-value data structures.
 
-**16 words**
+**15 words**
 
 ## Categories
 
-- **Core**: REC, REC@, |REC@, <REC!
-- **Path access (jq-style)**: JQ@, JQ!, JQ-DEL
+- **Core**: REC, REC@, <REC!
+- **Path access (jq-style)**: JQ@, JQ!, JQ-DEL (use "[].field" JQ@ to map a field over an array of records)
 - **Construct**: ENTRIES>REC
 - **Disassemble**: REC>ENTRIES
 - **Combine**: MERGE
@@ -25,14 +25,6 @@ Record (object/dictionary) manipulation operations for working with key-value da
 **Stack Effect:** `( rec:any value:any field:any -- rec:any )`
 
 Set value in record at field path
-
----
-
-### |REC@
-
-**Stack Effect:** `( records:any field:any -- values:any )`
-
-Map REC@ over array of records
 
 ---
 
