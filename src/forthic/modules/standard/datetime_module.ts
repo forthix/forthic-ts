@@ -38,7 +38,10 @@ TODAY 7 ADD-DAYS
 
   @ForthicDirectWord("( -- datetime:Temporal.ZonedDateTime )", "Get current datetime", "NOW")
   async NOW(interp: Interpreter) {
-    const now = Temporal.Now.plainDateTimeISO(interp.get_timezone());
+    // Return a ZonedDateTime (carries the timezone) to match the signature.
+    // plainDateTimeISO drops the zone, which also let a midnight NOW serialize
+    // as a bare date.
+    const now = Temporal.Now.zonedDateTimeISO(interp.get_timezone());
     interp.stack_push(now);
   }
 
@@ -154,7 +157,9 @@ TODAY 7 ADD-DAYS
   async to_DATETIME(interp: Interpreter) {
     const item = interp.stack_pop();
 
-    if (!item) {
+    // Only null/undefined/empty are "no value". A numeric 0 is the Unix epoch,
+    // a valid timestamp — `!item` used to reject it.
+    if (item === null || item === undefined || item === "") {
       interp.stack_push(null);
       return;
     }

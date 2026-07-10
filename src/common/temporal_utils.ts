@@ -16,7 +16,7 @@ export function isPlainDate(value: any): boolean {
          typeof value.month === 'number' &&
          typeof value.day === 'number' &&
          typeof value.toString === 'function' &&
-         !value.hour;  // PlainDate doesn't have hour
+         value.hour === undefined;  // PlainDate has no hour (0 is a valid hour!)
 }
 
 /**
@@ -48,7 +48,7 @@ export function isPlainTime(value: any): boolean {
          typeof value.hour === 'number' &&
          typeof value.minute === 'number' &&
          typeof value.toString === 'function' &&
-         !value.year;  // PlainTime doesn't have year
+         value.year === undefined;  // PlainTime has no year (year 0 is valid!)
 }
 
 /**
@@ -62,7 +62,7 @@ export function isPlainDateTime(value: any): boolean {
          typeof value.day === 'number' &&
          typeof value.hour === 'number' &&
          typeof value.toString === 'function' &&
-         !value.timeZoneId;  // PlainDateTime doesn't have timeZoneId
+         value.timeZoneId === undefined;  // PlainDateTime has no timeZoneId
 }
 
 /**
