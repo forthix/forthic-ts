@@ -11,10 +11,42 @@
  * NOT a JSON-RPC batch. Batch envelopes are rejected with code -32600.
  */
 import * as http from 'http';
+import * as crypto from 'crypto';
 import { StandardInterpreter } from '../forthic/interpreter.js';
 import { serializeValue, deserializeValue } from '../grpc/serializer.js';
 import { FsModule } from '../forthic/modules/typescript/fs_module.js';
 import { JsonRpcErrorCode } from './errors.js';
+
+/** Default cap on request body size (1 MiB). */
+const DEFAULT_MAX_BODY_BYTES = 1024 * 1024;
+
+/**
+ * Options controlling how the JSON-RPC server is exposed. The server executes
+ * Forthic code supplied by callers, so the defaults are deliberately
+ * conservative: loopback-only, no remote reach, and no server internals in
+ * error responses.
+ */
+export interface ServeOptions {
+  /**
+   * Interface to bind. Defaults to `127.0.0.1` (loopback only). Set to
+   * `0.0.0.0` to accept remote connections — do so only together with `token`.
+   * Env: `FORTHIC_JSONRPC_HOST`.
+   */
+  host?: string;
+  /**
+   * Shared secret. When set, every request must send
+   * `Authorization: Bearer <token>`; others get 401. Env: `FORTHIC_JSONRPC_TOKEN`.
+   */
+  token?: string;
+  /** Maximum request body in bytes. Env: `FORTHIC_JSONRPC_MAX_BODY_BYTES`. */
+  maxBodyBytes?: number;
+  /**
+   * Include JS stack traces and file-path-derived locations in error
+   * responses. Off by default (they leak absolute server paths). For local
+   * debugging only.
+   */
+  exposeStackTraces?: boolean;
+}
 
 interface ErrorInfo {
   message: string;
@@ -138,9 +170,9 @@ class ForthicJsonRpcServicer {
   buildRuntimeError(
     exception: any,
     wordName: string | null = null,
-    context: { [key: string]: string } = {}
+    context: { [key: string]: string } = {},
+    includeStack = false
   ): ErrorInfo {
-    const stackTrace = exception?.stack ? String(exception.stack).split('\n') : [];
     const errorType = exception?.constructor?.name || 'Error';
     const errorContext: { [key: string]: string } = {};
     if (wordName) errorContext['word_name'] = wordName;
@@ -149,13 +181,20 @@ class ForthicJsonRpcServicer {
     const errorInfo: ErrorInfo = {
       message: exception?.message ?? String(exception),
       runtime: 'typescript',
-      stack_trace: stackTrace,
       error_type: errorType,
       context: errorContext,
     };
-    if (stackTrace.length > 0) {
-      const m = stackTrace[0].match(/\((.*):(\d+):\d+\)/);
-      if (m) errorInfo.word_location = `${m[1]}:${m[2]}`;
+
+    // Stack traces and the file-path-derived location are omitted by default:
+    // they leak absolute server paths and internal module structure to any
+    // caller. Opt in via ServeOptions.exposeStackTraces for local debugging.
+    if (includeStack) {
+      const stackTrace = exception?.stack ? String(exception.stack).split('\n') : [];
+      errorInfo.stack_trace = stackTrace;
+      if (stackTrace.length > 0) {
+        const m = stackTrace[0].match(/\((.*):(\d+):\d+\)/);
+        if (m) errorInfo.word_location = `${m[1]}:${m[2]}`;
+      }
     }
     return errorInfo;
   }
@@ -210,13 +249,53 @@ function makeInvalidParams(message: string): JsonRpcMethodError {
   return new JsonRpcMethodError(JsonRpcErrorCode.InvalidParams, message);
 }
 
-async function readBody(req: http.IncomingMessage): Promise<string> {
+class PayloadTooLargeError extends Error {
+  constructor() {
+    super('Payload too large');
+    this.name = 'PayloadTooLargeError';
+  }
+}
+
+async function readBody(req: http.IncomingMessage, maxBytes: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on('data', (c: Buffer) => chunks.push(c));
+    let total = 0;
+    req.on('data', (c: Buffer) => {
+      total += c.length;
+      if (total > maxBytes) {
+        // Stop reading and drop the connection so a large or slow body can't
+        // exhaust memory.
+        reject(new PayloadTooLargeError());
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
     req.on('error', reject);
   });
+}
+
+function isLoopbackHost(host: string): boolean {
+  return host === '127.0.0.1' || host === '::1' || host === 'localhost';
+}
+
+/** Constant-time string comparison to avoid leaking the token via timing. */
+function timingSafeEqualStr(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
+}
+
+/** True when no token is configured, or the request carries the matching Bearer token. */
+function isAuthorized(req: http.IncomingMessage, token: string | undefined): boolean {
+  if (!token) return true;
+  const header = req.headers['authorization'];
+  if (typeof header !== 'string') return false;
+  const prefix = 'Bearer ';
+  if (!header.startsWith(prefix)) return false;
+  return timingSafeEqualStr(header.slice(prefix.length), token);
 }
 
 function writeJsonRpc(
@@ -234,7 +313,8 @@ function writeJsonRpc(
 
 async function dispatch(
   servicer: ForthicJsonRpcServicer,
-  request: JsonRpcRequest
+  request: JsonRpcRequest,
+  exposeStackTraces = false
 ): Promise<JsonRpcResponse> {
   const id = request.id ?? null;
   const method = request.method;
@@ -249,7 +329,7 @@ async function dispatch(
         } catch (err: any) {
           if (err instanceof JsonRpcMethodError) throw err;
           // Treat as Forthic runtime error with rich data
-          const data = servicer.buildRuntimeError(err, params?.word_name ?? null);
+          const data = servicer.buildRuntimeError(err, params?.word_name ?? null, {}, exposeStackTraces);
           throw new JsonRpcMethodError(
             JsonRpcErrorCode.RuntimeError,
             data.message,
@@ -265,7 +345,7 @@ async function dispatch(
           const seqContext: { [key: string]: string } = Array.isArray(params?.word_names)
             ? { word_sequence: params.word_names.join(', ') }
             : {};
-          const data = servicer.buildRuntimeError(err, null, seqContext);
+          const data = servicer.buildRuntimeError(err, null, seqContext, exposeStackTraces);
           throw new JsonRpcMethodError(
             JsonRpcErrorCode.RuntimeError,
             data.message,
@@ -303,8 +383,17 @@ async function dispatch(
   }
 }
 
-export async function serve(port: number = 8765): Promise<http.Server> {
+export async function serve(port: number = 8765, options: ServeOptions = {}): Promise<http.Server> {
   const servicer = new ForthicJsonRpcServicer();
+
+  const host = options.host ?? process.env.FORTHIC_JSONRPC_HOST ?? '127.0.0.1';
+  const token = options.token ?? process.env.FORTHIC_JSONRPC_TOKEN;
+  const maxBodyBytes =
+    options.maxBodyBytes ??
+    (process.env.FORTHIC_JSONRPC_MAX_BODY_BYTES
+      ? Number(process.env.FORTHIC_JSONRPC_MAX_BODY_BYTES)
+      : DEFAULT_MAX_BODY_BYTES);
+  const exposeStackTraces = options.exposeStackTraces ?? false;
 
   const server = http.createServer(async (req, res) => {
     if (req.method !== 'POST') {
@@ -317,17 +406,52 @@ export async function serve(port: number = 8765): Promise<http.Server> {
       res.end('Not Found');
       return;
     }
+    // Authenticate before reading the body, so unauthorized callers can't
+    // execute code or push a large payload.
+    if (!isAuthorized(req, token)) {
+      res.writeHead(401, { 'Content-Type': 'application/json', 'WWW-Authenticate': 'Bearer' });
+      res.end(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: JsonRpcErrorCode.InvalidRequest, message: 'Unauthorized' } }));
+      return;
+    }
     const ctype = (req.headers['content-type'] || '').toString().toLowerCase();
     if (!ctype.includes('application/json')) {
       res.writeHead(415, { 'Content-Type': 'text/plain' });
       res.end('Unsupported Media Type');
       return;
     }
+    // Reject an oversized body up front via Content-Length, before reading.
+    const declaredLen = Number(req.headers['content-length']);
+    if (Number.isFinite(declaredLen) && declaredLen > maxBodyBytes) {
+      writeJsonRpc(res, 413, {
+        jsonrpc: '2.0',
+        id: null,
+        error: { code: JsonRpcErrorCode.InvalidRequest, message: 'Payload too large' },
+      });
+      return;
+    }
 
     let raw: string;
     try {
-      raw = await readBody(req);
-    } catch {
+      raw = await readBody(req, maxBodyBytes);
+    } catch (err) {
+      if (err instanceof PayloadTooLargeError) {
+        // readBody destroys the request stream to halt the upload, which can
+        // tear down the socket before this response is written (e.g. a chunked
+        // body with no Content-Length). Best-effort 413; ignore if the socket
+        // is already gone.
+        if (!res.headersSent && !res.writableEnded) {
+          try {
+            writeJsonRpc(res, 413, {
+              jsonrpc: '2.0',
+              id: null,
+              error: { code: JsonRpcErrorCode.InvalidRequest, message: 'Payload too large' },
+            });
+          } catch {
+            /* socket already destroyed */
+          }
+        }
+        return;
+      }
       writeJsonRpc(res, 200, {
         jsonrpc: '2.0',
         id: null,
@@ -377,13 +501,20 @@ export async function serve(port: number = 8765): Promise<http.Server> {
       return;
     }
 
-    const response = await dispatch(servicer, parsed as JsonRpcRequest);
+    const response = await dispatch(servicer, parsed as JsonRpcRequest, exposeStackTraces);
     writeJsonRpc(res, 200, response);
   });
 
   return new Promise((resolve, reject) => {
     server.once('error', reject);
-    server.listen(port, '0.0.0.0', () => {
+    server.listen(port, host, () => {
+      if (!isLoopbackHost(host) && !token) {
+        console.warn(
+          `  ⚠ SECURITY: JSON-RPC server bound to non-loopback host '${host}' without an auth token. ` +
+            `It executes Forthic code from any client that can reach it. ` +
+            `Set options.token / FORTHIC_JSONRPC_TOKEN, or bind to 127.0.0.1.`
+        );
+      }
       const loaded = servicer.getRegisteredModuleNames();
       if (loaded.length > 0) {
         console.log(`  - Available runtime modules: ${loaded.join(', ')}`);
@@ -402,8 +533,15 @@ export async function main(): Promise<void> {
   if (portIndex !== -1 && args[portIndex + 1]) {
     port = parseInt(args[portIndex + 1], 10);
   }
-  await serve(port);
-  console.log(`Forthic JSON-RPC server listening on port ${port}`);
+  const options: ServeOptions = {};
+  const hostIndex = args.indexOf('--host');
+  if (hostIndex !== -1 && args[hostIndex + 1]) options.host = args[hostIndex + 1];
+  const tokenIndex = args.indexOf('--token');
+  if (tokenIndex !== -1 && args[tokenIndex + 1]) options.token = args[tokenIndex + 1];
+
+  await serve(port, options);
+  const boundHost = options.host ?? process.env.FORTHIC_JSONRPC_HOST ?? '127.0.0.1';
+  console.log(`Forthic JSON-RPC server listening on ${boundHost}:${port}`);
 }
 
 // Run as a CLI entry only under CommonJS. In an ES module `require` is not
