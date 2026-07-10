@@ -165,17 +165,30 @@ test("VALUES from record", async () => {
 // Advanced Operations
 // ========================================
 
-test("|REC@ - needs MAP to work", async () => {
+// |REC@ was removed in favor of the JQ `[]` iterate path, which does the same
+// thing as a strict superset and parses the field as data (no source-string
+// injection). "[].field" JQ@ replaces "field" |REC@.
+test("[].field JQ@ maps a field over an array of records (replaces |REC@)", async () => {
   await interp.run(`
     [
       [["key" 101] ["value" "alpha"]] REC
       [["key" 102] ["value" "beta"]] REC
       [["key" 103] ["value" "gamma"]] REC
     ]
-    "key" |REC@
+    "[].key" JQ@
   `);
-  const keys = interp.stack_pop();
-  expect(keys).toEqual([101, 102, 103]);
+  expect(interp.stack_pop()).toEqual([101, 102, 103]);
+});
+
+test("[].a.b JQ@ maps a nested path over an array (something |REC@ could not do cleanly)", async () => {
+  await interp.run(`
+    [
+      [["a" [["b" 1]] REC]] REC
+      [["a" [["b" 2]] REC]] REC
+    ]
+    "[].a.b" JQ@
+  `);
+  expect(interp.stack_pop()).toEqual([1, 2]);
 });
 
 // ========================================

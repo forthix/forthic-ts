@@ -11,8 +11,8 @@ export class RecordModule extends DecoratedModule {
 Record (object/dictionary) manipulation operations for working with key-value data structures.
 
 ## Categories
-- Core: REC, REC@, |REC@, <REC!
-- Path access (jq-style): JQ@, JQ!, JQ-DEL
+- Core: REC, REC@, <REC!
+- Path access (jq-style): JQ@, JQ!, JQ-DEL (use "[].field" JQ@ to map a field over an array of records)
 - Construct: ENTRIES>REC
 - Disassemble: REC>ENTRIES
 - Combine: MERGE
@@ -113,14 +113,6 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
     const result = RecordModule.drill_for_value(rec, fields);
     return result;
-  }
-
-  @ForthicWord("( records:any field:any -- values:any )", "Map REC@ over array of records", "|REC@")
-  async pipe_REC_at(records: any, field: any) {
-    // Push records back and field, then use MAP with REC@
-    this.interp.stack_push(records);
-    await this.interp.run(`'${JSON.stringify(field)} REC@' MAP`);
-    return undefined; // Result already on stack from MAP
   }
 
   @ForthicWord("( rec:any value:any field:any -- rec:any )", "Set value in record at field path", "<REC!")
