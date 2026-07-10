@@ -1117,6 +1117,18 @@ export class Interpreter {
       }
 
       if (done) {
+        // Turn complete. The execution loop stops before the EOS token (newStop
+        // is the resume pointer, which lands on EOS on the final chunk), so
+        // dispatch it now to run the same end-of-turn validation as
+        // run_with_tokenizer — e.g. MissingSemicolonError for a definition left
+        // open at end of input. Dispatch the token rather than re-checking
+        // is_compiling here, so both paths share one source of truth. When the
+        // turn is well-formed this is a no-op. If it throws, completedNormally
+        // stays false and the finally below aborts any redirect and resets the
+        // session before the error propagates.
+        if (eosFound) {
+          await this.handle_token(tokens[tokens.length - 1]);
+        }
         // Turn complete: reset so the next turn starts fresh.
         this.resetStreamingSession();
       } else {
