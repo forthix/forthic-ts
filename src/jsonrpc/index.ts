@@ -8,6 +8,7 @@
 
 export { JsonRpcClient } from './client.js';
 export { serve as startJsonRpcServer } from './server.js';
+export type { ServeOptions } from './server.js';
 export { JsonRpcErrorCode } from './errors.js';
 export { RemoteRuntimeError } from '../grpc/errors.js';
 
