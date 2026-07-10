@@ -51,6 +51,7 @@
     "build": "npm run build:cjs && npm run build:esm && npm run build:stamp",
     "prepublishOnly": "npm run build && npm test",
     "test": "jest",
+    "smoke": "node scripts/smoke.mjs",
     "test:unit": "jest",
     "test:integration": "jest --testPathIgnorePatterns=[]",
     "test:watch": "jest --watch",
