@@ -13,7 +13,10 @@ describe('JsonRpcClient Integration Tests', () => {
 
   beforeEach(async () => {
     server = await serve(TEST_PORT);
-    client = new JsonRpcClient(`localhost:${TEST_PORT}`);
+    // Use 127.0.0.1 rather than `localhost`: on Node 18 undici resolves
+    // `localhost` to IPv6 (::1) first while the server binds IPv4, so fetch
+    // fails. Matches the workaround already used in the server unit test.
+    client = new JsonRpcClient(`127.0.0.1:${TEST_PORT}`);
   });
 
   afterEach(async () => {

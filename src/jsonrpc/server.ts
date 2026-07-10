@@ -406,7 +406,10 @@ export async function main(): Promise<void> {
   console.log(`Forthic JSON-RPC server listening on port ${port}`);
 }
 
-if (require.main === module) {
+// Run as a CLI entry only under CommonJS. In an ES module `require` is not
+// defined, and referencing it at top level throws on import; the typeof guard
+// keeps `import "@forthix/forthic/jsonrpc"` working in ESM consumers.
+if (typeof require !== "undefined" && require.main === module) {
   main().catch((error) => {
     console.error('Fatal error:', error);
     process.exit(1);
