@@ -341,6 +341,13 @@ export class Interpreter {
     this.is_memo_definition = false;
     this.cur_definition = null;
 
+    // Clear per-run parsing state too, so reset() after a failed run fully
+    // restores the interpreter rather than leaving a stale tokenizer, a
+    // dangling previous_token, or a mid-turn streaming resume pointer.
+    this.tokenizer_stack = [];
+    this.previous_token = null;
+    this.resetStreamingSession();
+
     // Debug support
     this.string_location = undefined;
   }
@@ -352,32 +359,43 @@ export class Interpreter {
   ): Promise<boolean | number> {
     this.tokenizer_stack.push(new Tokenizer(string, reference_location));
 
-    if (this.handleError) {
-      await this.execute_with_recovery();
-    } else {
-      await this.run_with_tokenizer(
-        this.tokenizer_stack[this.tokenizer_stack.length - 1],
-      );
+    try {
+      if (this.handleError) {
+        await this.execute_with_recovery();
+      } else {
+        await this.run_with_tokenizer(
+          this.tokenizer_stack[this.tokenizer_stack.length - 1],
+        );
+      }
+    } finally {
+      // Always balance the push, even when execution throws — otherwise a
+      // failed run leaves a stale tokenizer on the stack and every later run
+      // reports the wrong input string / nesting depth.
+      this.tokenizer_stack.pop();
     }
-
-    this.tokenizer_stack.pop();
     return true;
   }
 
   async execute_with_recovery(numAttempts: number = 0): Promise<number> {
+    numAttempts++;
+    // Check the attempt budget OUTSIDE the try. If this throws it must escape,
+    // not be caught by our own handler and "recovered" — that would recurse
+    // forever, because numAttempts only grows and the guard would re-trip on
+    // every attempt.
+    if (numAttempts > this.maxAttempts) {
+      throw new TooManyAttemptsError(
+        this.get_top_input_string(),
+        numAttempts,
+        this.maxAttempts,
+      );
+    }
     try {
-      numAttempts++;
-      if (numAttempts > this.maxAttempts) {
-        throw new TooManyAttemptsError(
-          this.get_top_input_string(),
-          numAttempts,
-          this.maxAttempts,
-        );
-      }
       await this.continue();
       return numAttempts;
     } catch (e) {
       if (!this.handleError) throw e;
+      // Never try to recover from the attempt-budget guard itself.
+      if (e instanceof TooManyAttemptsError) throw e;
       await this.handleError(e, this);
       return await this.execute_with_recovery(numAttempts);
     }
@@ -716,9 +734,11 @@ export class Interpreter {
         this.string_location,
         e,
       );
+    } finally {
+      // Balance the push even on error, so a module whose code throws does not
+      // stay on the module stack and shadow later word lookups.
+      this.module_stack_pop();
     }
-
-    this.module_stack_pop();
   }
 
   // ======================
