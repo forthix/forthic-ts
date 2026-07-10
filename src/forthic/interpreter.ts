@@ -259,7 +259,9 @@ export class Interpreter {
     this.app_module = new Module("");
     this.app_module.set_interp(this);
     this.module_stack = [this.app_module];
-    this.registered_modules = {};
+    // Prototype-less: keyed by module names from program text, so `constructor`
+    // must not resolve to inherited Object and `__proto__` must not swap the map.
+    this.registered_modules = Object.create(null);
     this.is_compiling = false;
     this.is_memo_definition = false;
     this.cur_definition = null;
@@ -269,7 +271,7 @@ export class Interpreter {
     this.string_location = undefined;
 
     // Profiling support
-    this.word_counts = {};
+    this.word_counts = Object.create(null);
     this.is_profiling = false;
     this.start_profile_time = null;
     this.timestamps = [];
@@ -335,7 +337,7 @@ export class Interpreter {
 
   reset() {
     this.stack = new Stack(); // Phase 1: Use Stack class
-    this.app_module.variables = {};
+    this.app_module.variables = Object.create(null);
 
     this.module_stack = [this.app_module];
     this.is_compiling = false;
@@ -496,7 +498,8 @@ export class Interpreter {
 
   // --- Word-local variable frames ---
   push_local_frame(): void {
-    this.local_frames.push({});
+    // Prototype-less: word-local variable names come from program text.
+    this.local_frames.push(Object.create(null));
   }
 
   pop_local_frame(): void {
@@ -746,7 +749,7 @@ export class Interpreter {
     this.timestamps = [];
     this.start_profile_time = Date.now();
     this.add_timestamp("START");
-    this.word_counts = {};
+    this.word_counts = Object.create(null);
   }
 
   count_word(word: Word) {
@@ -1175,7 +1178,7 @@ export function dup_interpreter(interp: Interpreter): Interpreter {
   // Clone every registered module, bound to the target interpreter. Cloning
   // (not sharing) is what makes the dup independent: a clone's stateful words
   // operate on the target, and the source is never mutated.
-  const cloned: { [name: string]: Module } = {};
+  const cloned: { [name: string]: Module } = Object.create(null);
   Object.entries(source.registered_modules).forEach(([name, mod]) => {
     cloned[name] = mod.clone(result_interp);
   });
