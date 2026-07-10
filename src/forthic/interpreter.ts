@@ -5,6 +5,7 @@ import {
   UnknownWordError,
   UnknownModuleError,
   StackUnderflowError,
+  ModuleStackUnderflowError,
   UnknownTokenError,
   MissingSemicolonError,
   ExtraSemicolonError,
@@ -488,98 +489,6 @@ export class Interpreter {
     }
   }
 
-  /**
-   * Execute a sequence of words with batching optimization
-   */
-  private async executeBatchedWords(words: Word[]): Promise<void> {
-    // Lazy import to avoid circular dependency
-    const { ExecutionPlanner } = await import('./execution_planner.js');
-
-    // Only import RuntimeManager in Node.js environment (not browser)
-    // gRPC requires Node.js and won't work in browser
-    const isBrowser = typeof window !== 'undefined';
-    let RuntimeManager: any = null;
-
-    if (!isBrowser) {
-      const module = await import('../grpc/runtime_manager.js');
-      RuntimeManager = module.RuntimeManager;
-    }
-
-    const planner = new ExecutionPlanner();
-    const batches = planner.planExecution(words);
-    const runtimeManager = RuntimeManager ? RuntimeManager.getInstance() : null;
-
-    for (const batch of batches) {
-      if (!batch.isRemote) {
-        // Execute local words one by one
-        for (const word of batch.words) {
-          this.count_word(word);
-          try {
-            await word.execute(this);
-          } catch (e) {
-            // Don't wrap IntentionalStopError - it's a control-flow mechanism for debugging
-            if (e instanceof IntentionalStopError) {
-              throw e;
-            }
-            // Preserve subclass identity (for `instanceof`); fill in missing location/word from dispatch context.
-            if (e instanceof ForthicError) {
-              if (!e.location) e.location = word.get_location() || undefined;
-              if (!e.word) e.word = word.name;
-              throw e;
-            }
-            // Wrap generic errors in WordExecutionError to add location context
-            if (e instanceof Error) {
-              throw new WordExecutionError(
-                e.message,
-                e,
-                word.name,
-                word.get_location() || undefined,
-                word.get_location() || undefined
-              );
-            }
-            throw e;
-          }
-        }
-      } else {
-        // Remote execution only works in Node.js environment
-        if (!runtimeManager) {
-          throw new Error(`Remote execution not available in browser environment. Runtime '${batch.runtime}' cannot be accessed.`);
-        }
-
-        // Batch execute remote words in one RPC call
-        const client = runtimeManager.getClient(batch.runtime);
-
-        if (!client) {
-          throw new Error(`No gRPC client registered for runtime '${batch.runtime}'`);
-        }
-
-        // Count all words for profiling
-        for (const word of batch.words) {
-          this.count_word(word);
-        }
-
-        // Extract word names from the batch
-        const wordNames = batch.words.map((w: Word) => w.name);
-
-        // Get current stack state
-        const stackItems = this.stack.get_items();
-
-        // Execute the sequence remotely
-        const resultStack = await client.executeSequence(wordNames, stackItems);
-
-        // Clear local stack and replace with result
-        while (this.stack.length > 0) {
-          this.stack_pop();
-        }
-
-        // Push all result items
-        for (const item of resultStack) {
-          this.stack_push(item);
-        }
-      }
-    }
-  }
-
   cur_module(): Module {
     const result = this.module_stack[this.module_stack.length - 1];
     return result;
@@ -672,6 +581,16 @@ export class Interpreter {
   }
 
   module_stack_pop(): Module {
+    // The app module is the floor of the module stack. Popping it (e.g. a bare
+    // `}` with no matching open module) would empty the stack and leave
+    // cur_module() undefined, breaking every subsequent word lookup. Refuse and
+    // raise a clear error instead of silently corrupting the interpreter.
+    if (this.module_stack.length <= 1) {
+      throw new ModuleStackUnderflowError(
+        this.get_top_input_string(),
+        this.string_location,
+      );
+    }
     return this.module_stack.pop();
   }
 

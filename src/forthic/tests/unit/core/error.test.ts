@@ -1,6 +1,7 @@
 import { StandardInterpreter } from "../../../interpreter";
 import { Module } from "../../../module";
 import { ForthicError, UnknownWordError, WordExecutionError, MissingSemicolonError, ExtraSemicolonError, get_error_description, StackUnderflowError } from "../../../errors";
+import { CodeLocation } from "../../../tokenizer";
 
 const PRINT_ERRORS = false;
 
@@ -164,3 +165,17 @@ test("WordExecutionError shows dual-location error formatting", async () => {
   }
 })
 
+
+describe("get_error_description is crash-proof on degenerate locations", () => {
+  test("a column of 0 does not throw RangeError from repeat()", () => {
+    const loc = new CodeLocation({ line: 1, column: 0, start_pos: 0, end_pos: 1 });
+    const err = new ForthicError("SOME SOURCE", "boom", loc);
+    expect(() => get_error_description("SOME SOURCE", err)).not.toThrow();
+  });
+
+  test("an end_pos before start_pos does not throw RangeError from repeat()", () => {
+    const loc = new CodeLocation({ line: 1, column: 3, start_pos: 5, end_pos: 2 });
+    const err = new ForthicError("SOME SOURCE", "boom", loc);
+    expect(() => get_error_description("SOME SOURCE", err)).not.toThrow();
+  });
+});

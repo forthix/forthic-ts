@@ -145,6 +145,14 @@ export class StackUnderflowError extends ForthicError {
   }
 }
 
+export class ModuleStackUnderflowError extends ForthicError {
+  constructor(forthic: string, location?: CodeLocationData, cause?: Error) {
+    const note = "Unmatched '}' — no open module to close";
+    super(forthic, note, location, cause);
+    this.name = "ModuleStackUnderflowError";
+  }
+}
+
 export class InvalidVariableNameError extends ForthicError {
   private varname: string;
 
@@ -269,6 +277,18 @@ export class IntentionalStopError extends Error {
   }
 }
 
+/**
+ * Build the "    ^^^^" underline that points at an error's span. Both counts are
+ * clamped to >= 0 so a degenerate location (column 0, or end_pos before
+ * start_pos) can never make String.prototype.repeat throw RangeError — the
+ * error formatter must never turn a real Forthic error into a crash.
+ */
+function caret_underline(location: CodeLocationData): string {
+  const leading = Math.max(0, location.column - 1);
+  const width = Math.max(0, (location.end_pos || location.start_pos + 1) - location.start_pos);
+  return " ".repeat(leading) + "^".repeat(width);
+}
+
 export function get_error_description(forthic: string, forthicError: ForthicError): string {
   // If don't have any extra info, just return the note
   if (!forthic || forthic === "" || forthicError.location === undefined) {
@@ -285,7 +305,7 @@ export function get_error_description(forthic: string, forthicError: ForthicErro
       // Show definition location with highlighting
       const def_line_num = def_loc.line;
       const def_lines = forthic.split("\n").slice(0, def_line_num);
-      const def_error_line = " ".repeat(def_loc.column - 1) + "^".repeat((def_loc.end_pos || def_loc.start_pos + 1) - def_loc.start_pos);
+      const def_error_line = caret_underline(def_loc);
 
       let def_location_info = `at line ${def_line_num}`;
       if (def_loc.source) {
@@ -295,7 +315,7 @@ export function get_error_description(forthic: string, forthicError: ForthicErro
       // Show call location with highlighting
       const call_line_num = location.line;
       const call_lines = forthic.split("\n").slice(0, call_line_num);
-      const call_error_line = " ".repeat(location.column - 1) + "^".repeat((location.end_pos || location.start_pos + 1) - location.start_pos);
+      const call_error_line = caret_underline(location);
 
       let call_location_info = `line ${call_line_num}`;
       if (location.source) {
@@ -310,7 +330,7 @@ export function get_error_description(forthic: string, forthicError: ForthicErro
   // Standard error format for other errors
   const line_num = location.line;
   const lines = forthic.split("\n").slice(0, line_num);
-  const error_line = " ".repeat(location.column - 1) + "^".repeat((location.end_pos || location.start_pos + 1) - location.start_pos);
+  const error_line = caret_underline(location);
 
   let location_info = `at line ${line_num}`;
   if (location.source) {

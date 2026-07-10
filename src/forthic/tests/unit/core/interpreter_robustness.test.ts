@@ -39,6 +39,15 @@ describe("error paths restore interpreter state", () => {
     expect(interp.get_stack().get_items()).toEqual([3]);
   });
 
+  test("a stray } does not brick the interpreter by emptying the module stack", async () => {
+    // A bare `}` with no matching module context must not pop the app module —
+    // that would leave cur_module() undefined and make every later word lookup
+    // fail. It should raise a clear error and leave the interpreter usable.
+    await expect(interp.run("}")).rejects.toThrow();
+    await interp.run("1 2 +");
+    expect(interp.get_stack().get_items()).toEqual([3]);
+  });
+
   test("a module whose code throws does not stay on the module stack", async () => {
     const mod = new Module("boom");
     mod.forthic_code = "THIS_IS_NOT_A_WORD";
