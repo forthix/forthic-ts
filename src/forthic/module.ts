@@ -213,6 +213,12 @@ export class DefinitionWord extends Word {
           try {
             await word.execute(interp);
           } catch (e) {
+            // Don't wrap IntentionalStopError — it's a control-flow mechanism
+            // for debugging and must reach the host with its identity intact.
+            // Other errors (including ForthicError subclasses) are intentionally
+            // wrapped so the WordExecutionError can carry both the call site and
+            // this definition's location; the original stays on `.cause`.
+            if (e instanceof IntentionalStopError) throw e;
             // call_location: use this DefinitionWord's own location (set by
             // dispatch via word.set_location(token.location)). Reading
             // tokenizer.get_token_location() here would return a stale token
@@ -231,6 +237,7 @@ export class DefinitionWord extends Word {
         try {
           await this.executeBatch(batch, interp, runtimeManager);
         } catch (e) {
+          if (e instanceof IntentionalStopError) throw e;
           throw new WordExecutionError(
             `Error executing ${this.name} (batched remote execution)`,
             e as Error,

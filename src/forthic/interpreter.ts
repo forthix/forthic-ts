@@ -5,6 +5,7 @@ import {
   UnknownWordError,
   UnknownModuleError,
   StackUnderflowError,
+  ModuleStackUnderflowError,
   UnknownTokenError,
   MissingSemicolonError,
   ExtraSemicolonError,
@@ -341,6 +342,13 @@ export class Interpreter {
     this.is_memo_definition = false;
     this.cur_definition = null;
 
+    // Clear per-run parsing state too, so reset() after a failed run fully
+    // restores the interpreter rather than leaving a stale tokenizer, a
+    // dangling previous_token, or a mid-turn streaming resume pointer.
+    this.tokenizer_stack = [];
+    this.previous_token = null;
+    this.resetStreamingSession();
+
     // Debug support
     this.string_location = undefined;
   }
@@ -352,32 +360,43 @@ export class Interpreter {
   ): Promise<boolean | number> {
     this.tokenizer_stack.push(new Tokenizer(string, reference_location));
 
-    if (this.handleError) {
-      await this.execute_with_recovery();
-    } else {
-      await this.run_with_tokenizer(
-        this.tokenizer_stack[this.tokenizer_stack.length - 1],
-      );
+    try {
+      if (this.handleError) {
+        await this.execute_with_recovery();
+      } else {
+        await this.run_with_tokenizer(
+          this.tokenizer_stack[this.tokenizer_stack.length - 1],
+        );
+      }
+    } finally {
+      // Always balance the push, even when execution throws — otherwise a
+      // failed run leaves a stale tokenizer on the stack and every later run
+      // reports the wrong input string / nesting depth.
+      this.tokenizer_stack.pop();
     }
-
-    this.tokenizer_stack.pop();
     return true;
   }
 
   async execute_with_recovery(numAttempts: number = 0): Promise<number> {
+    numAttempts++;
+    // Check the attempt budget OUTSIDE the try. If this throws it must escape,
+    // not be caught by our own handler and "recovered" — that would recurse
+    // forever, because numAttempts only grows and the guard would re-trip on
+    // every attempt.
+    if (numAttempts > this.maxAttempts) {
+      throw new TooManyAttemptsError(
+        this.get_top_input_string(),
+        numAttempts,
+        this.maxAttempts,
+      );
+    }
     try {
-      numAttempts++;
-      if (numAttempts > this.maxAttempts) {
-        throw new TooManyAttemptsError(
-          this.get_top_input_string(),
-          numAttempts,
-          this.maxAttempts,
-        );
-      }
       await this.continue();
       return numAttempts;
     } catch (e) {
       if (!this.handleError) throw e;
+      // Never try to recover from the attempt-budget guard itself.
+      if (e instanceof TooManyAttemptsError) throw e;
       await this.handleError(e, this);
       return await this.execute_with_recovery(numAttempts);
     }
@@ -466,98 +485,6 @@ export class Interpreter {
           );
         }
         throw e;
-      }
-    }
-  }
-
-  /**
-   * Execute a sequence of words with batching optimization
-   */
-  private async executeBatchedWords(words: Word[]): Promise<void> {
-    // Lazy import to avoid circular dependency
-    const { ExecutionPlanner } = await import('./execution_planner.js');
-
-    // Only import RuntimeManager in Node.js environment (not browser)
-    // gRPC requires Node.js and won't work in browser
-    const isBrowser = typeof window !== 'undefined';
-    let RuntimeManager: any = null;
-
-    if (!isBrowser) {
-      const module = await import('../grpc/runtime_manager.js');
-      RuntimeManager = module.RuntimeManager;
-    }
-
-    const planner = new ExecutionPlanner();
-    const batches = planner.planExecution(words);
-    const runtimeManager = RuntimeManager ? RuntimeManager.getInstance() : null;
-
-    for (const batch of batches) {
-      if (!batch.isRemote) {
-        // Execute local words one by one
-        for (const word of batch.words) {
-          this.count_word(word);
-          try {
-            await word.execute(this);
-          } catch (e) {
-            // Don't wrap IntentionalStopError - it's a control-flow mechanism for debugging
-            if (e instanceof IntentionalStopError) {
-              throw e;
-            }
-            // Preserve subclass identity (for `instanceof`); fill in missing location/word from dispatch context.
-            if (e instanceof ForthicError) {
-              if (!e.location) e.location = word.get_location() || undefined;
-              if (!e.word) e.word = word.name;
-              throw e;
-            }
-            // Wrap generic errors in WordExecutionError to add location context
-            if (e instanceof Error) {
-              throw new WordExecutionError(
-                e.message,
-                e,
-                word.name,
-                word.get_location() || undefined,
-                word.get_location() || undefined
-              );
-            }
-            throw e;
-          }
-        }
-      } else {
-        // Remote execution only works in Node.js environment
-        if (!runtimeManager) {
-          throw new Error(`Remote execution not available in browser environment. Runtime '${batch.runtime}' cannot be accessed.`);
-        }
-
-        // Batch execute remote words in one RPC call
-        const client = runtimeManager.getClient(batch.runtime);
-
-        if (!client) {
-          throw new Error(`No gRPC client registered for runtime '${batch.runtime}'`);
-        }
-
-        // Count all words for profiling
-        for (const word of batch.words) {
-          this.count_word(word);
-        }
-
-        // Extract word names from the batch
-        const wordNames = batch.words.map((w: Word) => w.name);
-
-        // Get current stack state
-        const stackItems = this.stack.get_items();
-
-        // Execute the sequence remotely
-        const resultStack = await client.executeSequence(wordNames, stackItems);
-
-        // Clear local stack and replace with result
-        while (this.stack.length > 0) {
-          this.stack_pop();
-        }
-
-        // Push all result items
-        for (const item of resultStack) {
-          this.stack_push(item);
-        }
       }
     }
   }
@@ -654,6 +581,16 @@ export class Interpreter {
   }
 
   module_stack_pop(): Module {
+    // The app module is the floor of the module stack. Popping it (e.g. a bare
+    // `}` with no matching open module) would empty the stack and leave
+    // cur_module() undefined, breaking every subsequent word lookup. Refuse and
+    // raise a clear error instead of silently corrupting the interpreter.
+    if (this.module_stack.length <= 1) {
+      throw new ModuleStackUnderflowError(
+        this.get_top_input_string(),
+        this.string_location,
+      );
+    }
     return this.module_stack.pop();
   }
 
@@ -716,9 +653,11 @@ export class Interpreter {
         this.string_location,
         e,
       );
+    } finally {
+      // Balance the push even on error, so a module whose code throws does not
+      // stay on the module stack and shadow later word lookups.
+      this.module_stack_pop();
     }
-
-    this.module_stack_pop();
   }
 
   // ======================
@@ -1097,6 +1036,18 @@ export class Interpreter {
       }
 
       if (done) {
+        // Turn complete. The execution loop stops before the EOS token (newStop
+        // is the resume pointer, which lands on EOS on the final chunk), so
+        // dispatch it now to run the same end-of-turn validation as
+        // run_with_tokenizer — e.g. MissingSemicolonError for a definition left
+        // open at end of input. Dispatch the token rather than re-checking
+        // is_compiling here, so both paths share one source of truth. When the
+        // turn is well-formed this is a no-op. If it throws, completedNormally
+        // stays false and the finally below aborts any redirect and resets the
+        // session before the error propagates.
+        if (eosFound) {
+          await this.handle_token(tokens[tokens.length - 1]);
+        }
         // Turn complete: reset so the next turn starts fresh.
         this.resetStreamingSession();
       } else {

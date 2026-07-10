@@ -1,6 +1,7 @@
 import { UnterminatedStringError } from "../../tokenizer";
 import { StandardInterpreter } from "../../interpreter";
 import { Module } from "../../module";
+import { MissingSemicolonError } from "../../errors";
 
 // streamingRun is a plain async method: callers `await` each chunk and execution
 // runs up to the resume point. There is nothing to drain — a marked redirect
@@ -192,6 +193,35 @@ test("Unterminated string", async () => {
   await expect(interp.streamingRun(`''''`, true)).rejects.toThrow(
     UnterminatedStringError,
   );
+});
+
+describe("streamingRun end-of-turn validation", () => {
+  test("a completed turn with an unterminated definition throws MissingSemicolonError", async () => {
+    // done=true means end of input. `: FOO 1` never closes the definition, so
+    // this must fail the same way run(": FOO 1") does — not silently accept it.
+    const interp = new StandardInterpreter();
+    await expect(interp.streamingRun(": FOO 1", true)).rejects.toBeInstanceOf(
+      MissingSemicolonError,
+    );
+  });
+
+  test("a completed, well-formed definition is defined and usable (EOS is a no-op here)", async () => {
+    const interp = new StandardInterpreter();
+    await interp.streamingRun(": DOUBLE 2 * ;", true);
+    await interp.run("5 DOUBLE");
+    expect(interp.get_stack().get_items()).toEqual([10]);
+  });
+
+  test("a definition split across chunks is NOT validated mid-stream (done=false)", async () => {
+    // The `:` opens a definition that only closes in the final chunk. Mid-stream
+    // pumps must not raise MissingSemicolonError, or streamed definitions break.
+    const interp = new StandardInterpreter();
+    await interp.streamingRun(": DOUBLE 2", false);
+    await interp.streamingRun(": DOUBLE 2 *", false);
+    await interp.streamingRun(": DOUBLE 2 * ;", true);
+    await interp.run("5 DOUBLE");
+    expect(interp.get_stack().get_items()).toEqual([10]);
+  });
 });
 
 test("Nested string issue", async () => {
