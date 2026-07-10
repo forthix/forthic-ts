@@ -1,4 +1,19 @@
 import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
+import { isTemporal } from "../../../common/temporal_utils.js";
+
+/**
+ * Value equality. Temporal values are distinct objects even when they denote
+ * the same instant/date, so `===` would report `TODAY TODAY` as unequal. When
+ * both operands are Temporal, compare by ISO string, which is type-aware (a
+ * PlainDate and a ZonedDateTime never share a representation). Everything else
+ * keeps reference/primitive `===` semantics.
+ */
+function forthic_equals(a: any, b: any): boolean {
+  if (isTemporal(a) && isTemporal(b)) {
+    return a.toString() === b.toString();
+  }
+  return a === b;
+}
 
 export class BooleanModule extends DecoratedModule {
   static {
@@ -26,12 +41,12 @@ Comparison, logic, and membership operations for boolean values and conditions.
 
   @ForthicWord("( a:any b:any -- equal:boolean )", "Test equality", "==")
   async equals(a: any, b: any) {
-    return a === b;
+    return forthic_equals(a, b);
   }
 
   @ForthicWord("( a:any b:any -- not_equal:boolean )", "Test inequality", "!=")
   async not_equals(a: any, b: any) {
-    return a !== b;
+    return !forthic_equals(a, b);
   }
 
   @ForthicWord("( a:any b:any -- less_than:boolean )", "Less than", "<")

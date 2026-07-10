@@ -336,3 +336,37 @@ test("Date arithmetic chain", async () => {
   `);
   expect(interp.stack_pop()).toBe(21);
 });
+
+// ========================================
+// Correctness regressions
+// ========================================
+
+test("NOW returns a ZonedDateTime (has a timeZoneId), matching its signature", async () => {
+  await interp.run("NOW");
+  const result = interp.stack_pop();
+  expect(typeof result.timeZoneId).toBe("string");
+  expect(result.timeZoneId).toBe("America/Los_Angeles");
+});
+
+test(">DATETIME treats the Unix epoch (0) as a real timestamp, not null", async () => {
+  await interp.run("0 >DATETIME");
+  const result = interp.stack_pop();
+  expect(result).not.toBeNull();
+  // 0 is the epoch instant, regardless of the interpreter's timezone.
+  expect(Number(result.toInstant().epochMilliseconds)).toBe(0);
+});
+
+test("== compares two equal dates by value, not reference", async () => {
+  await interp.run("TODAY TODAY ==");
+  expect(interp.stack_pop()).toBe(true);
+});
+
+test("!= reports two equal dates as not-unequal", async () => {
+  await interp.run("TODAY TODAY !=");
+  expect(interp.stack_pop()).toBe(false);
+});
+
+test("== distinguishes different dates", async () => {
+  await interp.run("'2024-01-15' >DATE '2024-01-16' >DATE ==");
+  expect(interp.stack_pop()).toBe(false);
+});
