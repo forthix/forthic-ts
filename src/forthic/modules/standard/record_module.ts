@@ -31,6 +31,25 @@ Record (object/dictionary) manipulation operations for working with key-value da
   }
 
   /**
+   * Keys that must never be used as record keys: writing them would mutate the
+   * JavaScript object prototype chain (prototype pollution) rather than the
+   * record itself.
+   */
+  private static readonly UNSAFE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
+
+  /**
+   * Guard against prototype-pollution keys on any path segment that is written
+   * to (or traversed through) while mutating a record. Throws with a clear
+   * message so a Forthic program gets a real error instead of silently
+   * corrupting Object.prototype.
+   */
+  private static assert_safe_key(key: string | number): void {
+    if (typeof key === "string" && RecordModule.UNSAFE_KEYS.has(key)) {
+      throw new Error(`Unsafe record key '${key}' is not allowed (prototype pollution guard)`);
+    }
+  }
+
+  /**
    * Helper function to drill down into nested record structure
    * @param record - The record to drill into
    * @param fields - Array of field names to traverse
@@ -72,6 +91,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
         );
       }
       const [key, val] = pair;
+      RecordModule.assert_safe_key(key);
       result[key] = val;
     });
 
@@ -113,6 +133,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
     else fields = [field];
 
     function ensure_field(rec: any, field: string): any {
+      RecordModule.assert_safe_key(field);
       let res = rec[field];
       if (res === undefined) {
         res = {};
@@ -128,7 +149,9 @@ Record (object/dictionary) manipulation operations for working with key-value da
     }
 
     // Set the value at the right depth within rec
-    cur_rec[fields[fields.length - 1]] = value;
+    const last_field = fields[fields.length - 1];
+    RecordModule.assert_safe_key(last_field);
+    cur_rec[last_field] = value;
 
     return _rec;
   }
@@ -280,6 +303,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
       const seg = segments[i];
       const next = segments[i + 1];
       const key = RecordModule.seg_key(seg);
+      RecordModule.assert_safe_key(key);
 
       let child = cur[key];
       if (child == null || typeof child !== "object") {
@@ -290,6 +314,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
     }
 
     const last_key = RecordModule.seg_key(segments[segments.length - 1]);
+    RecordModule.assert_safe_key(last_key);
     cur[last_key] = value;
 
     return container;
@@ -299,6 +324,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
     let cur = container;
     for (let i = 0; i < segments.length - 1; i++) {
       const key = RecordModule.seg_key(segments[i]);
+      RecordModule.assert_safe_key(key);
       if (cur == null || typeof cur !== "object") return container;
       cur = cur[key];
     }
@@ -306,6 +332,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
     const last = segments[segments.length - 1];
     if (last.kind === "field") {
+      RecordModule.assert_safe_key(last.name);
       delete cur[last.name];
     } else if (last.kind === "index") {
       if (Array.isArray(cur)) {

@@ -246,7 +246,10 @@ String manipulation and processing operations with regex and URL encoding suppor
     const re_pattern = new RegExp(pattern, "g");
     let matches: IterableIterator<RegExpMatchArray> = [][Symbol.iterator]();
     if (string !== null) matches = string.matchAll(re_pattern);
-    const result = Array.from(matches).map((v) => v[1]);
+    // Return capture group 1 when the pattern has one, otherwise the full
+    // match. Previously always returned v[1], yielding undefined for every
+    // match when the pattern had no capture group.
+    const result = Array.from(matches).map((v) => v[1] ?? v[0]);
     return result;
   }
 

@@ -363,3 +363,45 @@ test("JQ@ composes as FILTER predicate (deep path + comparison)", async () => {
   const result = interp.stack_pop();
   expect(result.map((r: any) => r.name).sort()).toEqual(["Ada", "Cleo"]);
 });
+
+// ========================================
+// Prototype-pollution guard
+// ========================================
+
+describe("prototype-pollution guard", () => {
+  afterEach(() => {
+    // Ensure no test here leaked a polluted prototype for subsequent tests.
+    delete (Object.prototype as any).polluted;
+  });
+
+  test("JQ! rejects a __proto__ path and does not pollute Object.prototype", async () => {
+    await expect(interp.run(`[ ] REC TRUE ".__proto__.polluted" JQ!`)).rejects.toThrow();
+    expect(({} as any).polluted).toBeUndefined();
+  });
+
+  test("JQ-DEL rejects a __proto__ path", async () => {
+    await expect(interp.run(`[ ] REC ".__proto__.toString" JQ-DEL`)).rejects.toThrow();
+    expect(typeof ({} as any).toString).toBe("function");
+  });
+
+  test("<REC! rejects a __proto__ field and does not pollute Object.prototype", async () => {
+    await expect(interp.run(`[ ] REC TRUE [ "__proto__" "polluted" ] <REC!`)).rejects.toThrow();
+    expect(({} as any).polluted).toBeUndefined();
+  });
+
+  test("<REC! rejects constructor.prototype traversal", async () => {
+    await expect(interp.run(`[ ] REC TRUE [ "constructor" "prototype" "polluted" ] <REC!`)).rejects.toThrow();
+    expect(({} as any).polluted).toBeUndefined();
+  });
+
+  test("REC rejects a __proto__ key", async () => {
+    await expect(interp.run(`[[ "__proto__" [["polluted" TRUE]] REC ]] REC`)).rejects.toThrow();
+    expect(({} as any).polluted).toBeUndefined();
+  });
+
+  test("a normal field named similarly is still allowed", async () => {
+    await interp.run(`[ ] REC 42 ".config.__proto_ok" JQ!`);
+    const rec = interp.stack_pop();
+    expect(rec.config.__proto_ok).toBe(42);
+  });
+});
