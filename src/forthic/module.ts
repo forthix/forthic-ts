@@ -444,9 +444,12 @@ export class Module {
   constructor(name: string, forthic_code: string = "") {
     this.words = [];
     this.exportable = [];
-    this.variables = {};
-    this.modules = {};
-    this.module_prefixes = {};
+    // Prototype-less maps: keys are module/variable names taken from program
+    // text, so a plain {} would resolve `constructor`/`__proto__` to inherited
+    // Object members or let `__proto__` swap the map's prototype.
+    this.variables = Object.create(null);
+    this.modules = Object.create(null);
+    this.module_prefixes = Object.create(null);
     this.name = name;
     this.forthic_code = forthic_code;
     this.interp = null;
@@ -522,9 +525,10 @@ export class Module {
     // Reset the per-interpreter collections to fresh containers.
     result.words = [];
     result.exportable = [];
-    result.variables = {};
-    result.modules = {};
-    result.module_prefixes = {};
+    // Prototype-less maps — see the constructor.
+    result.variables = Object.create(null);
+    result.modules = Object.create(null);
+    result.module_prefixes = Object.create(null);
     result.interp = null;
 
     // For DecoratedModule, set_interp re-registers decorated words bound to
