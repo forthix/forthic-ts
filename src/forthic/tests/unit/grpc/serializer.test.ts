@@ -18,6 +18,49 @@ describe('gRPC Serializer', () => {
       const value = { items: [1, 'two', { nested: true }] };
       expect(deserializeValue(serializeValue(value))).toEqual(value);
     });
+
+    test('plain time round-trip', () => {
+      const value = Temporal.PlainTime.from('09:30:00');
+      const roundTripped = deserializeValue(serializeValue(value));
+      expect(roundTripped).toBeInstanceOf(Temporal.PlainTime);
+      expect(roundTripped.equals(value)).toBe(true);
+    });
+
+    test('plain time with milliseconds round-trip', () => {
+      const value = Temporal.PlainTime.from('09:30:00.123');
+      const roundTripped = deserializeValue(serializeValue(value));
+      expect(roundTripped.equals(value)).toBe(true);
+    });
+  });
+
+  describe('Temporal duck-typing does not swallow look-alike records', () => {
+    // Regression: records with temporal-shaped numeric fields used to
+    // misdetect as Temporal values (every object inherits toString) and
+    // serialize as "[object Object]" strings.
+    test.each([
+      [{ hour: 9, minute: 30 }],
+      [{ year: 2020, month: 6, day: 5 }],
+      [{ timeZoneId: 'America/Los_Angeles', label: 'home' }],
+      [{ year: 2020, month: 6, day: 5, hour: 10 }],
+    ])('record %j stays a record', (value) => {
+      const wire = serializeValue(value);
+      expect(wire.record_value).toBeDefined();
+      expect(deserializeValue(wire)).toEqual(value);
+    });
+  });
+
+  describe('Plain time wire format', () => {
+    test('serializes to plain_time_value with ISO time string', () => {
+      expect(serializeValue(Temporal.PlainTime.from('09:30:00'))).toEqual({
+        plain_time_value: { iso8601_time: '09:30:00' },
+      });
+    });
+
+    test('deserializes plain_time_value', () => {
+      const value = deserializeValue({ plain_time_value: { iso8601_time: '23:59:59' } });
+      expect(value).toBeInstanceOf(Temporal.PlainTime);
+      expect(value.toString()).toBe('23:59:59');
+    });
   });
 
   describe('Error handling', () => {

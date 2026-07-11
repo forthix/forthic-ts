@@ -17,6 +17,7 @@ interface StackValue {
   record_value?: RecordValue;
   instant_value?: InstantValue;
   plain_date_value?: PlainDateValue;
+  plain_time_value?: PlainTimeValue;
   zoned_datetime_value?: ZonedDateTimeValue;
 }
 
@@ -34,6 +35,10 @@ interface InstantValue {
 
 interface PlainDateValue {
   iso8601_date: string;
+}
+
+interface PlainTimeValue {
+  iso8601_time: string;
 }
 
 interface ZonedDateTimeValue {
@@ -94,6 +99,13 @@ export function serializeValue(value: any, path: string = ''): StackValue {
         },
       };
 
+    case 'plain_time':
+      return {
+        plain_time_value: {
+          iso8601_time: value.toString(),
+        },
+      };
+
     case 'zoned_datetime':
       return {
         zoned_datetime_value: {
@@ -137,6 +149,10 @@ export function deserializeValue(stackValue: StackValue, path: string = ''): any
 
   if ('plain_date_value' in stackValue && stackValue.plain_date_value) {
     return Temporal.PlainDate.from(stackValue.plain_date_value.iso8601_date);
+  }
+
+  if ('plain_time_value' in stackValue && stackValue.plain_time_value) {
+    return Temporal.PlainTime.from(stackValue.plain_time_value.iso8601_time);
   }
 
   if ('zoned_datetime_value' in stackValue && stackValue.zoned_datetime_value) {
