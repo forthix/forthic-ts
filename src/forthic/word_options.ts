@@ -25,7 +25,7 @@ import type { Interpreter } from "./interpreter.js";
  *   @Word("( items:any[] forthic:string [options:WordOptions] -- result:any )")
  *   async MAP(items: any[], forthic: string, options: Record<string, any>) {
  *     const with_key = options.with_key ?? null;
- *     const push_error = options.push_error ?? null;
+ *     const depth = options.depth ?? null;
  *     // ... use options to modify behavior
  *   }
  *

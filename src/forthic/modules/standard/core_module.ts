@@ -16,6 +16,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - Execution: RUN
 - Control: NOP, DEFAULT, DEFAULT-RUN, NULL, UNDEFINED, IF, IF-RUN, WHEN
 - Predicates: ARRAY?, NULL?, EMPTY?, STRING?, NUMBER?, RECORD?
+- Errors: TRY, OK?, ERROR?, UNWRAP, UNWRAP-OR (Rust Result semantics: 'CODE' TRY UNWRAP is CODE)
 - Options: ~> (converts array to WordOptions)
 - String: INTERPOLATE, PRINT
 - Debug: PEEK!, STACK!
@@ -265,6 +266,97 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
   )
   async ["RECORD?"](value: any) {
     return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+
+  // ===== TRY: error handling as data (Rust Result semantics) =====
+  //
+  // Forthic's default error behavior is already Rust's `?` — errors
+  // auto-propagate up run(). TRY is the other half of the Result model:
+  // holding an error as a value. Law: 'CODE' TRY UNWRAP ≡ CODE.
+  // Mirrored in forthic-rs.
+
+  @ForthicWord(
+    "( forthic:string -- outcome:record )",
+    'Run forthic, capturing the outcome as data: {"ok": value} on success (value = top of stack if the run changed the stack; null for no-net-effect code), ' +
+      '{"error": {message, error_type}} on failure. On failure the stack is restored byte-for-byte to its state before TRY ' +
+      "(transactional for the stack; side effects like variable writes persist), and modules left open by the failed code are unwound. " +
+      "For error-tolerant mapping use MAP's outcomes option ([.outcomes TRUE] ~> MAP): TRY inside MAP would transactionally restore the item MAP pushed, stranding it beneath the outcome.",
+    "TRY",
+  )
+  async TRY(forthic: string) {
+    const interp = this.interp;
+    const string_location = interp.get_string_location();
+    const raw = interp.get_stack().get_raw_items();
+    const snapshot = [...raw];
+    const module_depth = interp.module_stack_depth();
+
+    try {
+      await interp.run(forthic, string_location);
+      const after = interp.get_stack().get_raw_items();
+      // The payload is the top of stack IF the run changed the stack at all
+      // (covers transforms like '2 *' that consume inputs and push results,
+      // leaving the length unchanged). A run with no net stack effect — or
+      // one that only consumed — succeeds with ok: null.
+      const unchanged =
+        after.length === snapshot.length && after.every((v, i) => v === snapshot[i]);
+      const payload = !unchanged && after.length > 0 ? interp.stack_pop() : null;
+      return { ok: payload };
+    } catch (e: any) {
+      // Transactional: the stack is exactly as it was before TRY
+      const current = interp.get_stack().get_raw_items();
+      current.length = 0;
+      current.push(...snapshot);
+      // Unwind modules the failed code left open
+      while (interp.module_stack_depth() > module_depth) {
+        interp.module_stack_pop();
+      }
+      return {
+        error: {
+          message: e?.message ?? String(e),
+          error_type: e?.constructor?.name ?? "Error",
+        },
+      };
+    }
+  }
+
+  @ForthicWord("( outcome:record -- boolean:boolean )", "True if outcome is an ok record (structural: has an 'ok' key)", "OK?")
+  async ["OK?"](outcome: any) {
+    return outcome !== null && typeof outcome === "object" && !Array.isArray(outcome) && "ok" in outcome;
+  }
+
+  @ForthicWord("( outcome:record -- boolean:boolean )", "True if outcome is an error record (structural: has an 'error' key)", "ERROR?")
+  async ["ERROR?"](outcome: any) {
+    return outcome !== null && typeof outcome === "object" && !Array.isArray(outcome) && "error" in outcome;
+  }
+
+  @ForthicWord(
+    "( outcome:record -- value:any )",
+    "Extract the ok value from a TRY outcome; re-raises for an error outcome (preserving message and error_type). 'CODE' TRY UNWRAP ≡ CODE.",
+    "UNWRAP",
+  )
+  async UNWRAP(outcome: any) {
+    if (outcome !== null && typeof outcome === "object" && !Array.isArray(outcome)) {
+      if ("ok" in outcome) return outcome.ok;
+      if ("error" in outcome) {
+        const info = outcome.error ?? {};
+        const type_suffix = info.error_type ? ` (${info.error_type})` : "";
+        throw new Error(`${info.message ?? "UNWRAP of error outcome"}${type_suffix}`);
+      }
+    }
+    throw new Error("UNWRAP requires a TRY outcome record with an 'ok' or 'error' key");
+  }
+
+  @ForthicWord(
+    "( outcome:record default:any -- value:any )",
+    "Extract the ok value from a TRY outcome, or default if it is an error outcome",
+    "UNWRAP-OR",
+  )
+  async UNWRAP_OR(outcome: any, default_value: any) {
+    if (outcome !== null && typeof outcome === "object" && !Array.isArray(outcome)) {
+      if ("ok" in outcome) return outcome.ok;
+      if ("error" in outcome) return default_value;
+    }
+    throw new Error("UNWRAP-OR requires a TRY outcome record with an 'ok' or 'error' key");
   }
 
   @ForthicWord("( value:any default_value:any -- result:any )", "Returns value or default if value is null/undefined/empty string")

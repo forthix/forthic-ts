@@ -43,7 +43,6 @@ Array and collection operations for manipulating arrays and records.
 ## Options
 Several words support options via the ~> operator using syntax: [.option_name value ...] ~> WORD
 - with_key: Push index/key before value (MAP, FOREACH, GROUP-BY, SELECT)
-- push_error: Push error array after execution (MAP, FOREACH)
 - depth: Recursion depth for nested operations (MAP, FLATTEN)
 - push_rest: Push remaining items after operation (MAP, TAKE)
 - comparator: Custom comparison function as Forthic string (SORT)
@@ -53,7 +52,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
 [10 20 30] '+ 2 *' [.with_key TRUE] ~> MAP
 [[[1 2]] [[3 4]]] [.depth 1] ~> FLATTEN
 [3 1 4 1 5] [.comparator "SWAP -"] ~> SORT
-[.with_key TRUE .push_error TRUE] ~> MAP
+[.with_key TRUE .depth 1] ~> MAP
 `);
   }
 
@@ -864,7 +863,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
   @ForthicWord(
     "( items:any forthic:string [options:WordOptions] -- ? )",
-    "Execute forthic for each item. Options: with_key (bool), push_error (bool). Example: ['a' 'b'] 'PROCESS' [.with_key TRUE] ~> FOREACH"
+    "Execute forthic for each item. Options: with_key (bool). For error tolerance compose with TRY: items \"'PROCESS' TRY\" FOREACH. Example: ['a' 'b'] 'PROCESS' [.with_key TRUE] ~> FOREACH"
   )
   async FOREACH(items: any, forthic: string, options: Record<string, any>) {
     let _items = items;
@@ -874,18 +873,6 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
     const flags = {
       with_key: options.with_key ?? null,
-      push_error: options.push_error ?? null,
-    };
-
-    const errors: any[] = [];
-
-    const execute_with_error = async (forthic: string, location: any) => {
-      try {
-        await this.interp.run(forthic, location);
-        return null;
-      } catch (error) {
-        return error;
-      }
     };
 
     if (_items instanceof Array) {
@@ -893,13 +880,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
         const item = _items[i];
         if (flags.with_key) this.interp.stack_push(i);
         this.interp.stack_push(item);
-
-        if (flags.push_error) {
-          const error = await execute_with_error(forthic, string_location);
-          errors.push(error);
-        } else {
-          await this.interp.run(forthic, string_location);
-        }
+        await this.interp.run(forthic, string_location);
       }
     } else {
       const keys = Object.keys(_items);
@@ -907,18 +888,8 @@ Several words support options via the ~> operator using syntax: [.option_name va
         const item = _items[k];
         if (flags.with_key) this.interp.stack_push(k);
         this.interp.stack_push(item);
-
-        if (flags.push_error) {
-          const error = await execute_with_error(forthic, string_location);
-          errors.push(error);
-        } else {
-          await this.interp.run(forthic, string_location);
-        }
+        await this.interp.run(forthic, string_location);
       }
-    }
-
-    if (flags.push_error) {
-      this.interp.stack_push(errors);
     }
 
     return undefined;
@@ -926,17 +897,16 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
   @ForthicWord(
     "( items:any forthic:string [options:WordOptions] -- mapped:any )",
-    "Map function over items. Options: with_key (bool), push_error (bool), depth (num), push_rest (bool). Example: [1 2 3] '2 *' [.with_key TRUE] ~> MAP"
+    "Map function over items. Options: with_key (bool), depth (num), interps (num), outcomes (bool). With outcomes, each element maps to {ok: value} or {error: {message, error_type}} — per-element failures don't abort and can't disturb the stack (MAP restores its own pushes). Example: [1 2 3] '2 *' [.outcomes TRUE] ~> MAP"
   )
   async MAP(items: any, forthic: string, options: Record<string, any>) {
     const string_location = this.interp.get_string_location();
 
     const flags = {
       with_key: options.with_key ?? null,
-      push_error: options.push_error ?? null,
       depth: options.depth ?? null,
-      push_rest: options.push_rest ?? null,
       interps: options.interps ?? null,
+      outcomes: options.outcomes ?? null,
     };
 
     const map_word = new MapWord(items, forthic, string_location, flags);
@@ -1214,8 +1184,8 @@ Several words support options via the ~> operator using syntax: [.option_name va
 type MapWordFlags = {
   depth?: number;
   interps?: number;
-  push_error?: boolean;
   with_key?: boolean;
+  outcomes?: boolean;
 };
 
 // ( items forthic -- [ ? ] )
@@ -1226,11 +1196,10 @@ class MapWord {
   flags: MapWordFlags;
   depth: number;
   num_interps: number;
-  push_error?: boolean;
   with_key?: boolean;
+  outcomes?: boolean;
   cur_index: number;
   result: any[] | { [key: string]: any };
-  errors: any[];
   is_debugging: boolean;
   processing_item: boolean;
   is_done: boolean;
@@ -1249,12 +1218,11 @@ class MapWord {
     // MAP flags
     this.depth = flags.depth || 0;
     this.num_interps = flags.interps || 1;
-    this.push_error = flags.push_error;
     this.with_key = flags.with_key;
+    this.outcomes = flags.outcomes;
 
     this.cur_index = 0;
     this.result = [];
-    this.errors = [];
     this.is_debugging = false;
     this.processing_item = false;
     this.is_done = false;
@@ -1272,7 +1240,6 @@ class MapWord {
     }
 
     this.result = [];
-    this.errors = [];
     if (this.num_interps > 1) {
       interp.stack_push(items)
       await interp.run("LENGTH");
@@ -1298,27 +1265,21 @@ class MapWord {
       const is_array = items instanceof Array;
       let array_result = []
       let object_result = {}
-      let errors = [];
       for (const res of run_results) {
         if (is_array) {
-          array_result = [...array_result, ...res[0]]
+          array_result = [...array_result, ...res]
         }
         else {
-          object_result = { ...object_result, ...res[0] };
+          object_result = { ...object_result, ...res };
         }
-
-        errors = [...errors, ...res[1]];
       }
       this.result = is_array ? array_result : object_result;
-      this.errors = errors;
     } else {
       await this.map(interp, items);
     }
 
     // Return results
     interp.stack_push(this.result);
-
-    if (this.push_error) interp.stack_push(this.errors);
   }
 
   async map(interp: Interpreter, items: any[]) {
@@ -1331,26 +1292,50 @@ class MapWord {
       return;
     }
 
-    // This maps the forthic over an item, storing errors if needed
-    async function map_value(key: string | number, value: any, errors: any[]) {
+    // This maps the forthic over an item. Errors propagate (Forthic's
+    // default) unless outcomes mode is on, in which case each element maps
+    // to {ok: value} / {error: info}. The snapshot is taken BEFORE the item
+    // is pushed — MAP owns that push, so a failed element consumes the item
+    // and cannot strand it (this is why outcomes lives on MAP rather than
+    // being composed from TRY, whose snapshot would include the pushed item
+    // and faithfully restore it).
+    async function map_value(key: string | number, value: any) {
+      if (!self.outcomes) {
+        if (self.with_key) interp.stack_push(key);
+        interp.stack_push(value);
+        await interp.run(forthic, forthic_location);
+        return interp.stack_pop();
+      }
+
+      const raw = interp.get_stack().get_raw_items();
+      const snapshot = [...raw];
+      const module_depth = interp.module_stack_depth();
       if (self.with_key) interp.stack_push(key);
       interp.stack_push(value);
-
-      if (self.push_error) {
-        let error = null;
-        try {
-          // If this runs successfully, it would have pushed the result onto the stack
-          await interp.run(forthic, forthic_location);
-        } catch (e) {
-          // Since this didn't run successfully, push null onto the stack
-          interp.stack_push(null);
-          error = e;
-        }
-        errors.push(error);
-      } else {
+      try {
         await interp.run(forthic, forthic_location);
+        const after = interp.get_stack().get_raw_items();
+        // Same payload rule as TRY, relative to the pre-push snapshot: if
+        // the stack differs, the top is the element's result (a no-op code
+        // yields the pushed item itself — identity map)
+        const unchanged =
+          after.length === snapshot.length && after.every((v, i) => v === snapshot[i]);
+        const payload = !unchanged && after.length > 0 ? interp.stack_pop() : null;
+        return { ok: payload };
+      } catch (e: any) {
+        const current = interp.get_stack().get_raw_items();
+        current.length = 0;
+        current.push(...snapshot);
+        while (interp.module_stack_depth() > module_depth) {
+          interp.module_stack_pop();
+        }
+        return {
+          error: {
+            message: e?.message ?? String(e),
+            error_type: e?.constructor?.name ?? "Error",
+          },
+        };
       }
-      return interp.stack_pop();
     }
 
     // This recursively descends a record structure
@@ -1358,7 +1343,6 @@ class MapWord {
       record: { [key: string]: any },
       depth: number,
       accum: { [key: string]: any },
-      errors: any[],
     ) {
       const keys = Object.keys(record);
       for (let i = 0; i < keys.length; i++) {
@@ -1366,13 +1350,13 @@ class MapWord {
         const item = record[k];
         if (depth > 0 && item instanceof Array) {
           accum[k] = [];
-          await descend_list(item, depth - 1, accum[k], errors);
+          await descend_list(item, depth - 1, accum[k]);
         } else if (depth > 0 && item !== null && typeof item === "object") {
           accum[k] = {};
-          await descend_record(item, depth - 1, accum[k], errors);
+          await descend_record(item, depth - 1, accum[k]);
         } else {
           // Scalar leaf (or depth exhausted): map it, don't coerce it to {}.
-          accum[k] = await map_value(k, item, errors);
+          accum[k] = await map_value(k, item);
         }
       }
 
@@ -1384,35 +1368,32 @@ class MapWord {
       items: any[],
       depth: number,
       accum: any[],
-      errors: any[],
     ) {
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         if (depth > 0 && item instanceof Array) {
           accum.push([]);
-          await descend_list(item, depth - 1, accum[accum.length - 1], errors);
+          await descend_list(item, depth - 1, accum[accum.length - 1]);
         } else if (depth > 0 && item !== null && typeof item === "object") {
           accum.push({});
-          await descend_record(item, depth - 1, accum[accum.length - 1], errors);
+          await descend_record(item, depth - 1, accum[accum.length - 1]);
         } else {
           // Scalar leaf (or depth exhausted): map it, don't coerce it to {}.
-          accum.push(await map_value(i, item, errors));
+          accum.push(await map_value(i, item));
         }
       }
       return accum;
     }
 
-    const errors = [];
     let result: any;
     const depth = this.depth;
     if (items instanceof Array) {
-      result = await descend_list(items, depth, [], errors);
+      result = await descend_list(items, depth, []);
     } else {
-      result = await descend_record(items, depth, {}, errors);
+      result = await descend_record(items, depth, {});
     }
     this.result = result;
-    this.errors = errors;
-    return [result, errors];
+    return result;
   }
 }
 
