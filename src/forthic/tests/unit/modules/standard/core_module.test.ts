@@ -518,3 +518,8 @@ test("PRINT - boolean values", async () => {
   expect(consoleSpy).toHaveBeenCalledWith("Flag is: true");
   consoleSpy.mockRestore();
 });
+
+test("NUMBER? is true for Infinity (numbers, excluding NaN)", async () => {
+  await interp.run("INFINITY NUMBER?");
+  expect(interp.stack_pop()).toBe(true);
+});

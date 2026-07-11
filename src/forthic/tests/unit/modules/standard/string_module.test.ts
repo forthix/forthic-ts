@@ -148,4 +148,9 @@ describe("StringModule", () => {
     await interp.run("'test1 test2 test3' 'test([0-9])' RE-MATCH-ALL");
     expect(interp.stack_pop()).toEqual(["1", "2", "3"]);
   });
+
+  test(">STR returns empty string for null/undefined instead of throwing", async () => {
+    await interp.run("NULL >STR");
+    expect(interp.stack_pop()).toBe("");
+  });
 });

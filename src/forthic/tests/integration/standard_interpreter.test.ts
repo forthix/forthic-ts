@@ -1687,7 +1687,8 @@ test("ANY", async () => {
   const stack = (interp as any).stack;
   expect(stack[0]).toBe(true);
   expect(stack[1]).toBe(false);
-  expect(stack[2]).toBe(true);
+  // No item can be present in an empty second array -> false (was wrongly true).
+  expect(stack[2]).toBe(false);
 });
 
 test("ALL", async () => {
