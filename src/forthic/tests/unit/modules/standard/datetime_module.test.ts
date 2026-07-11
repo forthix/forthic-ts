@@ -370,3 +370,15 @@ test("== distinguishes different dates", async () => {
   await interp.run("'2024-01-15' >DATE '2024-01-16' >DATE ==");
   expect(interp.stack_pop()).toBe(false);
 });
+
+test(">DATE interprets an absolute (Z) instant in the interpreter's timezone, not the host's", async () => {
+  // 23:30 UTC is still Jan 15 in UTC/US but already Jan 16 in Tokyo. The
+  // interpreter's timezone (America/Los_Angeles here) must decide, not the host.
+  const tokyo = new StandardInterpreter([], "Asia/Tokyo");
+  await tokyo.run(`"2024-01-15T23:30:00Z" >DATE`);
+  expect(tokyo.stack_pop().toString()).toBe("2024-01-16");
+
+  const la = new StandardInterpreter([], "America/Los_Angeles");
+  await la.run(`"2024-01-15T23:30:00Z" >DATE`);
+  expect(la.stack_pop().toString()).toBe("2024-01-15");
+});
