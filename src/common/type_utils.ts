@@ -3,7 +3,7 @@
  * Used by both gRPC and WebSocket serializers
  */
 
-import { isPlainDate, isInstant, isZonedDateTime } from './temporal_utils.js';
+import { isPlainDate, isPlainTime, isInstant, isZonedDateTime } from './temporal_utils.js';
 
 /**
  * Forthic value types
@@ -18,6 +18,7 @@ export type ForthicType =
   | 'record'
   | 'instant'
   | 'plain_date'
+  | 'plain_time'
   | 'zoned_datetime';
 
 /**
@@ -47,6 +48,10 @@ export function getForthicType(value: any, path: string = ''): ForthicType {
 
   if (isPlainDate(value)) {
     return 'plain_date';
+  }
+
+  if (isPlainTime(value)) {
+    return 'plain_time';
   }
 
   // Handle boolean (check before number)

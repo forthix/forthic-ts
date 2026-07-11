@@ -70,6 +70,7 @@ message StackValue {
     InstantValue instant_value = 8;
     PlainDateValue plain_date_value = 9;
     ZonedDateTimeValue zoned_datetime_value = 10;
+    PlainTimeValue plain_time_value = 11;
   }
 }
 
@@ -106,6 +107,16 @@ message InstantValue {
 //   - Python: datetime.date
 message PlainDateValue {
   string iso8601_date = 1;
+}
+
+// Represents a wall-clock time of day without date or timezone
+// Serialized as ISO 8601 time string (e.g., "09:30:00", "09:30:00.123")
+// Maps to:
+//   - TypeScript: Temporal.PlainTime
+//   - Rust: chrono::NaiveTime
+//   - Python: datetime.time
+message PlainTimeValue {
+  string iso8601_time = 1;
 }
 
 // Represents a date-time with timezone

@@ -7,6 +7,19 @@
  */
 
 /**
+ * Check that a value has the method surface shared by all Temporal types.
+ * Plain data records can have numeric fields like {hour: 9, minute: 30}, but
+ * they never carry Temporal's methods — without this check such records are
+ * misdetected and serialize as "[object Object]" (every object inherits
+ * toString, so checking toString alone does not discriminate).
+ */
+function hasTemporalMethods(value: any): boolean {
+  return typeof value.equals === 'function' &&
+         typeof value.add === 'function' &&
+         typeof value.toString === 'function';
+}
+
+/**
  * Check if a value is a Temporal.PlainDate
  * PlainDate has year, month, day properties but no hour property
  */
@@ -15,7 +28,7 @@ export function isPlainDate(value: any): boolean {
          typeof value.year === 'number' &&
          typeof value.month === 'number' &&
          typeof value.day === 'number' &&
-         typeof value.toString === 'function' &&
+         hasTemporalMethods(value) &&
          value.hour === undefined;  // PlainDate has no hour (0 is a valid hour!)
 }
 
@@ -26,7 +39,7 @@ export function isPlainDate(value: any): boolean {
 export function isInstant(value: any): boolean {
   return value && typeof value === 'object' &&
          typeof value.epochNanoseconds === 'bigint' &&
-         typeof value.toString === 'function';
+         hasTemporalMethods(value);
 }
 
 /**
@@ -36,7 +49,7 @@ export function isInstant(value: any): boolean {
 export function isZonedDateTime(value: any): boolean {
   return value && typeof value === 'object' &&
          typeof value.timeZoneId === 'string' &&
-         typeof value.toString === 'function';
+         hasTemporalMethods(value);
 }
 
 /**
@@ -47,7 +60,7 @@ export function isPlainTime(value: any): boolean {
   return value && typeof value === 'object' &&
          typeof value.hour === 'number' &&
          typeof value.minute === 'number' &&
-         typeof value.toString === 'function' &&
+         hasTemporalMethods(value) &&
          value.year === undefined;  // PlainTime has no year (year 0 is valid!)
 }
 
@@ -61,7 +74,7 @@ export function isPlainDateTime(value: any): boolean {
          typeof value.month === 'number' &&
          typeof value.day === 'number' &&
          typeof value.hour === 'number' &&
-         typeof value.toString === 'function' &&
+         hasTemporalMethods(value) &&
          value.timeZoneId === undefined;  // PlainDateTime has no timeZoneId
 }
 
