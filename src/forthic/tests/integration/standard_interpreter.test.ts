@@ -653,7 +653,9 @@ test("MAP depth over array of maps", async () => {
   expect(array).toEqual([[[4, 6]], [[6, 8]]]);
 });
 
-test("MAP depth with error", async () => {
+test("MAP depth with error tolerance via outcomes", async () => {
+  // push_error is gone: error-tolerant mapping is MAP's outcomes mode.
+  // Each leaf becomes an outcome record; one leaf ('GARBAGE') fails.
   const interp = new StandardInterpreter();
   await interp.run(`
     : k1-REC   [
@@ -671,19 +673,16 @@ test("MAP depth with error", async () => {
       ["k2"  k2-REC]
     ] REC;
 
-    DEEP-RECORD ">STR INTERPRET" [.depth 2 .push_error TRUE] ~> MAP
+    DEEP-RECORD '>STR INTERPRET' [.depth 2 .outcomes TRUE] ~> MAP
   `);
-  const errors = interp.stack_pop();
   const record = interp.stack_pop();
 
-  expect(record).toEqual({
-    k1: { l1: { m: 2 }, l2: { m: 3 } },
-    k2: { l1: { m: null }, l2: { m: 4 } },
-  });
-  expect(errors[0]).toBe(null);
-  expect(errors[1]).toBe(null);
-  expect(errors[2]).not.toBe(null);
-  expect(errors[3]).toBe(null);
+  expect(record.k1.l1.m).toEqual({ ok: 2 });
+  expect(record.k1.l2.m).toEqual({ ok: 3 });
+  expect(record.k2.l2.m).toEqual({ ok: 4 });
+  const failed = record.k2.l1.m;
+  expect("error" in failed).toBe(true);
+  expect(failed.error.error_type).toBeDefined();
 });
 
 test("MAP with key", async () => {
@@ -779,17 +778,17 @@ function makeStatusToManagerToIds() {
   };
 }
 
-test("FOREACH to errors", async () => {
+test("FOREACH-style error tolerance via MAP outcomes", async () => {
+  // push_error is gone: use MAP's outcomes mode. Each item yields an
+  // outcome record; failures don't abort the loop and can't disturb the
+  // stack (MAP restores its own pushes).
   await interp.run(`
-    ['2' '3' 'GARBAGE' '+'] 'INTERPRET' [.push_error TRUE] ~> FOREACH
+    ['2' '3' 'GARBAGE'] 'INTERPRET' [.outcomes TRUE] ~> MAP
   `);
-  const errors = interp.stack_pop();
-  expect(errors[0]).toBeNull();
-  expect(errors[1]).toBeNull();
-  expect(errors[2]).not.toBeNull();
-  expect(errors[3]).toBeNull();
-  const res = interp.stack_pop();
-  expect(res).toBe(5);
+  const outcomes = interp.stack_pop();
+  expect(outcomes[0]).toEqual({ ok: 2 });
+  expect(outcomes[1]).toEqual({ ok: 3 });
+  expect("error" in outcomes[2]).toBe(true);
 });
 
 test("INVERT-KEYS", async () => {

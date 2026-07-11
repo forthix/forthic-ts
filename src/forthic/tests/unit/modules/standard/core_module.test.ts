@@ -270,11 +270,11 @@ test("~> handles empty array", async () => {
 });
 
 test("~> handles multiple options", async () => {
-  await interp.run(`[.depth 3 .with_key TRUE .push_error FALSE] ~>`);
+  await interp.run(`[.depth 3 .with_key TRUE .reverse FALSE] ~>`);
   const opts = interp.stack_pop();
   expect(opts.get("depth")).toBe(3);
   expect(opts.get("with_key")).toBe(true);
-  expect(opts.get("push_error")).toBe(false);
+  expect(opts.get("reverse")).toBe(false);
 });
 
 // ========================================
@@ -522,4 +522,132 @@ test("PRINT - boolean values", async () => {
 test("NUMBER? is true for Infinity (numbers, excluding NaN)", async () => {
   await interp.run("INFINITY NUMBER?");
   expect(interp.stack_pop()).toBe(true);
+});
+
+// ===== TRY: error handling as data (Rust Result semantics) =====
+
+test("TRY wraps success as an ok record", async () => {
+  await interp.run("5 '2 *' TRY");
+  expect(interp.stack_pop()).toEqual({ ok: 10 });
+});
+
+test("TRY law: 'CODE' TRY UNWRAP === CODE on success", async () => {
+  await interp.run("5 '2 *' TRY UNWRAP");
+  expect(interp.stack_pop()).toBe(10);
+});
+
+test("TRY law: UNWRAP re-raises with message and error_type preserved", async () => {
+  await expect(interp.run("'NO-SUCH-WORD' TRY UNWRAP")).rejects.toThrow(
+    /NO-SUCH-WORD.*\(.*Error.*\)/,
+  );
+});
+
+test("TRY wraps failure as an error record with message and error_type", async () => {
+  await interp.run("'NO-SUCH-WORD' TRY");
+  const outcome = interp.stack_pop();
+  expect("error" in outcome).toBe(true);
+  expect(outcome.error.message).toContain("NO-SUCH-WORD");
+  expect(typeof outcome.error.error_type).toBe("string");
+});
+
+test("TRY is transactional for the stack on failure", async () => {
+  // The failing code consumes 2 and pushes garbage-in-progress; afterwards
+  // the stack must be exactly [1, 2, outcome]
+  await interp.run("1 2 'POP POP NO-SUCH-WORD' TRY");
+  const outcome = interp.stack_pop();
+  expect("error" in outcome).toBe(true);
+  expect(interp.stack_pop()).toBe(2);
+  expect(interp.stack_pop()).toBe(1);
+});
+
+test("TRY does not roll back side effects (like catch_unwind)", async () => {
+  await interp.run("'42 .written ! NO-SUCH-WORD' TRY POP .written @");
+  expect(interp.stack_pop()).toBe(42);
+});
+
+test("TRY unwinds modules left open by failed code", async () => {
+  const depth_before = (interp as any).module_stack_depth();
+  await interp.run("'{my-mod NO-SUCH-WORD' TRY");
+  expect((interp as any).module_stack_depth()).toBe(depth_before);
+  const outcome = interp.stack_pop();
+  expect("error" in outcome).toBe(true);
+});
+
+test("TRY with net-zero code succeeds with ok: null", async () => {
+  await interp.run("'1 POP' TRY");
+  expect(interp.stack_pop()).toEqual({ ok: null });
+});
+
+test("TRY success consumes inputs legitimately", async () => {
+  // '+' consumes 1 and 2; success must NOT restore them
+  await interp.run("1 2 '+' TRY");
+  const outcome = interp.stack_pop();
+  expect(outcome).toEqual({ ok: 3 });
+  expect(interp.get_stack().get_items().length).toBe(0);
+});
+
+test("OK? and ERROR? discriminate outcomes", async () => {
+  await interp.run("'1' TRY OK?");
+  expect(interp.stack_pop()).toBe(true);
+  await interp.run("'1' TRY ERROR?");
+  expect(interp.stack_pop()).toBe(false);
+  await interp.run("'NO-SUCH-WORD' TRY OK?");
+  expect(interp.stack_pop()).toBe(false);
+  await interp.run("'NO-SUCH-WORD' TRY ERROR?");
+  expect(interp.stack_pop()).toBe(true);
+});
+
+test("UNWRAP-OR provides fallbacks", async () => {
+  await interp.run("'5' TRY 0 UNWRAP-OR");
+  expect(interp.stack_pop()).toBe(5);
+  await interp.run("'NO-SUCH-WORD' TRY 0 UNWRAP-OR");
+  expect(interp.stack_pop()).toBe(0);
+});
+
+test("UNWRAP-OR: ok null beats the default (failure is not nullness)", async () => {
+  await interp.run("'NULL' TRY 99 UNWRAP-OR");
+  expect(interp.stack_pop()).toBe(null);
+});
+
+test("UNWRAP on a non-outcome record throws", async () => {
+  await expect(interp.run("[ [ 'other' 1 ] ] REC UNWRAP")).rejects.toThrow(/outcome record/);
+});
+
+test("UNWRAP is structural: hand-built ok records work", async () => {
+  await interp.run("[ [ 'ok' 7 ] ] REC UNWRAP");
+  expect(interp.stack_pop()).toBe(7);
+});
+
+test("MAP outcomes mode: per-element failures, nothing stranded", async () => {
+  await interp.run(`[ 1 2 ] 'NO-SUCH-WORD' [.outcomes TRUE] ~> MAP`);
+  const outcomes = interp.stack_pop();
+  expect(outcomes.length).toBe(2);
+  expect("error" in outcomes[0]).toBe(true);
+  expect("error" in outcomes[1]).toBe(true);
+  // MAP owns its pushes: failures can't strand anything on the stack
+  expect(interp.get_stack().get_items().length).toBe(0);
+});
+
+test("MAP outcomes mode wraps successes", async () => {
+  await interp.run(`[ 1 2 ] '2 *' [.outcomes TRUE] ~> MAP`);
+  expect(interp.stack_pop()).toEqual([{ ok: 2 }, { ok: 4 }]);
+});
+
+test("MAP outcomes mode has fixed arity (one result, no errors array)", async () => {
+  await interp.run(`[ 1 ] 'NO-SUCH-WORD' [.outcomes TRUE] ~> MAP`);
+  expect(interp.get_stack().get_items().length).toBe(1);
+  interp.stack_pop();
+});
+
+test("TRY inside MAP restores the item — the documented reason for outcomes mode", async () => {
+  // TRY is transactional: its snapshot includes the item MAP pushed, so a
+  // failing element is faithfully restored... beneath the outcome record.
+  // This is correct TRY behavior and the wrong tool for mapping — use
+  // [.outcomes TRUE] ~> MAP instead.
+  await interp.run(`[ 1 2 ] "'NO-SUCH-WORD' TRY" MAP`);
+  const outcomes = interp.stack_pop();
+  expect("error" in outcomes[0]).toBe(true);
+  expect(interp.get_stack().get_items()).toEqual([1, 2]); // restored items
+  interp.stack_pop();
+  interp.stack_pop();
 });

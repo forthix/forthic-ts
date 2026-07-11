@@ -597,6 +597,12 @@ export class Interpreter {
     return this.module_stack.pop();
   }
 
+  // Depth of the module stack (the app module is depth 1). Used by TRY to
+  // unwind modules left open by failed code.
+  module_stack_depth(): number {
+    return this.module_stack.length;
+  }
+
   register_module(module: Module) {
     this.registered_modules[module.name] = module;
     module.set_interp(this);
