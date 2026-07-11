@@ -131,11 +131,22 @@ TODAY 7 ADD-DAYS
     // Otherwise, parse as string
     const str = String(item).trim();
 
-    // Try standard ISO format (YYYY-MM-DD)
+    // Try standard ISO format (YYYY-MM-DD, or a datetime with an explicit offset)
     try {
       return Temporal.PlainDate.from(str);
     } catch {
-      // Try parsing as a more flexible format
+      // An absolute instant (e.g. a trailing Z). Resolve the calendar date in
+      // the INTERPRETER's timezone — consistent with TODAY/NOW/>DATETIME —
+      // rather than the host's, which the new Date() fallback below would use.
+      try {
+        return Temporal.Instant.from(str)
+          .toZonedDateTimeISO(this.interp.get_timezone())
+          .toPlainDate();
+      } catch {
+        // Fall through to lenient parsing.
+      }
+      // Non-ISO date-only formats (e.g. "Oct 21, 2020"). These carry no time or
+      // zone, so host-local calendar components give the date as written.
       try {
         const parsed = new Date(str);
         if (!isNaN(parsed.getTime())) {
