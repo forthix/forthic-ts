@@ -122,9 +122,9 @@ describe("FIRST", () => {
     expect(interp.stack_pop()).toBe(1);
   });
 
-  test("first value of record (sorted-key order)", async () => {
+  test("first value of record (insertion order)", async () => {
     await interp.run("[['b' 2] ['a' 1] ['c' 3]] REC FIRST");
-    expect(interp.stack_pop()).toBe(1);
+    expect(interp.stack_pop()).toBe(2); // 'b' is inserted first
   });
 
   test("first of empty array is null", async () => {
