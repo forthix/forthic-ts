@@ -1,6 +1,10 @@
 import { Interpreter, dup_interpreter } from "../../interpreter.js";
 import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 
+// Generous ceiling on how many elements a single word may materialize from
+// caller-supplied sizes (SLICE, RANGE). Fails fast instead of OOMing the host.
+const MAX_MATERIALIZED_ELEMENTS = 10_000_000;
+
 /**
  * Natural ordering comparator: numbers sort numerically and strings sort
  * lexicographically, using the relational operators rather than Array.sort's
@@ -176,6 +180,14 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
     start = normalize_index(start);
     end = normalize_index(end);
+
+    // SLICE pads out-of-range indexes with nulls, so a huge end index would
+    // materialize a huge array. Guard the span before building it.
+    if (Math.abs(end - start) + 1 > MAX_MATERIALIZED_ELEMENTS) {
+      throw new Error(
+        `SLICE span ${Math.abs(end - start) + 1} is too large (limit ${MAX_MATERIALIZED_ELEMENTS})`,
+      );
+    }
 
     const step = start > end ? -1 : 1;
     const indexes: (number | null)[] = [start];

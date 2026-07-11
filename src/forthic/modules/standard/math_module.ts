@@ -1,5 +1,10 @@
 import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 
+// Generous ceiling on how many elements a single word may materialize from
+// caller-supplied sizes (RANGE, SLICE). Large enough for any real program;
+// small enough that hitting it fails fast instead of OOMing the host.
+const MAX_MATERIALIZED_ELEMENTS = 10_000_000;
+
 export class MathModule extends DecoratedModule {
   static {
     registerModuleDoc(MathModule, `
@@ -84,6 +89,13 @@ Mathematical operations and utilities including arithmetic, aggregation, and con
   async RANGE(start: number, end: number) {
     if (start === null || start === undefined || end === null || end === undefined) {
       return [];
+    }
+    // Guard against a pathological size (e.g. `1 2000000000 RANGE`) before
+    // allocating. end < start yields an empty range and needs no bound.
+    if (end >= start && end - start + 1 > MAX_MATERIALIZED_ELEMENTS) {
+      throw new Error(
+        `RANGE size ${end - start + 1} is too large (limit ${MAX_MATERIALIZED_ELEMENTS})`,
+      );
     }
     const result: number[] = [];
     for (let i = start; i <= end; i++) {
