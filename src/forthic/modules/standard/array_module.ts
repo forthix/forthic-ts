@@ -119,14 +119,14 @@ Several words support options via the ~> operator using syntax: [.option_name va
       if (n < 0 || n >= container.length) return null;
       return container[n];
     } else {
-      const keys = Object.keys(container).sort();
+      const keys = Object.keys(container);
       if (n < 0 || n >= keys.length) return null;
       const key = keys[n];
       return container[key];
     }
   }
 
-  @ForthicWord("( container:any -- item:any )", "Get first element from array or record (sorted-key order for records)")
+  @ForthicWord("( container:any -- item:any )", "Get first element from array or record (insertion order for records)")
   async FIRST(container: any) {
     if (!container) return null;
 
@@ -134,7 +134,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
       if (container.length === 0) return null;
       return container[0];
     } else {
-      const keys = Object.keys(container).sort();
+      const keys = Object.keys(container);
       if (keys.length === 0) return null;
       return container[keys[0]];
     }
@@ -148,7 +148,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
       if (container.length === 0) return null;
       return container[container.length - 1];
     } else {
-      const keys = Object.keys(container).sort();
+      const keys = Object.keys(container);
       if (keys.length === 0) return null;
       return container[keys[keys.length - 1]];
     }
@@ -202,7 +202,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
       });
       return result;
     } else {
-      const keys = Object.keys(_container).sort();
+      const keys = Object.keys(_container);
       const result: any = {};
       indexes.forEach((i) => {
         if (i !== null) {
@@ -214,8 +214,8 @@ Several words support options via the ~> operator using syntax: [.option_name va
     }
   }
 
-  @ForthicWord("( container:any[] n:number [options:WordOptions] -- result:any[] )", "Take first n elements")
-  async TAKE(container: any[], n: number, options: Record<string, any>) {
+  @ForthicWord("( container:any n:number [options:WordOptions] -- result:any )", "Take first n elements (record in -> record out, insertion order)")
+  async TAKE(container: any, n: number, options: Record<string, any>) {
     const interp = this.interp
 
     const flags = {
@@ -230,11 +230,16 @@ Several words support options via the ~> operator using syntax: [.option_name va
       taken = container.slice(0, n);
       rest = container.slice(n);
     } else {
-      const keys = Object.keys(container).sort();
-      const taken_keys = keys.slice(0, n);
-      const rest_keys = keys.slice(n);
-      taken = taken_keys.map((k) => container[k]);
-      rest = rest_keys.map((k) => container[k]);
+      // Record in -> record out: preserve keys (don't collapse to an array of
+      // values) and keep insertion order.
+      const keys = Object.keys(container);
+      const pick = (ks: string[]) => {
+        const r: Record<string, any> = {};
+        for (const k of ks) r[k] = container[k];
+        return r;
+      };
+      taken = pick(keys.slice(0, n));
+      rest = pick(keys.slice(n));
     }
 
     if (flags.push_rest) {
@@ -253,15 +258,17 @@ Several words support options via the ~> operator using syntax: [.option_name va
     if (container instanceof Array) {
       return container.slice(n);
     } else {
-      const keys = Object.keys(container).sort();
-      const rest_keys = keys.slice(n);
-      return rest_keys.map((k) => container[k]);
+      // Record in -> record out: preserve keys, insertion order.
+      const rest_keys = Object.keys(container).slice(n);
+      const result: Record<string, any> = {};
+      for (const k of rest_keys) result[k] = container[k];
+      return result;
     }
   }
 
   @ForthicWord(
     "( container:any n:number -- result:any )",
-    "Take last n elements from array or record (sorted-key order for records).",
+    "Take last n elements from array or record (insertion order for records).",
     "TAKE-LAST",
   )
   async TAKE_LAST(container: any, n: number) {
@@ -271,7 +278,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     if (container instanceof Array) {
       return container.slice(Math.max(0, container.length - n));
     } else {
-      const keys = Object.keys(container).sort();
+      const keys = Object.keys(container);
       const tail = keys.slice(Math.max(0, keys.length - n));
       const result: Record<string, any> = {};
       for (const k of tail) result[k] = container[k];
@@ -451,7 +458,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
         this.interp.stack_push(item);
       }
     } else {
-      const keys = Object.keys(_container).sort();
+      const keys = Object.keys(_container);
       for (const k of keys) {
         this.interp.stack_push(_container[k]);
       }

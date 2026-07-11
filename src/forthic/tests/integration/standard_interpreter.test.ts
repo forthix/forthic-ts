@@ -1052,13 +1052,13 @@ test("TAKE", async () => {
   let stack = (interp as any).stack;
   expect(stack[0]).toEqual([0, 1, 2]);
 
-  // Take records
+  // Take records -> record out, insertion order
   interp = new StandardInterpreter();
   await interp.run(`
     [['a' 1] ['b' 2] ['c' 3]] REC  2 TAKE
   `);
   stack = (interp as any).stack;
-  expect(stack[0].length).toBe(2);
+  expect(stack[0]).toEqual({ a: 1, b: 2 });
 });
 
 test("TAKE with rest", async () => {
@@ -1069,14 +1069,14 @@ test("TAKE with rest", async () => {
   expect(stack[0]).toEqual([0, 1, 2]);
   expect(stack[1]).toEqual([3, 4, 5, 6]);
 
-  // Take records
+  // Take records -> record out, insertion order
   interp = new StandardInterpreter();
   await interp.run(`
     [['a' 1] ['b' 2] ['c' 3]] REC  2 [.push_rest TRUE] ~> TAKE
   `);
   stack = (interp as any).stack;
-  expect(stack[0].length).toBe(2);
-  expect(stack[1].length).toBe(1);
+  expect(stack[0]).toEqual({ a: 1, b: 2 });
+  expect(stack[1]).toEqual({ c: 3 });
 });
 
 test("SKIP", async () => {
@@ -1086,13 +1086,13 @@ test("SKIP", async () => {
   let stack = (interp as any).stack;
   expect(stack[0]).toEqual([4, 5, 6]);
 
-  // Skip records
+  // Skip records -> record out, insertion order
   interp = new StandardInterpreter();
   await interp.run(`
     [['a' 1] ['b' 2] ['c' 3]] REC  2 SKIP
   `);
   stack = (interp as any).stack;
-  expect(stack[0].length).toBe(1);
+  expect(stack[0]).toEqual({ c: 3 });
 });
 
 test("ROTATE", async () => {
