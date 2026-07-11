@@ -12,6 +12,30 @@ describe("StringModule", () => {
     expect(interp.stack_pop()).toBe("42");
   });
 
+  test(">STR renders records as insertion-ordered JSON", async () => {
+    await interp.run("[ [ 'z' 1 ] [ 'a' 2 ] ] REC >STR");
+    expect(interp.stack_pop()).toBe('{"z":1,"a":2}');
+  });
+
+  test(">STR comma-joins arrays, rendering record elements as JSON", async () => {
+    // Scalar arrays keep JS Array.toString semantics
+    await interp.run("[ 1 NULL [ 2 3 ] ] >STR");
+    expect(interp.stack_pop()).toBe("1,,2,3");
+    // Array of records no longer degrades to [object Object]
+    await interp.run("[ [ [ 'a' 1 ] ] REC [ [ 'b' 2 ] ] REC ] >STR");
+    expect(interp.stack_pop()).toBe('{"a":1},{"b":2}');
+  });
+
+  test(">STR keeps Temporal ISO forms", async () => {
+    await interp.run("2020-06-05 >STR");
+    expect(interp.stack_pop()).toBe("2020-06-05");
+  });
+
+  test(">STR renders temporal values inside records via toJSON", async () => {
+    await interp.run("[ [ 'd' 2020-06-05 ] ] REC >STR");
+    expect(interp.stack_pop()).toBe('{"d":"2020-06-05"}');
+  });
+
   test("CONCAT array of strings", async () => {
     await interp.run("['Hello' ' ' 'World'] CONCAT");
     expect(interp.stack_pop()).toBe("Hello World");

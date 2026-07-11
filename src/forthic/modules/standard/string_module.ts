@@ -1,4 +1,22 @@
 import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
+import { isTemporal } from "../../../common/temporal_utils.js";
+
+/**
+ * >STR stringification. null -> ""; records render as insertion-ordered
+ * JSON rather than "[object Object]"; arrays comma-join their recursively
+ * stringified elements (JS Array.toString semantics, so arrays of scalars
+ * are unchanged — but an array of records now renders each as JSON);
+ * everything else keeps toString() (Temporal values: their ISO forms).
+ *
+ * Mirrored byte-for-byte in forthic-rs (string.rs stringify) so Forthic
+ * programs stringify identically across runtimes.
+ */
+function stringifyValue(item: any): string {
+  if (item === null || item === undefined) return "";
+  if (Array.isArray(item)) return item.map(stringifyValue).join(",");
+  if (typeof item === "object" && !isTemporal(item)) return JSON.stringify(item);
+  return item.toString();
+}
 
 export class StringModule extends DecoratedModule {
   static {
@@ -57,10 +75,13 @@ must come from a trusted source, not untrusted input.
     return str.length;
   }
 
-  @ForthicWord("( item:any -- string:string )", "Convert item to string", ">STR")
+  @ForthicWord(
+    "( item:any -- string:string )",
+    "Convert item to string. Records render as JSON; arrays comma-join their stringified elements.",
+    ">STR",
+  )
   async to_STR(item: any) {
-    if (item === null || item === undefined) return "";
-    return item.toString();
+    return stringifyValue(item);
   }
 
   @ForthicWord("( string:string sep:string -- items:any[] )", "Split string by separator")
