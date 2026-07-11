@@ -177,7 +177,8 @@ test("ANY", async () => {
   const stack = (interp as any).stack;
   expect(stack[0]).toBe(true);
   expect(stack[1]).toBe(false);
-  expect(stack[2]).toBe(true);
+  // No item can be present in an empty second array -> false (was wrongly true).
+  expect(stack[2]).toBe(false);
 });
 
 test("ANY with numbers", async () => {
@@ -240,5 +241,15 @@ test(">BOOL with arrays", async () => {
 
 test(">BOOL with objects", async () => {
   await interp.run(`[["a" 1]] REC >BOOL`);
+  expect(interp.stack_pop()).toBe(true);
+});
+
+test("ANY returns false when the second array is empty (no item can be present in it)", async () => {
+  await interp.run("[ 1 2 ] [ ] ANY");
+  expect(interp.stack_pop()).toBe(false);
+});
+
+test("ANY still finds a shared element", async () => {
+  await interp.run("[ 1 2 3 ] [ 3 4 ] ANY");
   expect(interp.stack_pop()).toBe(true);
 });

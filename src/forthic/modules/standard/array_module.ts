@@ -280,52 +280,38 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
   @ForthicWord("( lcontainer:any rcontainer:any -- result:any )", "Set difference between two containers")
   async DIFFERENCE(lcontainer: any, rcontainer: any) {
-    let _lcontainer = lcontainer || [];
-    let _rcontainer = rcontainer || [];
-
-    const difference = (l: any[], r: any[]) => {
-      const res: any[] = [];
-      l.forEach((item) => {
-        if (r.indexOf(item) < 0) res.push(item);
-      });
-      return res;
-    };
-
-    if (_rcontainer instanceof Array) {
-      return difference(_lcontainer, _rcontainer);
-    } else {
-      const lkeys = Object.keys(_lcontainer);
-      const rkeys = Object.keys(_rcontainer);
-      const diff = difference(lkeys, rkeys);
-      const result: any = {};
-      diff.forEach((k) => (result[k] = _lcontainer[k]));
-      return result;
-    }
+    return ArrayModule.set_op(lcontainer, rcontainer, false);
   }
 
   @ForthicWord("( lcontainer:any rcontainer:any -- result:any )", "Set intersection between two containers")
   async INTERSECTION(lcontainer: any, rcontainer: any) {
-    let _lcontainer = lcontainer || [];
-    let _rcontainer = rcontainer || [];
+    return ArrayModule.set_op(lcontainer, rcontainer, true);
+  }
 
-    const intersection = (l: any[], r: any[]) => {
-      const res: any[] = [];
-      l.forEach((item) => {
-        if (r.indexOf(item) >= 0) res.push(item);
-      });
-      return res;
-    };
+  /**
+   * Shared set operation for DIFFERENCE (keep=false) and INTERSECTION
+   * (keep=true). The result follows the LEFT operand's shape:
+   * - array left: element membership against the right's elements;
+   * - record left: keep/drop entries whose KEY is in the right's key set (its
+   *   elements if the right is an array, its keys if it's a record) — i.e.
+   *   INTERSECTION behaves like PICK and DIFFERENCE like OMIT.
+   * Membership uses a Set, so this is O(n) rather than O(n·m).
+   */
+  private static set_op(lcontainer: any, rcontainer: any, keep: boolean): any {
+    const l = lcontainer || [];
+    const r = rcontainer || [];
 
-    if (_rcontainer instanceof Array) {
-      return intersection(_lcontainer, _rcontainer);
-    } else {
-      const lkeys = Object.keys(_lcontainer);
-      const rkeys = Object.keys(_rcontainer);
-      const inter = intersection(lkeys, rkeys);
-      const result: any = {};
-      inter.forEach((k) => (result[k] = _lcontainer[k]));
-      return result;
+    if (l instanceof Array) {
+      const rset = new Set(r instanceof Array ? r : Object.values(r));
+      return l.filter((item: any) => rset.has(item) === keep);
     }
+
+    const rkeys = new Set(r instanceof Array ? r : Object.keys(r));
+    const result: Record<string, any> = {};
+    for (const k of Object.keys(l)) {
+      if (rkeys.has(k) === keep) result[k] = l[k];
+    }
+    return result;
   }
 
   @ForthicWord("( lcontainer:any rcontainer:any -- result:any )", "Set union between two containers")
@@ -1357,15 +1343,14 @@ class MapWord {
       for (let i = 0; i < keys.length; i++) {
         const k = keys[i];
         const item = record[k];
-        if (depth > 0) {
-          if (item instanceof Array) {
-            accum[k] = [];
-            await descend_list(item, depth - 1, accum[k], errors);
-          } else {
-            accum[k] = {};
-            await descend_record(item, depth - 1, accum[k], errors);
-          }
+        if (depth > 0 && item instanceof Array) {
+          accum[k] = [];
+          await descend_list(item, depth - 1, accum[k], errors);
+        } else if (depth > 0 && item !== null && typeof item === "object") {
+          accum[k] = {};
+          await descend_record(item, depth - 1, accum[k], errors);
         } else {
+          // Scalar leaf (or depth exhausted): map it, don't coerce it to {}.
           accum[k] = await map_value(k, item, errors);
         }
       }
@@ -1382,25 +1367,14 @@ class MapWord {
     ) {
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        if (depth > 0) {
-          if (item instanceof Array) {
-            accum.push([]);
-            await descend_list(
-              item,
-              depth - 1,
-              accum[accum.length - 1],
-              errors,
-            );
-          } else {
-            accum.push({});
-            await descend_record(
-              item,
-              depth - 1,
-              accum[accum.length - 1],
-              errors,
-            );
-          }
+        if (depth > 0 && item instanceof Array) {
+          accum.push([]);
+          await descend_list(item, depth - 1, accum[accum.length - 1], errors);
+        } else if (depth > 0 && item !== null && typeof item === "object") {
+          accum.push({});
+          await descend_record(item, depth - 1, accum[accum.length - 1], errors);
         } else {
+          // Scalar leaf (or depth exhausted): map it, don't coerce it to {}.
           accum.push(await map_value(i, item, errors));
         }
       }

@@ -311,3 +311,25 @@ test("FLATTEN treats string values as leaves, not records", async () => {
   await interp.run(`[["a" "hi"]] REC FLATTEN`);
   expect(interp.stack_pop()).toEqual({ a: "hi" });
 });
+
+test("DIFFERENCE on a record left with an array of keys removes those keys", async () => {
+  await interp.run(`[["a" 1] ["b" 2]] REC [ "a" ] DIFFERENCE`);
+  expect(interp.stack_pop()).toEqual({ b: 2 });
+});
+
+test("INTERSECTION on a record left with an array of keys keeps those keys", async () => {
+  await interp.run(`[["a" 1] ["b" 2]] REC [ "a" ] INTERSECTION`);
+  expect(interp.stack_pop()).toEqual({ a: 1 });
+});
+
+test("DIFFERENCE/INTERSECTION on arrays still do element set ops", async () => {
+  await interp.run(`[ 1 2 3 ] [ 2 ] DIFFERENCE`);
+  expect(interp.stack_pop()).toEqual([1, 3]);
+  await interp.run(`[ 1 2 3 ] [ 2 4 ] INTERSECTION`);
+  expect(interp.stack_pop()).toEqual([2]);
+});
+
+test("MAP with depth maps scalar leaves through instead of turning them into {}", async () => {
+  await interp.run(`[ 1 [ 2 3 ] ] "10 *" [.depth 1] ~> MAP`);
+  expect(interp.stack_pop()).toEqual([10, [20, 30]]);
+});

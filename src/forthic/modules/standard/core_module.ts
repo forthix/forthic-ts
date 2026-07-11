@@ -254,7 +254,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     return typeof value === "string";
   }
 
-  @ForthicWord("( value:any -- boolean:boolean )", "Returns true if value is a finite number")
+  @ForthicWord("( value:any -- boolean:boolean )", "Returns true if value is a number (Infinity is a number; NaN is not)")
   async ["NUMBER?"](value: any) {
     return typeof value === "number" && !Number.isNaN(value);
   }

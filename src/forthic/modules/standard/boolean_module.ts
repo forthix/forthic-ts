@@ -133,12 +133,8 @@ Comparison, logic, and membership operations for boolean values and conditions.
       return false;
     }
 
-    // If items2 is empty, return true (any items from items1 satisfy empty constraint)
-    if (items2.length === 0) {
-      return true;
-    }
-
-    // Check if any item from items1 is in items2
+    // Membership test: is any item of items1 present in items2? With items2
+    // empty, nothing can be present in it, so the answer is false (not true).
     for (const item of items1) {
       if (items2.includes(item)) {
         return true;

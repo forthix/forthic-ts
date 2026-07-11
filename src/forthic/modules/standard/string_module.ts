@@ -54,6 +54,7 @@ String manipulation and processing operations with regex and URL encoding suppor
 
   @ForthicWord("( item:any -- string:string )", "Convert item to string", ">STR")
   async to_STR(item: any) {
+    if (item === null || item === undefined) return "";
     return item.toString();
   }
 
