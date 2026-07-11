@@ -461,13 +461,15 @@ Record (object/dictionary) manipulation operations for working with key-value da
   async DELETE(container: any, key: any) {
     if (!container) return container;
 
+    // Copy first: splice()/delete mutate in place, which would alias the input.
     if (container instanceof Array) {
-      container.splice(key, 1);
-    } else {
-      delete container[key];
+      const copy = [...container];
+      copy.splice(key, 1);
+      return copy;
     }
-
-    return container;
+    const copy = { ...container };
+    delete copy[key];
+    return copy;
   }
 
 
@@ -496,7 +498,8 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
     let result: any;
     if (_container instanceof Array) {
-      result = _container;
+      // Copy: returning the input's own array lets a caller mutate it in place.
+      result = [..._container];
     } else {
       result = [];
       Object.keys(_container).forEach((k) => result.push(_container[k]));
