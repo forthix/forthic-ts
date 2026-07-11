@@ -14,6 +14,11 @@ String manipulation and processing operations with regex and URL encoding suppor
 - Bash-flavored: GREP, GREP-V, SED, CUT
 - Constants: /N, /T
 
+## Note
+Regex patterns (RE-*, GREP, SED) are compiled and run as-is. A pathological
+pattern can backtrack catastrophically (ReDoS) and block execution, so patterns
+must come from a trusted source, not untrusted input.
+
 ## Examples
 ["hello" " " "world"] CONCAT
 "hello world" STR-LENGTH
