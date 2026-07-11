@@ -173,16 +173,23 @@ export class PushValueWord extends Word {
  */
 export class DefinitionWord extends Word {
   words: Word[];
+  // Per-call-site source location for each entry in `words`, parallel-indexed.
+  // Stored here rather than on the Word object because words are shared between
+  // definitions/call sites — mutating word.location would let one definition's
+  // location clobber another's.
+  word_locations: (CodeLocation | null)[];
   source: string;
 
   constructor(name: string) {
     super(name);
     this.words = [];
+    this.word_locations = [];
     this.source = "";
   }
 
-  add_word(word: Word): void {
+  add_word(word: Word, location: CodeLocation | null = null): void {
     this.words.push(word);
+    this.word_locations.push(location);
   }
 
   async execute(interp: Interpreter): Promise<void> {
@@ -209,7 +216,8 @@ export class DefinitionWord extends Word {
     for (const batch of batches) {
       if (!batch.isRemote) {
         // Execute local words one by one
-        for (const word of batch.words) {
+        for (let j = 0; j < batch.words.length; j++) {
+          const word = batch.words[j];
           try {
             await word.execute(interp);
           } catch (e) {
@@ -219,16 +227,17 @@ export class DefinitionWord extends Word {
             // wrapped so the WordExecutionError can carry both the call site and
             // this definition's location; the original stays on `.cause`.
             if (e instanceof IntentionalStopError) throw e;
-            // call_location: use this DefinitionWord's own location (set by
-            // dispatch via word.set_location(token.location)). Reading
-            // tokenizer.get_token_location() here would return a stale token
-            // whose end_pos has collapsed to start_pos.
+            // definition_location: this word's own capture location in this
+            // definition (word_locations is parallel to words). Batches are
+            // contiguous slices, so the definition index is startIndex + j. We
+            // must NOT read word.get_location(): words are shared across
+            // definitions, so the shared location races between call sites.
             throw new WordExecutionError(
               `Error executing ${this.name}`,
               e as Error,
               word.name,
               this.get_location() || undefined,
-              word.get_location() || undefined
+              this.word_locations[batch.startIndex + j] || undefined
             );
           }
         }
@@ -243,7 +252,7 @@ export class DefinitionWord extends Word {
             e as Error,
             batch.words[0]?.name ?? this.name,
             this.get_location() || undefined,
-            batch.words[0]?.get_location() || undefined
+            this.word_locations[batch.startIndex] || undefined
           );
         }
       }
