@@ -100,6 +100,43 @@ describe("error context: word name annotation", () => {
     expect(captured!.getDefinitionLocation()!.line).toBe(1); // POP in body
   });
 
+  test("a word used in two definitions reports the erroring definition's own location", async () => {
+    // ALPHA's POP is on line 1, BETA's POP on line 2. Both definitions capture
+    // the SAME shared POP Word object, whose location used to be overwritten to
+    // whichever definition compiled last — so ALPHA's error pointed at BETA.
+    const interp = new StandardInterpreter();
+    const forthic = `: ALPHA POP ;\n: BETA POP ;\nALPHA`;
+    let captured: WordExecutionError | undefined;
+    try {
+      await interp.run(forthic);
+    } catch (e) {
+      captured = e as WordExecutionError;
+    }
+    expect(captured).toBeInstanceOf(WordExecutionError);
+    expect(captured!.getDefinitionLocation()).toBeDefined();
+    // The failing POP is in ALPHA (line 1), not the last-compiled BETA (line 2).
+    expect(captured!.getDefinitionLocation()!.line).toBe(1);
+  });
+
+  test("a word used twice in one definition reports the failing occurrence's location", async () => {
+    // Both POPs share one Word object; its location used to collapse to the
+    // LAST occurrence. With an empty stack the FIRST POP fails, so the reported
+    // location must be the first POP (col 9), not the last-compiled second one.
+    const interp = new StandardInterpreter();
+    const forthic = `: TWICE POP POP ;\nTWICE`;
+    let captured: WordExecutionError | undefined;
+    try {
+      await interp.run(forthic);
+    } catch (e) {
+      captured = e as WordExecutionError;
+    }
+    expect(captured).toBeInstanceOf(WordExecutionError);
+    const def = captured!.getDefinitionLocation();
+    expect(def).toBeDefined();
+    // "POP POP": first POP at column 9, second at column 13.
+    expect(def!.column).toBe(9);
+  });
+
   test("instanceof of original ForthicError subclass is preserved (annotate-don't-wrap)", async () => {
     const mod = new ThrowingModule();
     const interp = new StandardInterpreter([mod]);

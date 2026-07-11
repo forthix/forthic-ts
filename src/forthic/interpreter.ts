@@ -850,7 +850,7 @@ export class Interpreter {
     const self = this;
     const word = new StartModuleWord(token.string);
 
-    if (self.is_compiling) self.cur_definition.add_word(word);
+    if (self.is_compiling) self.cur_definition.add_word(word, token.location);
     self.count_word(word); // For profiling
     await word.execute(self);
   }
@@ -859,7 +859,7 @@ export class Interpreter {
     const self = this;
     const word = new EndModuleWord();
 
-    if (self.is_compiling) self.cur_definition.add_word(word);
+    if (self.is_compiling) self.cur_definition.add_word(word, _token.location);
     self.count_word(word);
     await word.execute(self);
   }
@@ -939,8 +939,9 @@ export class Interpreter {
 
   async handle_word(word: Word, location: CodeLocation | null = null) {
     if (this.is_compiling) {
-      word.set_location(location);
-      this.cur_definition.add_word(word);
+      // Record the call-site location on the definition, not on the shared word
+      // object (which is reused across definitions and would race).
+      this.cur_definition.add_word(word, location);
     } else {
       this.count_word(word);
       await word.execute(this);
