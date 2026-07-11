@@ -68,8 +68,8 @@ Several words support options via the ~> operator using syntax: [.option_name va
     if (!(result instanceof Array)) {
       throw new Error("APPEND requires an array. For records, use JQ! to set a key.");
     }
-    result.push(item);
-    return result;
+    // Copy first: push() mutates in place, which would alias the input.
+    return [...result, item];
   }
 
   @ForthicWord("( container:any -- container:any )", "Reverse array")
@@ -78,7 +78,8 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
     let result = container;
     if (result instanceof Array) {
-      result = result.reverse();
+      // Copy first: reverse() mutates in place, which would alias the input.
+      result = [...result].reverse();
     }
 
     return result;
@@ -371,7 +372,8 @@ Several words support options via the ~> operator using syntax: [.option_name va
     // -----
     // Default sort
     function sort_without_comparator() {
-      return container.sort(natural_cmp);
+      // Copy first: sort() mutates in place, which would alias the input.
+      return [...container].sort(natural_cmp);
     }
 
     // -----
@@ -422,7 +424,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
         else return 0;
       }
 
-      return container.sort(cmp_items);
+      return [...container].sort(cmp_items);
     }
 
     // Figure out what to do
