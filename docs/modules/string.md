@@ -48,7 +48,7 @@ Tab character
 
 **Stack Effect:** `( item:any -- string:string )`
 
-Convert item to string
+Convert item to string. Records render as JSON; arrays comma-join their stringified elements.
 
 ---
 

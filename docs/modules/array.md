@@ -4,7 +4,7 @@
 
 Array and collection operations for manipulating arrays and records.
 
-**38 words**
+**37 words**
 
 ## Categories
 
@@ -23,7 +23,6 @@ Array and collection operations for manipulating arrays and records.
 
 Several words support options via the ~> operator using syntax: [.option_name value ...] ~> WORD
 - with_key: Push index/key before value (MAP, FOREACH, GROUP-BY, SELECT)
-- push_error: Push error array after execution (MAP, FOREACH)
 - depth: Recursion depth for nested operations (MAP, FLATTEN)
 - push_rest: Push remaining items after operation (MAP, TAKE)
 - comparator: Custom comparison function as Forthic string (SORT)
@@ -35,7 +34,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
 [10 20 30] '+ 2 *' [.with_key TRUE] ~> MAP
 [[[1 2]] [[3 4]]] [.depth 1] ~> FLATTEN
 [3 1 4 1 5] [.comparator "SWAP -"] ~> SORT
-[.with_key TRUE .push_error TRUE] ~> MAP
+[.with_key TRUE .depth 1] ~> MAP
 ```
 
 ## Words
@@ -92,7 +91,7 @@ Return the first item where forthic returns truthy, or null if none.
 
 **Stack Effect:** `( container:any -- item:any )`
 
-Get first element from array or record (sorted-key order for records)
+Get first element from array or record (insertion order for records)
 
 ---
 
@@ -101,14 +100,6 @@ Get first element from array or record (sorted-key order for records)
 **Stack Effect:** `( container:any [options:WordOptions] -- flat:any )`
 
 Flatten nested arrays or records. Options: depth (number). Example: [[[1 2]]] [.depth 1] ~> FLATTEN
-
----
-
-### FOREACH
-
-**Stack Effect:** `( items:any forthic:string [options:WordOptions] -- ? )`
-
-Execute forthic for each item. Options: with_key (bool), push_error (bool). Example: ['a' 'b'] 'PROCESS' [.with_key TRUE] ~> FOREACH
 
 ---
 
@@ -180,7 +171,7 @@ Length of an array or record. For strings, use STR-LENGTH.
 
 **Stack Effect:** `( items:any forthic:string [options:WordOptions] -- mapped:any )`
 
-Map function over items. Options: with_key (bool), push_error (bool), depth (num), push_rest (bool). Example: [1 2 3] '2 *' [.with_key TRUE] ~> MAP
+Map function over items. Options: with_key (bool), depth (num), interps (num), outcomes (bool). With outcomes, each element maps to {ok: value} or {error: {message, error_type}} — per-element failures don't abort and can't disturb the stack (MAP restores its own pushes). Example: [1 2 3] '2 *' [.outcomes TRUE] ~> MAP
 
 ---
 
@@ -274,9 +265,9 @@ Sort an array and remove duplicates (bash sort -u).
 
 ### TAKE
 
-**Stack Effect:** `( container:any[] n:number [options:WordOptions] -- result:any[] )`
+**Stack Effect:** `( container:any n:number [options:WordOptions] -- result:any )`
 
-Take first n elements
+Take first n elements (record in -> record out, insertion order)
 
 ---
 
@@ -284,7 +275,7 @@ Take first n elements
 
 **Stack Effect:** `( container:any n:number -- result:any )`
 
-Take last n elements from array or record (sorted-key order for records).
+Take last n elements from array or record (insertion order for records).
 
 ---
 

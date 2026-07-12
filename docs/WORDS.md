@@ -1,8 +1,8 @@
 # Forthic — Standard Words
 
-Generated: 2026-07-10T23:01:57.765Z
+Generated: 2026-07-12T05:09:13.747Z
 
-**8 modules · 163 surface words**
+**8 modules · 165 surface words**
 
 Classic/back-compat words live in `classic/classic_module.ts` and are
 intentionally omitted from this index.
@@ -16,11 +16,11 @@ Array and collection operations for manipulating arrays and records.
 ### Access
 
 - **NTH** `( container:any n:number -- item:any )` — Get nth element from array or record
-- **FIRST** `( container:any -- item:any )` — Get first element from array or record (sorted-key order for records)
+- **FIRST** `( container:any -- item:any )` — Get first element from array or record (insertion order for records)
 - **LAST** `( container:any -- item:any )` — Get last element from array or record
 - **SLICE** `( container:any start:number end:number -- result:any )` — Extract slice from array or record
-- **TAKE** `( container:any[] n:number [options:WordOptions] -- result:any[] )` — Take first n elements
-- **TAKE-LAST** `( container:any n:number -- result:any )` — Take last n elements from array or record (sorted-key order for records).
+- **TAKE** `( container:any n:number [options:WordOptions] -- result:any )` — Take first n elements (record in -> record out, insertion order)
+- **TAKE-LAST** `( container:any n:number -- result:any )` — Take last n elements from array or record (insertion order for records).
 - **SKIP** `( container:any n:number -- result:any )` — Skip first n elements from array or record
 - **LENGTH** `( container:any -- length:number )` — Length of an array or record. For strings, use STR-LENGTH.
 - **INDEX** `( items:any[] forthic:string -- indexed:any )` — Create index mapping from array indices to values
@@ -28,7 +28,7 @@ Array and collection operations for manipulating arrays and records.
 
 ### Transform
 
-- **MAP** `( items:any forthic:string [options:WordOptions] -- mapped:any )` — Map function over items. Options: with_key (bool), push_error (bool), depth (num), push_rest (bool). Example: [1 2 3] '2 *' [.with_key TRUE] ~> MAP
+- **MAP** `( items:any forthic:string [options:WordOptions] -- mapped:any )` — Map function over items. Options: with_key (bool), depth (num), interps (num), outcomes (bool). With outcomes, each element maps to {ok: value} or {error: {message, error_type}} — per-element failures don't abort and can't disturb the stack (MAP restores its own pushes). Example: [1 2 3] '2 *' [.outcomes TRUE] ~> MAP
 - **MAP-AT** `( container:any key:any|any[] forthic:string -- container:any )` — Apply forthic to the value at key/index, returning a new container with that slot transformed. The key arg may be a single key (one-level update) or a path-array for deep updates. Polymorphic over arrays and records. Equivalent of jq's |= operator.
 - **REVERSE** `( container:any -- container:any )` — Reverse array
 
@@ -76,7 +76,7 @@ Array and collection operations for manipulating arrays and records.
 
 ### Iteration
 
-- **FOREACH** `( items:any forthic:string [options:WordOptions] -- ? )` — Execute forthic for each item. Options: with_key (bool), push_error (bool). Example: ['a' 'b'] 'PROCESS' [.with_key TRUE] ~> FOREACH
+- **FOREACH** _(declared in category but not found in module)_
 - **REDUCE** `( container:any initial:any forthic:string -- result:any )` — Reduce array or record with accumulator
 - **UNPACK** `( container:any -- elements:any )` — Unpack array or record elements onto stack
 - **FLATTEN** `( container:any [options:WordOptions] -- flat:any )` — Flatten nested arrays or records. Options: depth (number). Example: [[[1 2]]] [.depth 1] ~> FLATTEN
@@ -147,7 +147,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - **DEFAULT** `( value:any default_value:any -- result:any )` — Returns value or default if value is null/undefined/empty string
 - **DEFAULT-RUN** `( value:any forthic:string -- result:any )` — Lazy default: returns value if non-empty, otherwise runs forthic and uses its result. The forthic is only evaluated when needed.
 - **NULL** `( -- null:null )` — Pushes null onto stack
-- **UNDEFINED** `( -- undefined:undefined )` — Pushes undefined onto stack
+- **UNDEFINED** _(declared in category but not found in module)_
 - **IF** `( bool:boolean then_value:any else_value:any -- chosen:any )` — Pure value selection: push then_value if bool is truthy, else push else_value. For lazy code execution use IF-RUN; for one-sided side effects use WHEN.
 - **IF-RUN** `( bool:boolean then_forthic:string else_forthic:string -- ? )` — Conditional code execution: if bool is truthy run then_forthic, otherwise run else_forthic. Branches are Forthic strings.
 - **WHEN** `( bool:boolean forthic:string -- ? )` — If bool is truthy run forthic, otherwise do nothing. The forthic argument is always treated as code (executed in current context).
@@ -158,8 +158,16 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - **NULL?** `( value:any -- boolean:boolean )` — Returns true if value is null or undefined
 - **EMPTY?** `( value:any -- boolean:boolean )` — Returns true if value is null/undefined, an empty string, or a container (array/record) with no entries
 - **STRING?** `( value:any -- boolean:boolean )` — Returns true if value is a string
-- **NUMBER?** `( value:any -- boolean:boolean )` — Returns true if value is a finite number
+- **NUMBER?** `( value:any -- boolean:boolean )` — Returns true if value is a number (Infinity is a number; NaN is not)
 - **RECORD?** `( value:any -- boolean:boolean )` — Returns true if value is a plain record (object that is not an array and not null)
+
+### Errors
+
+- **TRY** _(declared in category but not found in module)_
+- **OK?** `( outcome:record -- boolean:boolean )` — True if outcome is an ok record (structural: has an 'ok' key)
+- **ERROR?** `( outcome:record -- boolean:boolean )` — True if outcome is an error record (structural: has an 'error' key)
+- **UNWRAP** `( outcome:record -- value:any )` — Extract the ok value from a TRY outcome; re-raises for an error outcome (preserving message and error_type). 'CODE' TRY UNWRAP ≡ CODE.
+- **UNWRAP-OR (Rust Result semantics: 'CODE' TRY UNWRAP is CODE)** _(declared in category but not found in module)_
 
 ### Options
 
@@ -167,8 +175,8 @@ Essential interpreter operations for stack manipulation, variables, control flow
 
 ### String
 
-- **INTERPOLATE** `( string:string [options:WordOptions] -- result:string )` — Interpolate variables (.name) and return result string. Use \\. to escape literal dots.
-- **PRINT** `( value:any [options:WordOptions] -- )` — Print value to stdout. Strings interpolate variables (.name). Non-strings formatted with options. Use \\. to escape literal dots in strings.
+- **INTERPOLATE** `( string:string [options:WordOptions] -- result:string )` — Fill ${name} holes from variables (${.name} also works; read-only — a miss renders as null_text and creates nothing). Holes are variable names, never expressions. Escape a literal with \\${. Null template stays null.
+- **PRINT** `( value:any [options:WordOptions] -- )` — Print value to stdout. Strings interpolate ${name} holes first; other values format with the same options. Escape a literal with \\${.
 
 ### Debug
 
@@ -178,6 +186,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 ### Other
 
 - **~>** `( array:any[] -- options:WordOptions )` — Convert options array to WordOptions. Format: [.key1 val1 .key2 val2]
+- **UNWRAP-OR** `( outcome:record default:any -- value:any )` — Extract the ok value from a TRY outcome, or default if it is an error outcome
 
 ## datetime
 
@@ -322,7 +331,7 @@ String manipulation and processing operations with regex and URL encoding suppor
 
 ### Conversion
 
-- **>STR** `( item:any -- string:string )` — Convert item to string
+- **>STR** `( item:any -- string:string )` — Convert item to string. Records render as JSON; arrays comma-join their stringified elements.
 
 ### Transform
 
