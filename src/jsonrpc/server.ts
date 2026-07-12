@@ -526,7 +526,37 @@ export async function serve(port: number = 8765, options: ServeOptions = {}): Pr
   });
 }
 
+/**
+ * Install Temporal for the standalone server process.
+ *
+ * The library deliberately does NOT install a global polyfill at import time —
+ * temporal-polyfill is an OPTIONAL peer dependency so consumers can bring
+ * their own Temporal (or a native one) without a second instance being
+ * loaded. But this CLI entry is a first-party executable: without a Temporal
+ * global, every date/time value on the wire fails to deserialize with
+ * "ReferenceError: Temporal is not defined". Install it here, for this
+ * process only.
+ */
+async function ensureTemporal(): Promise<void> {
+  if (typeof (globalThis as { Temporal?: unknown }).Temporal !== 'undefined') return;
+  try {
+    // Non-literal specifier on purpose: a literal would make TypeScript pull
+    // in temporal-spec's global declarations, which collide with this repo's
+    // own src/temporal.d.ts (TS6200). This is a runtime-only import.
+    const globalPolyfill = 'temporal-polyfill/global';
+    await import(globalPolyfill);
+  } catch {
+    console.error(
+      'Forthic JSON-RPC server needs a Temporal implementation: install the ' +
+        'optional peer dependency (npm install temporal-polyfill) or run on a ' +
+        'runtime with native Temporal.',
+    );
+    process.exit(1);
+  }
+}
+
 export async function main(): Promise<void> {
+  await ensureTemporal();
   const args = process.argv.slice(2);
   let port = 8765;
   const portIndex = args.indexOf('--port');
