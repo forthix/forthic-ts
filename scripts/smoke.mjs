@@ -103,6 +103,55 @@ await check("jsonrpc server CLI round-trips a date", async () => {
   }
 });
 
+// The LLM prompt (docs/forthic-prompt.md) carries handwritten prose that
+// nothing else verifies, so it drifts against the runtime: it once taught
+// `[ [1 2] [3 4] ] CONCAT` -> `[1 2 3 4]` when CONCAT is string-only and
+// actually yields "1,23,4". That prose is fed to LLMs as the language
+// reference, so a false claim there teaches code generators to emit broken
+// Forthic. Execute every concrete claim it makes. Both sides of a
+// `code` -> `expected` example are Forthic, so run both and compare.
+await check("LLM prompt examples still hold", async () => {
+  const { readFile } = await import("node:fs/promises");
+  await import("temporal-polyfill/global");
+  const { StandardInterpreter } = await import("../dist/esm/index.js");
+
+  const prompt = await readFile(new URL("../docs/forthic-prompt.md", import.meta.url), "utf8");
+  // Only the handwritten guidance above "## Words" — the word listing below it
+  // is generated from decorator metadata and is not executable prose.
+  const prose = prompt.split(/^## Words/m)[0];
+
+  // Claims where BOTH sides are backticked code. Prose right-hand sides
+  // (e.g. "-> string with newline between") are not machine-checkable.
+  const claims = [...prose.matchAll(/`([^`\n]+)`\s*\u2192\s*`([^`\n]+)`/g)];
+  if (claims.length === 0) {
+    throw new Error("no `code` -> `expected` examples found in the prompt prose");
+  }
+
+  const evaluate = async (code) => {
+    const interp = new StandardInterpreter();
+    await interp.run(code);
+    return interp.stack_pop();
+  };
+
+  const wrong = [];
+  for (const [, code, expected] of claims) {
+    try {
+      const actual = await evaluate(code);
+      const want = await evaluate(expected);
+      if (JSON.stringify(actual) !== JSON.stringify(want)) {
+        wrong.push(
+          `${code} produces ${JSON.stringify(actual)}, prompt claims ${JSON.stringify(want)}`,
+        );
+      }
+    } catch (err) {
+      wrong.push(`${code} threw: ${err.message.split("\n")[0]}`);
+    }
+  }
+  if (wrong.length > 0) {
+    throw new Error(`${wrong.length}/${claims.length} prompt claim(s) false: ${wrong.join("; ")}`);
+  }
+});
+
 if (failures.length > 0) {
   console.error(`\nSmoke test failed (${failures.length}): ${failures.join(", ")}`);
   process.exit(1);

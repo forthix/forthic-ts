@@ -392,9 +392,11 @@ Top of stack is rightmost. Forthic is postfix: arguments precede the word.
 - \`RUN\` executes a Forthic string in the current context
 - \`MAP\`: \`[ items ] """WORD_NAME""" MAP\` — apply a word to each item; collect into array
 - \`FILTER\`: \`[ items ] """PREDICATE""" FILTER\` — keep items where predicate is truthy
-- \`CONCAT\` joins arrays of strings or arrays of arrays:
+- \`CONCAT\` joins an array of STRINGS into one string:
   - \`[ '''a''' '''b''' '''c''' ] CONCAT\` → \`'''abc'''\`
-  - \`[ [1 2] [3 4] ] CONCAT\` → \`[1 2 3 4]\`
+- \`FLATTEN\` — NOT \`CONCAT\` — merges arrays of arrays:
+  - \`[ [1 2] [3 4] ] FLATTEN\` → \`[1 2 3 4]\`
+  - (\`CONCAT\` would stringify them: \`'''1,23,4'''\`)
 - \`JOIN\` joins strings with a separator: \`[ '''a''' '''b''' ] /N JOIN\` → string with newline between
 - \`/N\` pushes a newline character; \`/T\` pushes a tab
 - ALWAYS use the array form for \`CONCAT\` — never use binary \`CONCAT\` with two bare values
@@ -416,7 +418,8 @@ Define named words to decompose tasks into steps:
 Variables store and recall values within word definitions:
 
 - \`.name !\` (store)
-- \`.name @\` (recall)
+- \`.name @\` (recall — ALWAYS store before recalling; \`@\` on a name that was
+  never stored or declared is an error, not a null)
 - \`.name !@\` (store and recall — keeps value on stack)
 
 Use variables inside word definitions for intermediate values. Use them inline
