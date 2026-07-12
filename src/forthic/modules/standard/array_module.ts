@@ -643,7 +643,10 @@ Several words support options via the ~> operator using syntax: [.option_name va
       for (let i = 0; i < keys.length; i++) {
         const k = keys[i];
         interp.stack_push(container1[k]);
-        interp.stack_push(container2[k]);
+        // Keys missing from container2 push null, never undefined —
+        // undefined is not a Forthic value (no wire representation; the rs
+        // runtime cannot produce it). Mirrors the array mode's null padding.
+        interp.stack_push(container2[k] ?? null);
         await interp.run(forthic, string_location);
         const res = interp.stack_pop();
         result[k] = res;
@@ -755,7 +758,10 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
     const result = {};
     values.forEach((v) => {
-      if (v) result[v[field]] = v;
+      // Missing fields group under "null" — undefined is not a Forthic
+      // value, and "null" is the one spelling every runtime can honor
+      // (cross-runtime contract with forthic-rs)
+      if (v) result[v[field] ?? null] = v;
     });
 
     return result;
@@ -772,7 +778,14 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
     const result = {};
     values.forEach((v) => {
-      const field_val = v[field];
+      if (v === null || v === undefined) {
+        // A proper error instead of the raw TypeError null[field] throws;
+        // matches the forthic-rs message
+        throw new Error(`GROUP-BY-FIELD: cannot read field '${field}' of NULL`);
+      }
+      // Missing fields group under "null" (cross-runtime contract; see
+      // BY-FIELD)
+      const field_val = v[field] ?? null;
       if (field_val instanceof Array) {
         for (const fv of field_val) {
           if (!result[fv]) result[fv] = [];

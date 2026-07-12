@@ -223,7 +223,13 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     return null;
   }
 
-  @ForthicDirectWord("( -- undefined:undefined )", "Pushes undefined onto stack", "UNDEFINED")
+  @ForthicDirectWord(
+    "( -- undefined:undefined )",
+    "Pushes undefined onto stack. JS-ONLY, not portable Forthic: undefined has no wire representation " +
+      "(it serializes as null) and non-JS runtimes do not implement this word — portable programs use NULL. " +
+      "Kept for host-interop cases where the null/undefined distinction matters within JS.",
+    "UNDEFINED",
+  )
   async UNDEFINED(interp: Interpreter) {
     interp.stack_push(undefined);
   }
