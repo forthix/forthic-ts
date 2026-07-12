@@ -1,6 +1,6 @@
 # Forthic — Standard Words
 
-Generated: 2026-07-12T05:09:13.747Z
+Generated: 2026-07-12T20:03:37.617Z
 
 **8 modules · 165 surface words**
 
@@ -297,7 +297,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
 ### Disassemble
 
-- **REC>ENTRIES** `( rec:any -- pairs:any[] )` — Convert a record to an array of [key, value] pairs (sorted by key for stability). Inverse of ENTRIES>REC / REC.
+- **REC>ENTRIES** `( rec:any -- pairs:any[] )` — Convert a record to an array of [key, value] pairs in insertion order, making the ENTRIES>REC round trip an identity. Inverse of ENTRIES>REC / REC.
 
 ### Combine
 

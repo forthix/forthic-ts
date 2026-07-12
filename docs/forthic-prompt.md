@@ -243,7 +243,7 @@ ALWAYS generate code in this structure:
 - `PICK` `( rec:any keys:any[] -- rec:any )` — Return a new record containing only the listed keys (missing keys are skipped).
 - `REC` `( key_vals:any[] -- rec:any )` — Create record from [[key, val], ...] pairs
 - `REC@` `( rec:any field:any -- value:any )` — Get value from record by field or array of fields
-- `REC>ENTRIES` `( rec:any -- pairs:any[] )` — Convert a record to an array of [key, value] pairs (sorted by key for stability). Inverse of ENTRIES>REC / REC.
+- `REC>ENTRIES` `( rec:any -- pairs:any[] )` — Convert a record to an array of [key, value] pairs in insertion order, making the ENTRIES>REC round trip an identity. Inverse of ENTRIES>REC / REC.
 - `VALUES` `( container:any -- values:any[] )` — Get values from record or elements from array
 
 ### string

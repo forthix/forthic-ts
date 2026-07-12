@@ -420,7 +420,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
   @ForthicWord(
     "( rec:any -- pairs:any[] )",
-    "Convert a record to an array of [key, value] pairs (sorted by key for stability). Inverse of ENTRIES>REC / REC.",
+    "Convert a record to an array of [key, value] pairs in insertion order, making the ENTRIES>REC round trip an identity. Inverse of ENTRIES>REC / REC.",
     "REC>ENTRIES",
   )
   async REC_to_ENTRIES(rec: any) {
