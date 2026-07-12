@@ -139,6 +139,43 @@ test(">DATETIME parses ISO datetime string", async () => {
   expect(result.minute).toBe(30);
 });
 
+test(">DATETIME treats a trailing-Z string as an instant in the interpreter timezone", async () => {
+  // Cross-runtime contract (matches forthic-py/forthic-rs and >DATE's own
+  // #35 rule): 23:30 UTC is 08:30 the NEXT day in Tokyo. This used to be
+  // null (PlainDateTime.from rejects Z-strings).
+  const tokyo = new StandardInterpreter([], "Asia/Tokyo");
+  await tokyo.run(`"2024-01-15T23:30:00Z" >DATETIME`);
+  const result = tokyo.stack_pop();
+  expect(result.year).toBe(2024);
+  expect(result.month).toBe(1);
+  expect(result.day).toBe(16);
+  expect(result.hour).toBe(8);
+  expect(result.minute).toBe(30);
+  expect(result.timeZoneId).toBe("Asia/Tokyo");
+});
+
+test(">DATETIME honors explicit numeric offsets as instants", async () => {
+  // 23:30+09:00 is 14:30 UTC = 06:30 in LA. PlainDateTime.from used to
+  // IGNORE the offset and reinterpret the wall clock in the interpreter tz,
+  // silently changing the instant.
+  const la = new StandardInterpreter([], "America/Los_Angeles");
+  await la.run(`"2024-01-15T23:30:00+09:00" >DATETIME`);
+  const result = la.stack_pop();
+  expect(result.day).toBe(15);
+  expect(result.hour).toBe(6);
+  expect(result.minute).toBe(30);
+  expect(result.timeZoneId).toBe("America/Los_Angeles");
+});
+
+test(">DATETIME still parses zone-less strings as interpreter-tz wall clocks", async () => {
+  // The zone-detection must not catch plain datetimes or date-only strings
+  const la = new StandardInterpreter([], "America/Los_Angeles");
+  await la.run(`"2024-01-15T14:30:00" >DATETIME`);
+  expect(la.stack_pop().hour).toBe(14);
+  await la.run(`"2024-01-15" >DATETIME`);
+  expect(la.stack_pop().hour).toBe(0);
+});
+
 test(">DATETIME converts Unix timestamp", async () => {
   // 1593895532 seconds = July 4, 2020, 13:45:32 PDT
   await interp.run("1593895532 >DATETIME");
