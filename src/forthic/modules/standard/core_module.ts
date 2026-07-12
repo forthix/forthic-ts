@@ -1,6 +1,6 @@
 import { Variable } from "../../module.js";
 import { Interpreter } from "../../interpreter.js";
-import { InvalidVariableNameError, IntentionalStopError, UnknownVariableError } from "../../errors.js";
+import { ForthicError, InvalidVariableNameError, IntentionalStopError, UnknownVariableError } from "../../errors.js";
 import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
 import { WordOptions } from "../../word_options.js";
 
@@ -21,19 +21,25 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - String: INTERPOLATE, PRINT
 - Debug: PEEK!, STACK!
 
+## Interpolation
+INTERPOLATE and PRINT fill \${name} holes (template-literal style; \${.name} also works) from
+variables. Holes are variable names ONLY — never expressions — so rendering a template can never
+execute Forthic. Lookup is READ-ONLY: a miss renders as null_text and creates nothing. Escape a
+literal with \\\${. Compute on the stack, then render: 5 .count ! "Count: \${count}" PRINT
+
 ## Options
 INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option_name value ...] ~> WORD
 - separator: String to use when joining array values (default: ", ")
-- null_text: Text to display for null/undefined values (default: "null")
+- null_text: Text for null/undefined values and missing variables (default: "")
 - json: Use JSON.stringify for all values (default: false)
 
 ## Examples
-5 .count ! "Count: .count" PRINT
-"Items: .items" [.separator " | "] ~> PRINT
+5 .count ! "Count: \${count}" PRINT
+"Items: \${items}" [.separator " | "] ~> PRINT
 [1 2 3] PRINT                           # Direct printing: 1, 2, 3
 [1 2 3] [.separator " | "] ~> PRINT    # With options: 1 | 2 | 3
 [ [.name "Alice"] ] REC [.json TRUE] ~> PRINT  # JSON format: {"name":"Alice"}
-"Hello .name" INTERPOLATE .greeting !
+"Hello \${name}" INTERPOLATE .greeting !
 [1 2 3] DUP SWAP
 `);
   }
@@ -394,19 +400,20 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
 
 
 
-  @ForthicWord("( string:string [options:WordOptions] -- result:string )", "Interpolate variables (.name) and return result string. Use \\. to escape literal dots.")
+  @ForthicWord("( string:string [options:WordOptions] -- result:string )", "Fill ${name} holes from variables (${.name} also works; read-only — a miss renders as null_text and creates nothing). Holes are variable names, never expressions. Escape a literal with \\${. Null template stays null.")
   async INTERPOLATE(string: string, options: Record<string, any>) {
+    if (string === null || string === undefined) return string;
     const separator = options.separator ?? ", ";
-    const null_text = options.null_text ?? "null";
+    const null_text = options.null_text ?? "";
     const use_json = options.json ?? false;
 
-    return this.interpolateString(string, separator, null_text, use_json);
+    return this.interpolateString(String(string), separator, null_text, use_json);
   }
 
-  @ForthicWord("( value:any [options:WordOptions] -- )", "Print value to stdout. Strings interpolate variables (.name). Non-strings formatted with options. Use \\. to escape literal dots in strings.")
+  @ForthicWord("( value:any [options:WordOptions] -- )", "Print value to stdout. Strings interpolate ${name} holes first; other values format with the same options. Escape a literal with \\${.")
   async PRINT(value: any, options: Record<string, any>) {
     const separator = options.separator ?? ", ";
-    const null_text = options.null_text ?? "null";
+    const null_text = options.null_text ?? "";
     const use_json = options.json ?? false;
 
     let result: string;
@@ -420,30 +427,60 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     console.log(result);
   }
 
+  // The ONE interpolation grammar (settled 2026-07-11, mirrored in
+  // forthic-rs): ${name} holes, variable NAMES only — never expressions —
+  // so rendering a template can never execute Forthic (injection-safe by
+  // construction; the same reasoning that made JQ paths data instead of
+  // interpolated source). Computation belongs on the stack.
   private interpolateString(string: string, separator: string, null_text: string, use_json: boolean): string {
     if (!string) string = "";
 
-    // First, handle escape sequences by replacing \. with a temporary placeholder
-    const escaped = string.replace(/\\\./g, '\x00ESCAPED_DOT\x00');
+    // \${ escapes a literal ${: swap for a NUL-fenced placeholder so the
+    // hole regex can't see it, restore after
+    const ESCAPED_HOLE = '\x00ESCAPED_HOLE\x00';
+    const escaped = string.replace(/\\\$\{/g, ESCAPED_HOLE);
 
-    // Replace whitespace-preceded or start-of-string .variable patterns
-    const interpolated = escaped.replace(
-      /(?:^|(?<=\s))\.([a-zA-Z_][a-zA-Z0-9_-]*)/g,
-      (match, varName) => {
-        const variable = CoreModule.get_or_create_variable(this.interp, varName);
-        const value = variable.get_value();
-        return this.valueToString(value, separator, null_text, use_json);
-      }
-    );
+    const interpolated = escaped.replace(/\$\{([^{}]*)\}/g, (_match, body) => {
+      const name = this.holeName(body);
+      // READ-ONLY lookup: templates render state, never mutate it — a miss
+      // renders as null_text and creates nothing (no @-style get-or-create)
+      const variable = this.interp.find_variable(name);
+      const value = variable ? variable.get_value() : null;
+      return this.valueToString(value, separator, null_text, use_json);
+    });
 
-    // Restore escaped dots
-    return interpolated.replace(/\x00ESCAPED_DOT\x00/g, '.');
+    return interpolated.replace(/\x00ESCAPED_HOLE\x00/g, '${');
+  }
+
+  // Validate a hole body into a variable name. ${1 + 2} is a hard error,
+  // not a template feature. __ names are reserved, same as ! / @.
+  private holeName(body: string): string {
+    const trimmed = String(body).trim();
+    const name = trimmed.startsWith('.') ? trimmed.slice(1) : trimmed;
+    if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(name)) {
+      throw new ForthicError(
+        this.interp.get_top_input_string(),
+        `Invalid interpolation hole '\${${body}}': holes are variable names (\${name} or \${.name}), not expressions. Escape a literal with \\\${`,
+        this.interp.get_string_location(),
+      );
+    }
+    if (name.startsWith('__')) {
+      throw new InvalidVariableNameError(
+        this.interp.get_top_input_string(),
+        name,
+        this.interp.get_string_location(),
+      );
+    }
+    return name;
   }
 
   private valueToString(value: any, separator: string, null_text: string, use_json: boolean): string {
     if (value === null || value === undefined) return null_text;
     if (use_json) return JSON.stringify(value);
-    if (Array.isArray(value)) return value.join(separator);
+    if (Array.isArray(value)) {
+      // Elements render recursively, so null elements also use null_text
+      return value.map((v) => this.valueToString(v, separator, null_text, use_json)).join(separator);
+    }
     if (typeof value === 'object') return JSON.stringify(value);
     return String(value);
   }

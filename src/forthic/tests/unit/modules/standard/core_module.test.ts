@@ -278,22 +278,30 @@ test("~> handles multiple options", async () => {
 });
 
 // ========================================
-// INTERPOLATE
+// INTERPOLATE (${name} holes — names only, never expressions)
 // ========================================
 
-test("INTERPOLATE - basic interpolation with dynamic variable", async () => {
+test("INTERPOLATE - basic interpolation", async () => {
   await interp.run(`5 .count !`);
-  await interp.run(`"Count: .count" INTERPOLATE`);
+  await interp.run(`"Count: \${count}" INTERPOLATE`);
 
   const result = interp.stack_pop();
   expect(result).toBe("Count: 5");
+});
+
+test("INTERPOLATE - dot-symbol spelling and body whitespace", async () => {
+  await interp.run(`5 .count !`);
+  await interp.run(`"\${.count} = \${ count }" INTERPOLATE`);
+
+  const result = interp.stack_pop();
+  expect(result).toBe("5 = 5");
 });
 
 test("INTERPOLATE - returns string without printing", async () => {
   const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
   await interp.run(`3 .number !`);
-  await interp.run(`"Number: .number" INTERPOLATE`);
+  await interp.run(`"Number: \${number}" INTERPOLATE`);
 
   // Should not have printed
   expect(consoleSpy).not.toHaveBeenCalled();
@@ -308,15 +316,61 @@ test("INTERPOLATE - returns string without printing", async () => {
 test("INTERPOLATE - multiple variables in one string", async () => {
   await interp.run(`3 .number !`);
   await interp.run(`["apple" "banana"] .queue !`);
-  await interp.run(`"There are .number items: .queue" INTERPOLATE`);
+  await interp.run(`"There are \${number} items: \${queue}" INTERPOLATE`);
 
   const result = interp.stack_pop();
   expect(result).toBe("There are 3 items: apple, banana");
 });
 
+test("INTERPOLATE - lookup is read-only; miss renders as null_text default ''", async () => {
+  await interp.run(`"[\${nope}]" INTERPOLATE`);
+  expect(interp.stack_pop()).toBe("[]");
+
+  // ...and the miss created NOTHING (unlike @'s get-or-create)
+  expect(interp.find_variable("nope")).toBeNull();
+});
+
+test("INTERPOLATE - custom null_text option", async () => {
+  await interp.run(`"Missing: \${missing}" [.null_text "N/A"] ~> INTERPOLATE`);
+
+  const result = interp.stack_pop();
+  expect(result).toBe("Missing: N/A");
+});
+
+test("INTERPOLATE - holes are names, not expressions", async () => {
+  await expect(interp.run(`"\${1 + 2}" INTERPOLATE`)).rejects.toThrow(/not expressions/);
+  await expect(interp.run(`"\${x:-default}" INTERPOLATE`)).rejects.toThrow(/not expressions/);
+  await expect(interp.run(`"\${}" INTERPOLATE`)).rejects.toThrow(/not expressions/);
+});
+
+test("INTERPOLATE - __ hole names are reserved like ! and @", async () => {
+  await expect(interp.run(`"\${__secret}" INTERPOLATE`)).rejects.toThrow(/__secret/);
+});
+
+test("INTERPOLATE - escaped holes stay literal", async () => {
+  await interp.run(`7 .x !`);
+  await interp.run(`"\\\${x} = \${x}" INTERPOLATE`);
+
+  const result = interp.stack_pop();
+  expect(result).toBe("\${x} = 7");
+});
+
+test("INTERPOLATE - bare dots, braces, and dollars are literal text", async () => {
+  await interp.run(`5 .count !`);
+  await interp.run(`"file.count {count} $count .count" INTERPOLATE`);
+
+  const result = interp.stack_pop();
+  expect(result).toBe("file.count {count} $count .count");
+});
+
+test("INTERPOLATE - null template stays null", async () => {
+  await interp.run(`NULL INTERPOLATE`);
+  expect(interp.stack_pop()).toBeNull();
+});
+
 test("INTERPOLATE - can be stored in variable", async () => {
   await interp.run(`5 .count !`);
-  await interp.run(`"Count: .count" INTERPOLATE .message !`);
+  await interp.run(`"Count: \${count}" INTERPOLATE .message !`);
   await interp.run(`.message @`);
 
   const result = interp.stack_pop();
@@ -325,7 +379,7 @@ test("INTERPOLATE - can be stored in variable", async () => {
 
 test("INTERPOLATE - can be used with string operations", async () => {
   await interp.run(`"hello" .word !`);
-  await interp.run(`"Say .word" INTERPOLATE UPPERCASE`);
+  await interp.run(`"Say \${word}" INTERPOLATE UPPERCASE`);
 
   const result = interp.stack_pop();
   expect(result).toBe("SAY HELLO");
@@ -333,61 +387,46 @@ test("INTERPOLATE - can be used with string operations", async () => {
 
 test("INTERPOLATE - array with custom separator option", async () => {
   await interp.run(`["apple" "banana" "cherry"] .items !`);
-  await interp.run(`"Items: .items" [.separator " | "] ~> INTERPOLATE`);
+  await interp.run(`"Items: \${items}" [.separator " | "] ~> INTERPOLATE`);
 
   const result = interp.stack_pop();
   expect(result).toBe("Items: apple | banana | cherry");
 });
 
-test("INTERPOLATE - custom null_text option", async () => {
-  await interp.run(`"Missing: .missing" [.null_text "N/A"] ~> INTERPOLATE`);
-
-  const result = interp.stack_pop();
-  expect(result).toBe("Missing: N/A");
-});
-
 test("INTERPOLATE - json option", async () => {
   await interp.run(`["apple" "banana"] .items !`);
-  await interp.run(`"Items: .items" [.json TRUE] ~> INTERPOLATE`);
+  await interp.run(`"Items: \${items}" [.json TRUE] ~> INTERPOLATE`);
 
   const result = interp.stack_pop();
   expect(result).toBe('Items: ["apple","banana"]');
 });
 
-test("INTERPOLATE - escaped dots", async () => {
-  await interp.run(`42 .linecount !`);
-  await interp.run(`"Config: \\.bashrc has .linecount lines" INTERPOLATE`);
+test("INTERPOLATE - record hole renders as JSON", async () => {
+  await interp.run(`[["a" 1]] REC .rec !`);
+  await interp.run(`"rec: \${rec}" INTERPOLATE`);
 
   const result = interp.stack_pop();
-  expect(result).toBe("Config: .bashrc has 42 lines");
-});
-
-test("INTERPOLATE - decimal numbers don't get interpolated", async () => {
-  await interp.run(`5 .count !`);
-  await interp.run(`"Price is $10.50 for .count items" INTERPOLATE`);
-
-  const result = interp.stack_pop();
-  expect(result).toBe("Price is $10.50 for 5 items");
+  expect(result).toBe('rec: {"a":1}');
 });
 
 test("INTERPOLATE - chaining multiple interpolations", async () => {
   await interp.run(`"world" .name !`);
-  await interp.run(`"Hello .name" INTERPOLATE .greeting !`);
-  await interp.run(`"Message: .greeting" INTERPOLATE`);
+  await interp.run(`"Hello \${name}" INTERPOLATE .greeting !`);
+  await interp.run(`"Message: \${greeting}" INTERPOLATE`);
 
   const result = interp.stack_pop();
   expect(result).toBe("Message: Hello world");
 });
 
 // ========================================
-// PRINT
+// PRINT (shares INTERPOLATE's holes and rendering)
 // ========================================
 
-test("PRINT - basic interpolation with dynamic variable", async () => {
+test("PRINT - basic interpolation", async () => {
   const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
   await interp.run(`5 .count !`);
-  await interp.run(`"Count: .count" PRINT`);
+  await interp.run(`"Count: \${count}" PRINT`);
 
   expect(consoleSpy).toHaveBeenCalledWith("Count: 5");
   consoleSpy.mockRestore();
@@ -398,19 +437,9 @@ test("PRINT - multiple variables in one string", async () => {
 
   await interp.run(`3 .number !`);
   await interp.run(`["apple" "banana"] .queue !`);
-  await interp.run(`"There are .number items in the queue: .queue" PRINT`);
+  await interp.run(`"There are \${number} items in the queue: \${queue}" PRINT`);
 
   expect(consoleSpy).toHaveBeenCalledWith("There are 3 items in the queue: apple, banana");
-  consoleSpy.mockRestore();
-});
-
-test("PRINT - decimal numbers don't get interpolated", async () => {
-  const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
-  await interp.run(`5 .count !`);
-  await interp.run(`"Price is $10.50 for .count items" PRINT`);
-
-  expect(consoleSpy).toHaveBeenCalledWith("Price is $10.50 for 5 items");
   consoleSpy.mockRestore();
 });
 
@@ -418,26 +447,31 @@ test("PRINT - variable at start of string", async () => {
   const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
   await interp.run(`["apple" "banana"] .items !`);
-  await interp.run(`".items are available" PRINT`);
+  await interp.run(`"\${items} are available" PRINT`);
 
   expect(consoleSpy).toHaveBeenCalledWith("apple, banana are available");
   consoleSpy.mockRestore();
 });
 
-test("PRINT - undefined variable creates null", async () => {
+test("PRINT - missing variable renders as null_text and creates nothing", async () => {
   const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
-  await interp.run(`"Value: .undefined" PRINT`);
+  await interp.run(`"Value: [\${missing}]" PRINT`);
 
-  expect(consoleSpy).toHaveBeenCalledWith("Value: null");
+  expect(consoleSpy).toHaveBeenCalledWith("Value: []");
+  expect(interp.find_variable("missing")).toBeNull();
   consoleSpy.mockRestore();
+});
+
+test("PRINT - rejects expression holes too", async () => {
+  await expect(interp.run(`"value: \${6 * 7}" PRINT`)).rejects.toThrow(/not expressions/);
 });
 
 test("PRINT - array with custom separator option", async () => {
   const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
   await interp.run(`["apple" "banana" "cherry"] .items !`);
-  await interp.run(`"Items: .items" [.separator " | "] ~> PRINT`);
+  await interp.run(`"Items: \${items}" [.separator " | "] ~> PRINT`);
 
   expect(consoleSpy).toHaveBeenCalledWith("Items: apple | banana | cherry");
   consoleSpy.mockRestore();
@@ -446,19 +480,28 @@ test("PRINT - array with custom separator option", async () => {
 test("PRINT - custom null_text option", async () => {
   const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
-  await interp.run(`"Missing: .missing" [.null_text "N/A"] ~> PRINT`);
+  await interp.run(`"Missing: \${missing}" [.null_text "N/A"] ~> PRINT`);
 
   expect(consoleSpy).toHaveBeenCalledWith("Missing: N/A");
   consoleSpy.mockRestore();
 });
 
-test("PRINT - escaped dot with backslash", async () => {
+test("PRINT - null array elements use null_text too", async () => {
   const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
-  await interp.run(`42 .linecount !`);
-  await interp.run(`"Config file: \\.bashrc has .linecount lines" PRINT`);
+  await interp.run(`[1 NULL 3] [.null_text "N/A"] ~> PRINT`);
 
-  expect(consoleSpy).toHaveBeenCalledWith("Config file: .bashrc has 42 lines");
+  expect(consoleSpy).toHaveBeenCalledWith("1, N/A, 3");
+  consoleSpy.mockRestore();
+});
+
+test("PRINT - escaped hole stays literal", async () => {
+  const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+  await interp.run(`7 .x !`);
+  await interp.run(`"shell says \\\${x}, forthic says \${x}" PRINT`);
+
+  expect(consoleSpy).toHaveBeenCalledWith("shell says \${x}, forthic says 7");
   consoleSpy.mockRestore();
 });
 
@@ -466,7 +509,7 @@ test("PRINT - object values as JSON", async () => {
   const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
   await interp.run(`[["name" "test"] ["value" 123]] REC .obj !`);
-  await interp.run(`"Object: .obj" PRINT`);
+  await interp.run(`"Object: \${obj}" PRINT`);
 
   expect(consoleSpy).toHaveBeenCalledWith('Object: {"name":"test","value":123}');
   consoleSpy.mockRestore();
@@ -476,7 +519,7 @@ test("PRINT - json option for all values", async () => {
   const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
   await interp.run(`["apple" "banana"] .items !`);
-  await interp.run(`"Items: .items" [.json TRUE] ~> PRINT`);
+  await interp.run(`"Items: \${items}" [.json TRUE] ~> PRINT`);
 
   expect(consoleSpy).toHaveBeenCalledWith('Items: ["apple","banana"]');
   consoleSpy.mockRestore();
@@ -500,20 +543,11 @@ test("PRINT - string with no variables", async () => {
   consoleSpy.mockRestore();
 });
 
-test("PRINT - multiple escaped dots", async () => {
-  const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
-  await interp.run(`"Files: \\.bashrc and \\.profile" PRINT`);
-
-  expect(consoleSpy).toHaveBeenCalledWith("Files: .bashrc and .profile");
-  consoleSpy.mockRestore();
-});
-
 test("PRINT - boolean values", async () => {
   const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
   await interp.run(`TRUE .flag !`);
-  await interp.run(`"Flag is: .flag" PRINT`);
+  await interp.run(`"Flag is: \${flag}" PRINT`);
 
   expect(consoleSpy).toHaveBeenCalledWith("Flag is: true");
   consoleSpy.mockRestore();

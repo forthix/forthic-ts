@@ -1,17 +1,17 @@
 # Forthic Module Documentation
 
-Generated: 2026-07-10T23:01:57.762Z
+Generated: 2026-07-12T05:09:13.743Z
 
-**10 modules** with **206 words** total
+**10 modules** with **208 words** total
 
 ## Modules
 
 | Module | Words | Description |
 |--------|-------|-------------|
-| [array](./modules/array.md) | 38 | Array and collection operations for manipulating arrays and records. |
+| [array](./modules/array.md) | 37 | Array and collection operations for manipulating arrays and records. |
 | [boolean](./modules/boolean.md) | 15 | Comparison, logic, and membership operations for boolean values and conditions. |
 | [classic](./modules/classic.md) | 34 | Module operations |
-| [core](./modules/core.md) | 28 | Essential interpreter operations for stack manipulation, variables, control flow, and module system. |
+| [core](./modules/core.md) | 31 | Essential interpreter operations for stack manipulation, variables, control flow, and module system. |
 | [datetime](./modules/datetime.md) | 17 | Date and time operations using the Temporal API for timezone-aware datetime manipulation. |
 | [fs](./modules/fs.md) | 9 | TypeScript-specific file system operations for Node.js runtime. |
 | [json](./modules/json.md) | 2 | JSON serialization, parsing, and formatting operations. |
@@ -21,10 +21,10 @@ Generated: 2026-07-10T23:01:57.762Z
 
 ## Quick Links
 
-- **[array](./modules/array.md)**: APPEND, BY-FIELD, COUNT, DIFFERENCE, FILTER, ... (33 more)
+- **[array](./modules/array.md)**: APPEND, BY-FIELD, COUNT, DIFFERENCE, FILTER, ... (32 more)
 - **[boolean](./modules/boolean.md)**: !=, <, <=, ==, >, ... (10 more)
 - **[classic](./modules/classic.md)**: *DEFAULT, /R, <DEL, <REPEAT, >FIXED, ... (29 more)
-- **[core](./modules/core.md)**: !, !@, @, ~>, ARRAY?, ... (23 more)
+- **[core](./modules/core.md)**: !, !@, @, ~>, ARRAY?, ... (26 more)
 - **[datetime](./modules/datetime.md)**: >DATE, >DATETIME, >TIME, >TIMESTAMP, ADD-DAYS, ... (12 more)
 - **[fs](./modules/fs.md)**: APPEND-FILE, BASENAME, DIR-EXISTS?, DIRNAME, FILE-EXISTS?, ... (4 more)
 - **[json](./modules/json.md)**: >JSON, JSON>

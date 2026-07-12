@@ -4,7 +4,7 @@
 
 Essential interpreter operations for stack manipulation, variables, control flow, and module system.
 
-**28 words**
+**31 words**
 
 ## Categories
 
@@ -14,6 +14,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - **Execution**: RUN
 - **Control**: NOP, DEFAULT, DEFAULT-RUN, NULL, UNDEFINED, IF, IF-RUN, WHEN
 - **Predicates**: ARRAY?, NULL?, EMPTY?, STRING?, NUMBER?, RECORD?
+- **Errors**: TRY, OK?, ERROR?, UNWRAP, UNWRAP-OR (Rust Result semantics: 'CODE' TRY UNWRAP is CODE)
 - **Options**: ~> (converts array to WordOptions)
 - **String**: INTERPOLATE, PRINT
 - **Debug**: PEEK!, STACK!
@@ -22,18 +23,18 @@ Essential interpreter operations for stack manipulation, variables, control flow
 
 INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option_name value ...] ~> WORD
 - separator: String to use when joining array values (default: ", ")
-- null_text: Text to display for null/undefined values (default: "null")
+- null_text: Text for null/undefined values and missing variables (default: "")
 - json: Use JSON.stringify for all values (default: false)
 
 ## Examples
 
 ```forthic
-5 .count ! "Count: .count" PRINT
-"Items: .items" [.separator " | "] ~> PRINT
+5 .count ! "Count: \${count}" PRINT
+"Items: \${items}" [.separator " | "] ~> PRINT
 [1 2 3] PRINT                           # Direct printing: 1, 2, 3
 [1 2 3] [.separator " | "] ~> PRINT    # With options: 1 | 2 | 3
 [ [.name "Alice"] ] REC [.json TRUE] ~> PRINT  # JSON format: {"name":"Alice"}
-"Hello .name" INTERPOLATE .greeting !
+"Hello \${name}" INTERPOLATE .greeting !
 [1 2 3] DUP SWAP
 ```
 
@@ -119,6 +120,14 @@ Returns true if value is null/undefined, an empty string, or a container (array/
 
 ---
 
+### ERROR?
+
+**Stack Effect:** `( outcome:record -- boolean:boolean )`
+
+True if outcome is an error record (structural: has an 'error' key)
+
+---
+
 ### IF
 
 **Stack Effect:** `( bool:boolean then_value:any else_value:any -- chosen:any )`
@@ -139,7 +148,7 @@ Conditional code execution: if bool is truthy run then_forthic, otherwise run el
 
 **Stack Effect:** `( string:string [options:WordOptions] -- result:string )`
 
-Interpolate variables (.name) and return result string. Use \\. to escape literal dots.
+Fill ${name} holes from variables (${.name} also works; read-only — a miss renders as null_text and creates nothing). Holes are variable names, never expressions. Escape a literal with \\${. Null template stays null.
 
 ---
 
@@ -171,7 +180,15 @@ Returns true if value is null or undefined
 
 **Stack Effect:** `( value:any -- boolean:boolean )`
 
-Returns true if value is a finite number
+Returns true if value is a number (Infinity is a number; NaN is not)
+
+---
+
+### OK?
+
+**Stack Effect:** `( outcome:record -- boolean:boolean )`
+
+True if outcome is an ok record (structural: has an 'ok' key)
 
 ---
 
@@ -187,7 +204,7 @@ Prints top of stack and stops execution
 
 **Stack Effect:** `( value:any [options:WordOptions] -- )`
 
-Print value to stdout. Strings interpolate variables (.name). Non-strings formatted with options. Use \\. to escape literal dots in strings.
+Print value to stdout. Strings interpolate ${name} holes first; other values format with the same options. Escape a literal with \\${.
 
 ---
 
@@ -231,11 +248,19 @@ Swaps top two stack items
 
 ---
 
-### UNDEFINED
+### UNWRAP
 
-**Stack Effect:** `( -- undefined:undefined )`
+**Stack Effect:** `( outcome:record -- value:any )`
 
-Pushes undefined onto stack
+Extract the ok value from a TRY outcome; re-raises for an error outcome (preserving message and error_type). 'CODE' TRY UNWRAP ≡ CODE.
+
+---
+
+### UNWRAP-OR
+
+**Stack Effect:** `( outcome:record default:any -- value:any )`
+
+Extract the ok value from a TRY outcome, or default if it is an error outcome
 
 ---
 

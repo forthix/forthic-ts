@@ -231,25 +231,6 @@ must come from a trusted source, not untrusted input.
   }
 
   @ForthicWord(
-    "( template:string -- result:string )",
-    "Interpolate {.var}@ holes with variable values from the current scope. {...} marks off a raw " +
-      "block and the postfix @ fetches it as a variable (a leading dot is optional, so {.x}@ and {x}@ " +
-      "are equivalent). Only a } immediately followed by @ is a hole, so bare braces in the text pass " +
-      'through untouched. null/undefined render as ""; records/arrays render as JSON.',
-    "INTERPOLATE",
-  )
-  async INTERPOLATE(template: string) {
-    if (template === null || template === undefined) return template;
-    return String(template).replace(/\{([^{}]*)\}@/g, (_match, raw) => {
-      let name = String(raw).trim();
-      if (name.startsWith(".")) name = name.slice(1);
-      const variable = this.get_interp().find_variable(name);
-      const value = variable ? variable.get_value() : null;
-      return render_interpolation_value(value);
-    });
-  }
-
-  @ForthicWord(
     "( string:string pattern:string replace:string -- result:string )",
     "Replace all regex matches of pattern with replace. Same as classic REPLACE behavior.",
     "RE-REPLACE",
@@ -360,13 +341,4 @@ must come from a trusted source, not untrusted input.
     });
   }
 
-}
-
-// Render a variable's value into an INTERPOLATE hole: strings pass through, null/
-// undefined become empty, primitives stringify, and records/arrays become JSON.
-function render_interpolation_value(value: any): string {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return JSON.stringify(value);
 }
