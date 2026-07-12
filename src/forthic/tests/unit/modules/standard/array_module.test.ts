@@ -333,3 +333,34 @@ test("MAP with depth maps scalar leaves through instead of turning them into {}"
   await interp.run(`[ 1 [ 2 3 ] ] "10 *" [.depth 1] ~> MAP`);
   expect(interp.stack_pop()).toEqual([10, [20, 30]]);
 });
+
+// ===== undefined-leak alignment (cross-runtime contract with forthic-rs) =====
+
+test("BY-FIELD keys missing fields as 'null', not 'undefined'", async () => {
+  await interp.run(`[ [ [ 'id' 'a' ] ] REC [ [ 'other' 1 ] ] REC ] 'id' BY-FIELD`);
+  const result = interp.stack_pop();
+  expect(Object.keys(result)).toEqual(["a", "null"]);
+  expect(result["undefined"]).toBeUndefined();
+});
+
+test("GROUP-BY-FIELD groups missing fields under 'null'", async () => {
+  await interp.run(`[ [ [ 'k' 'x' ] ] REC [ [ 'other' 1 ] ] REC ] 'k' GROUP-BY-FIELD`);
+  const result = interp.stack_pop();
+  expect(Object.keys(result)).toEqual(["x", "null"]);
+});
+
+test("GROUP-BY-FIELD raises a clear error for NULL elements", async () => {
+  await expect(
+    interp.run(`[ [ [ 'k' 'x' ] ] REC NULL ] 'k' GROUP-BY-FIELD`),
+  ).rejects.toThrow(/cannot read field 'k' of NULL/);
+});
+
+test("ZIP-WITH record mode pushes null for missing keys, never undefined", async () => {
+  await interp.run(`
+    [ [ 'a' 1 ] [ 'b' 2 ] ] REC
+    [ [ 'a' 10 ] ] REC
+    '0 DEFAULT +' ZIP-WITH
+  `);
+  const result = interp.stack_pop();
+  expect(result).toEqual({ a: 11, b: 2 });
+});
