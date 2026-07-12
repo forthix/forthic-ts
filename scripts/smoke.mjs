@@ -51,6 +51,58 @@ await check("date words work when global Temporal is provided", async () => {
   if (today == null) throw new Error("TODAY produced no value");
 });
 
+// The standalone JSON-RPC server CLI must work in a bare node process. The
+// library deliberately does NOT install a global Temporal (the polyfill is an
+// optional peer dep, so consumers can bring their own), but the CLI is a
+// first-party executable: without a Temporal global it deserialized every
+// date/time value on the wire into "ReferenceError: Temporal is not defined".
+// A unit test cannot catch this — jest's setup installs the polyfill globally.
+await check("jsonrpc server CLI round-trips a date", async () => {
+  const { spawn } = await import("node:child_process");
+  const port = 18994;
+  const server = spawn(
+    process.execPath,
+    ["dist/cjs/jsonrpc/server.js", "--port", String(port)],
+    { cwd: new URL("..", import.meta.url).pathname, stdio: "ignore" },
+  );
+  try {
+    const endpoint = `http://127.0.0.1:${port}/rpc`;
+    const body = JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "executeWord",
+      params: {
+        word_name: "DUP",
+        stack: [{ plain_date_value: { iso8601_date: "2020-06-05" } }],
+      },
+    });
+    let response;
+    for (let i = 0; i < 100; i++) {
+      try {
+        response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+        });
+        break;
+      } catch {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    }
+    if (!response) throw new Error("server never accepted connections");
+    const payload = await response.json();
+    if (payload.error) {
+      throw new Error(`server errored: ${JSON.stringify(payload.error.data ?? payload.error)}`);
+    }
+    const stack = payload.result?.result_stack ?? [];
+    if (stack.length !== 2 || stack[0]?.plain_date_value?.iso8601_date !== "2020-06-05") {
+      throw new Error(`date did not round-trip: ${JSON.stringify(stack)}`);
+    }
+  } finally {
+    server.kill();
+  }
+});
+
 if (failures.length > 0) {
   console.error(`\nSmoke test failed (${failures.length}): ${failures.join(", ")}`);
   process.exit(1);
