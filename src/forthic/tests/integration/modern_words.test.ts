@@ -352,11 +352,13 @@ describe("Record additions (PR 6)", () => {
     expect(interp.stack_pop()).toEqual({ a: 1, c: 3 });
   });
 
-  test("REC>ENTRIES produces pair-array sorted by key", async () => {
+  test("REC>ENTRIES produces pair-array in key order (de-sorted per the cross-runtime contract)", async () => {
+    // Was sorted-by-key; de-sorted so it matches KEYS/NTH (#33), matches
+    // forthic-rs insertion order, and round-trips through ENTRIES>REC
     await interp.run("[['b' 2] ['a' 1] ['c' 3]] REC REC>ENTRIES");
     expect(interp.stack_pop()).toEqual([
-      ["a", 1],
       ["b", 2],
+      ["a", 1],
       ["c", 3],
     ]);
   });

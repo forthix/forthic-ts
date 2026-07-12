@@ -209,10 +209,12 @@ Record (object/dictionary) manipulation operations for working with key-value da
             throw new Error(`JQ path: unclosed '[' in "${path}"`);
           }
           i++;
-          const n = parseInt(num, 10);
-          if (isNaN(n)) {
+          // Strict integer match: parseInt("1x") === 1 would silently
+          // accept a malformed path (cross-runtime contract with forthic-rs)
+          if (!/^-?\d+$/.test(num)) {
             throw new Error(`JQ path: invalid index "${num}" in "${path}"`);
           }
+          const n = parseInt(num, 10);
           segments.push({ kind: "index", n });
         }
       } else {
@@ -239,9 +241,10 @@ Record (object/dictionary) manipulation operations for working with key-value da
       if (Array.isArray(container)) {
         items = container;
       } else if (typeof container === "object") {
-        items = Object.keys(container)
-          .sort()
-          .map((k) => container[k]);
+        // Raw key order (no sort): consistent with the #33 words
+        // (KEYS/NTH/FIRST) and with forthic-rs insertion order. Residual
+        // host quirk: JS hoists integer-like keys numerically first.
+        items = Object.keys(container).map((k) => container[k]);
       } else {
         return [];
       }
@@ -275,7 +278,8 @@ Record (object/dictionary) manipulation operations for working with key-value da
       return RecordModule.jq_get(container[n], rest);
     }
     if (typeof container === "object") {
-      const keys = Object.keys(container).sort();
+      // Raw key order (no sort) — see the iterate branch above
+      const keys = Object.keys(container);
       const n = first.n < 0 ? keys.length + first.n : first.n;
       if (n < 0 || n >= keys.length) return null;
       return RecordModule.jq_get(container[keys[n]], rest);
@@ -289,6 +293,24 @@ Record (object/dictionary) manipulation operations for working with key-value da
     throw new Error("JQ: [] iteration not supported here");
   }
 
+  // Guard a single set step: arrays take non-negative integer indexes only
+  // (a negative or field key would silently set a stray JS property), and
+  // out-of-range indexes pad with null — JS holes read back as undefined,
+  // which is not a Forthic value (cross-runtime contract with forthic-rs).
+  private static checked_set_key(cur: any, seg: PathSegment, key: string | number): void {
+    if (Array.isArray(cur)) {
+      if (seg.kind !== "index") {
+        throw new Error(`JQ!: cannot set field '${key}' on an array`);
+      }
+      if ((key as number) < 0) {
+        throw new Error(`JQ!: negative set index ${key}`);
+      }
+      for (let j = cur.length; j < (key as number); j++) {
+        cur[j] = null;
+      }
+    }
+  }
+
   private static jq_set(container: any, segments: PathSegment[], value: any): any {
     let cur = container;
     for (let i = 0; i < segments.length - 1; i++) {
@@ -296,6 +318,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
       const next = segments[i + 1];
       const key = RecordModule.seg_key(seg);
       RecordModule.assert_safe_key(key);
+      RecordModule.checked_set_key(cur, seg, key);
 
       let child = cur[key];
       if (child == null || typeof child !== "object") {
@@ -305,8 +328,10 @@ Record (object/dictionary) manipulation operations for working with key-value da
       cur = child;
     }
 
-    const last_key = RecordModule.seg_key(segments[segments.length - 1]);
+    const last_seg = segments[segments.length - 1];
+    const last_key = RecordModule.seg_key(last_seg);
     RecordModule.assert_safe_key(last_key);
+    RecordModule.checked_set_key(cur, last_seg, last_key);
     cur[last_key] = value;
 
     return container;
@@ -400,8 +425,10 @@ Record (object/dictionary) manipulation operations for working with key-value da
   )
   async REC_to_ENTRIES(rec: any) {
     if (!rec || typeof rec !== "object" || Array.isArray(rec)) return [];
-    const keys = Object.keys(rec).sort();
-    return keys.map((k) => [k, rec[k]]);
+    // Raw key order (no sort): consistent with KEYS/NTH (#33) and with
+    // forthic-rs insertion order; makes the ENTRIES>REC round trip an
+    // identity. (The old sorted contract was a JS-object-order workaround.)
+    return Object.keys(rec).map((k) => [k, rec[k]]);
   }
 
   @ForthicWord(
@@ -439,7 +466,10 @@ Record (object/dictionary) manipulation operations for working with key-value da
   )
   async OMIT(rec: any, keys: any[]) {
     if (!rec || typeof rec !== "object" || Array.isArray(rec)) return {};
-    const drop = new Set(Array.isArray(keys) ? keys : []);
+    // Stringify drop keys: record keys are strings, so a numeric key in the
+    // drop list (e.g. [ 1 ] OMIT) must match key "1" — a === Set would
+    // silently miss it (cross-runtime contract with forthic-rs)
+    const drop = new Set((Array.isArray(keys) ? keys : []).map((k) => String(k)));
     const result: Record<string, any> = {};
     for (const k of Object.keys(rec)) {
       if (!drop.has(k)) result[k] = rec[k];
@@ -463,8 +493,15 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
     // Copy first: splice()/delete mutate in place, which would alias the input.
     if (container instanceof Array) {
+      // Integer keys only: splice coerces non-numeric keys via NaN -> 0 and
+      // would silently delete element 0 (cross-runtime contract with
+      // forthic-rs). Negative wraps once; out-of-range is a no-op.
+      if (typeof key !== "number" || !Number.isInteger(key)) {
+        throw new Error(`DELETE on an array requires an integer index, got ${JSON.stringify(key)}`);
+      }
       const copy = [...container];
-      copy.splice(key, 1);
+      const idx = key < 0 ? copy.length + key : key;
+      if (idx >= 0 && idx < copy.length) copy.splice(idx, 1);
       return copy;
     }
     const copy = { ...container };

@@ -418,3 +418,48 @@ describe("prototype-pollution guard", () => {
     expect(rec.config.__proto_ok).toBe(42);
   });
 });
+
+// ===== JQ/record alignment to the cross-runtime contract (forthic-rs) =====
+
+test("JQ path rejects malformed indexes strictly", async () => {
+  await expect(interp.run(`[ 1 2 ] '[1x]' JQ@`)).rejects.toThrow(/invalid index/);
+});
+
+test("JQ@ record index and iterate use raw key order, not sorted", async () => {
+  await interp.run(`[ [ 'z' 1 ] [ 'a' 2 ] ] REC '[0]' JQ@`);
+  expect(interp.stack_pop()).toBe(1); // z first (insertion), not a
+  await interp.run(`[ [ 'z' 1 ] [ 'a' 2 ] ] REC '[]' JQ@`);
+  expect(interp.stack_pop()).toEqual([1, 2]);
+});
+
+test("JQ! pads out-of-range array sets with null, no holes", async () => {
+  await interp.run(`[ 1 ] 9 '[3]' JQ!`);
+  const result = interp.stack_pop();
+  expect(result).toEqual([1, null, null, 9]);
+  expect(1 in result).toBe(true); // a real null, not a hole
+});
+
+test("JQ! rejects negative indexes and field-into-array", async () => {
+  await expect(interp.run(`[ 1 2 ] 5 '[-1]' JQ!`)).rejects.toThrow(/negative set index/);
+  await expect(interp.run(`[ 1 2 ] 5 'field' JQ!`)).rejects.toThrow(/cannot set field/);
+});
+
+test("OMIT stringifies drop keys so numeric keys match", async () => {
+  await interp.run(`[ [ '1' 'x' ] [ 'b' 2 ] ] REC [ 1 ] OMIT`);
+  expect(Object.keys(interp.stack_pop())).toEqual(["b"]);
+});
+
+test("DELETE requires integer array keys; negative wraps; OOB is a no-op", async () => {
+  await expect(interp.run(`[ 1 2 ] 'x' DELETE`)).rejects.toThrow(/integer index/);
+  await interp.run(`[ 1 2 3 ] -1 DELETE`);
+  expect(interp.stack_pop()).toEqual([1, 2]);
+  await interp.run(`[ 1 2 ] 9 DELETE`);
+  expect(interp.stack_pop()).toEqual([1, 2]);
+});
+
+test("REC>ENTRIES uses raw key order and round-trips through ENTRIES>REC", async () => {
+  await interp.run(`[ [ 'z' 1 ] [ 'a' 2 ] ] REC REC>ENTRIES`);
+  expect(interp.stack_pop()).toEqual([["z", 1], ["a", 2]]);
+  await interp.run(`[ [ 'z' 1 ] [ 'a' 2 ] ] REC REC>ENTRIES ENTRIES>REC`);
+  expect(Object.keys(interp.stack_pop())).toEqual(["z", "a"]);
+});
