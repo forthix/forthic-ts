@@ -200,7 +200,18 @@ TODAY 7 ADD-DAYS
     const str = String(item).trim();
 
     try {
-      // Try parsing as ISO datetime string
+      // Zone-carrying strings (trailing Z or an explicit numeric offset)
+      // denote INSTANTS: resolve them into the interpreter timezone,
+      // consistent with >DATE's #35 rule and with forthic-py/forthic-rs.
+      // PlainDateTime.from would reject Z-strings (surfacing as null) and
+      // silently IGNORE offsets, reinterpreting the wall clock — both
+      // Temporal-plumbing accidents, not contract.
+      if (str.includes("T") && /([zZ]|[+-]\d{2}:?\d{2})$/.test(str)) {
+        const instant = Temporal.Instant.from(str);
+        interp.stack_push(instant.toZonedDateTimeISO(interp.get_timezone()));
+        return;
+      }
+      // Zone-less strings are wall clocks in the interpreter timezone
       const plainDateTime = Temporal.PlainDateTime.from(str);
       const zoned = plainDateTime.toZonedDateTime(interp.get_timezone());
       interp.stack_push(zoned);
