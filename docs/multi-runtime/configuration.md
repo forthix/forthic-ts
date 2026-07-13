@@ -1,10 +1,12 @@
 # Multi-Runtime Configuration
 
-Manage connections to multiple Forthic runtimes using YAML configuration files and the ConfigLoader.
+Manage connections to multiple Forthic runtimes using YAML configuration files and the `ConfigLoader`.
 
 ## Overview
 
-For production deployments with multiple runtimes, use configuration files to centralize connection settings, module specifications, and environment-specific configs.
+For deployments with several runtimes, use a configuration file to centralize hosts, ports, and the modules each runtime exposes.
+
+`ConfigLoader` parses and validates the file. It does **not** open connections: you construct the clients and hand them to `RuntimeManager`. That keeps the config layer transport-agnostic and free of network side effects.
 
 ## Configuration File Format
 
@@ -15,103 +17,116 @@ For production deployments with multiple runtimes, use configuration files to ce
 runtimes:
   python:
     host: localhost
-    port: 50051
+    port: 8765
+    transport: jsonrpc
     modules:
       - pandas
       - numpy
   ruby:
     host: localhost
-    port: 50053
+    port: 8766
     modules:
       - rails_models
       - redis_cache
-  rust:
-    host: localhost
-    port: 50054
-    modules:
-      - crypto
-      - compression
+settings:
+  connection_timeout: 5000
+  health_check: true
 ```
 
 ### Configuration Schema
 
+This is the whole schema — anything else is ignored:
+
 ```yaml
 runtimes:
-  <runtime_name>:              # Unique name for this runtime
-    host: <string>             # Hostname or IP address
-    port: <number>             # gRPC port number
-    modules:                   # List of available modules (optional)
+  <runtime_name>:            # Unique name for this runtime
+    host: <string>           # Required. Hostname or IP address
+    port: <number>           # Required. Port (1–65535)
+    modules:                 # Required. Module names this runtime exposes
       - <module_name>
-      - <module_name>
-    connection_timeout: <ms>   # Connection timeout (optional, default: 5000)
-    max_retries: <number>      # Max connection retries (optional, default: 3)
+    transport: jsonrpc       # Optional. Only "jsonrpc" is valid; it is also the default
+
+settings:                    # Optional
+  connection_timeout: <ms>   # Optional. Positive number
+  health_check: <boolean>    # Optional
 ```
+
+Validation is strict about what it does check: a runtime missing `host`, `port`, or `modules` throws, as does a port outside 1–65535, a non-array `modules`, a non-string module name, or a `transport` other than `jsonrpc`.
+
+> **Removed in v0.16.0**: `transport: grpc`. The gRPC transport is gone; a config still naming it fails with a message pointing at `jsonrpc`.
 
 ## Loading Configuration
 
-### Basic Usage
+The loaders are synchronous and static — there is no `ConfigLoader.load()`.
 
 ```typescript
-import { ConfigLoader } from '@forthix/forthic/grpc';
+import { ConfigLoader } from '@forthix/forthic/jsonrpc';
 
-// Load from file
-const config = await ConfigLoader.load('./forthic-runtimes.yaml');
+// From a file
+const config = ConfigLoader.loadFromFile('./forthic-runtimes.yaml');
+
+// From a string
+const config2 = ConfigLoader.loadFromString(yamlText);
+
+// Find ./forthic-runtimes.{yaml,yml} in the working directory; null if absent
+const defaultPath = ConfigLoader.getDefaultConfigPath();
 
 console.log('Configured runtimes:', Object.keys(config.runtimes));
-// ['python', 'ruby', 'rust']
+// ['python', 'ruby']
 ```
 
-### Configuration Structure
+### Configuration Types
 
 ```typescript
 interface ForthicRuntimesConfig {
-  runtimes: {
-    [runtimeName: string]: RuntimeConfig;
-  };
+  runtimes: Record<string, RuntimeConfig>;
+  settings?: ConnectionSettings;
 }
 
 interface RuntimeConfig {
   host: string;
   port: number;
-  modules?: string[];
+  modules: string[];
+  transport?: 'jsonrpc';
+}
+
+interface ConnectionSettings {
   connection_timeout?: number;
-  max_retries?: number;
+  health_check?: boolean;
 }
 ```
 
 ## Using with RuntimeManager
 
-### Connect to All Configured Runtimes
+### Register a Client per Runtime
+
+`RuntimeManager` is a singleton registry of clients. You build each client; it stores them by name.
 
 ```typescript
-import { ConfigLoader, RuntimeManager } from '@forthix/forthic/grpc';
+import { ConfigLoader, RuntimeManager, JsonRpcClient } from '@forthix/forthic/jsonrpc';
 
-const config = await ConfigLoader.load('./forthic-runtimes.yaml');
+const config = ConfigLoader.loadFromFile('./forthic-runtimes.yaml');
 const manager = RuntimeManager.getInstance();
 
-// Connect to all runtimes
-for (const [name, runtimeConfig] of Object.entries(config.runtimes)) {
-  const address = `${runtimeConfig.host}:${runtimeConfig.port}`;
-  manager.connectRuntime(name, address);
-  console.log(`Connected to ${name} at ${address}`);
+for (const [name, runtime] of Object.entries(config.runtimes)) {
+  const address = `${runtime.host}:${runtime.port}`;
+  manager.registerClient(name, new JsonRpcClient(address));
+  console.log(`Registered ${name} at ${address}`);
 }
 
-// Get client for specific runtime
-const pythonClient = manager.getClient('python');
-const rubyClient = manager.getClient('ruby');
+const pythonClient = manager.getClient('python');   // undefined if not registered
+manager.hasClient('python');                        // true
+manager.getRegisteredRuntimes();                    // ['python', 'ruby']
 ```
 
-### Using Configured Modules
+### Loading the Configured Modules
 
 ```typescript
-import { RemoteModule } from '@forthix/forthic/grpc';
+import { RemoteModule } from '@forthix/forthic/jsonrpc';
 
-// Get configured modules for Python
-const pythonConfig = config.runtimes.python;
-const pythonClient = manager.getClient('python');
+const pythonClient = manager.getClient('python')!;
 
-// Create remote modules for all configured modules
-for (const moduleName of pythonConfig.modules || []) {
+for (const moduleName of config.runtimes.python.modules) {
   const remoteModule = new RemoteModule(moduleName, pythonClient, 'python');
   await remoteModule.initialize();
   interp.register_module(remoteModule);
@@ -121,259 +136,127 @@ for (const moduleName of pythonConfig.modules || []) {
 
 ## Environment-Specific Configs
 
-### Development vs Production
+Keep one file per environment and pick at startup:
 
-`forthic-runtimes.dev.yaml`:
+`forthic-runtimes.development.yaml`:
 ```yaml
 runtimes:
   python:
     host: localhost
-    port: 50051
+    port: 8765
     modules: [pandas, numpy]
-  ruby:
-    host: localhost
-    port: 50053
-    modules: [rails_models]
 ```
 
-`forthic-runtimes.prod.yaml`:
+`forthic-runtimes.production.yaml`:
 ```yaml
 runtimes:
   python:
     host: python-service.prod.internal
-    port: 50051
+    port: 8765
     modules: [pandas, numpy, scipy]
-    connection_timeout: 10000
-    max_retries: 5
-  ruby:
-    host: ruby-service.prod.internal
-    port: 50053
-    modules: [rails_models, redis_cache]
-    connection_timeout: 10000
-    max_retries: 5
+settings:
+  connection_timeout: 10000
 ```
-
-### Load Based on Environment
 
 ```typescript
 const env = process.env.NODE_ENV || 'development';
-const configFile = `./forthic-runtimes.${env}.yaml`;
-
-const config = await ConfigLoader.load(configFile);
-console.log(`Loaded ${env} configuration`);
-```
-
-## Connection Settings
-
-### Timeout Configuration
-
-```yaml
-runtimes:
-  python:
-    host: remote-server.example.com
-    port: 50051
-    connection_timeout: 10000  # 10 seconds
-    max_retries: 5
-```
-
-### Retry Logic
-
-```typescript
-// ConfigLoader handles retries automatically
-try {
-  const config = await ConfigLoader.load('./forthic-runtimes.yaml');
-  // Connection successful
-} catch (error) {
-  console.error('Failed to connect after retries:', error);
-}
+const config = ConfigLoader.loadFromFile(`./forthic-runtimes.${env}.yaml`);
 ```
 
 ## Health Checks
 
-### Verify Connections
+`settings.health_check` is a flag your application acts on — the loader does not probe anything. A check is just a `listModules()` round trip:
 
 ```typescript
-async function healthCheck(manager: RuntimeManager, runtimeName: string) {
+async function healthCheck(manager: RuntimeManager, runtimeName: string): Promise<boolean> {
+  const client = manager.getClient(runtimeName);
+  if (!client) return false;
+
   try {
-    const client = manager.getClient(runtimeName);
     const modules = await client.listModules();
     console.log(`✅ ${runtimeName}: OK (${modules.length} modules)`);
     return true;
   } catch (error) {
-    console.error(`❌ ${runtimeName}: FAILED - ${error.message}`);
+    console.error(`❌ ${runtimeName}: FAILED — ${(error as Error).message}`);
     return false;
   }
 }
 
-// Check all runtimes
 const results = await Promise.all(
-  Object.keys(config.runtimes).map(name => healthCheck(manager, name))
+  Object.keys(config.runtimes).map((name) => healthCheck(manager, name))
 );
 
-if (results.every(r => r)) {
-  console.log('All runtimes healthy!');
-} else {
-  console.error('Some runtimes unavailable');
-}
-```
-
-## Dynamic Configuration
-
-### Runtime Discovery
-
-```typescript
-import { RuntimeManager } from '@forthix/forthic/grpc';
-
-const manager = RuntimeManager.getInstance();
-
-// Discover what's available
-const addresses = [
-  'localhost:50051',
-  'localhost:50052',
-  'localhost:50053'
-];
-
-for (const address of addresses) {
-  try {
-    const client = new GrpcClient(address);
-    const modules = await client.listModules();
-
-    if (modules.length > 0) {
-      console.log(`Found runtime at ${address}`);
-      console.log(`  Modules: ${modules.map(m => m.name).join(', ')}`);
-
-      // Add to manager
-      manager.connectRuntime(`runtime-${address}`, address);
-    }
-  } catch (error) {
-    console.log(`No runtime at ${address}`);
-  }
-}
+console.log(results.every(Boolean) ? 'All runtimes healthy!' : 'Some runtimes unavailable');
 ```
 
 ## Module Filtering
 
-### Selective Module Loading
-
-```yaml
-runtimes:
-  python:
-    host: localhost
-    port: 50051
-    modules:
-      # Only load these modules (others ignored)
-      - pandas
-      - numpy
-```
+`modules` lists what you intend to load; nothing enforces it for you. Intersect it with what the runtime actually reports:
 
 ```typescript
-// Load only configured modules
-const pythonConfig = config.runtimes.python;
-const pythonClient = manager.getClient('python');
+const allowed = new Set(config.runtimes.python.modules);
 
-const allowedModules = new Set(pythonConfig.modules || []);
+for (const summary of await pythonClient.listModules()) {
+  if (!allowed.has(summary.name)) continue;
 
-const availableModules = await pythonClient.listModules();
-
-for (const moduleSummary of availableModules) {
-  if (allowedModules.has(moduleSummary.name)) {
-    const module = new RemoteModule(moduleSummary.name, pythonClient, 'python');
-    await module.initialize();
-    interp.register_module(module);
-  }
+  const module = new RemoteModule(summary.name, pythonClient, 'python');
+  await module.initialize();
+  interp.register_module(module);
 }
 ```
 
 ## Security Considerations
 
-### Secure Connections
+A Forthic runtime server executes arbitrary words sent to it. Treat every endpoint as privileged.
 
-For production, use TLS:
+The config file carries no credentials — authentication is set on the server and the client, not in YAML:
 
-```yaml
-runtimes:
-  python:
-    host: python-service.example.com
-    port: 443
-    use_tls: true  # Enable TLS
-    cert_path: /path/to/cert.pem
-    key_path: /path/to/key.pem
-```
+- **Server**: pass a `token` to `startJsonRpcServer` (or set `FORTHIC_JSONRPC_TOKEN`). It binds `127.0.0.1` by default; only bind a public interface together with a token.
+- **Client**: send `Authorization: Bearer <token>` via a custom `fetchImpl`.
+- **TLS**: terminate it at a reverse proxy and give `JsonRpcClient` the resulting `https://` URL. The server speaks plain HTTP.
 
-### Authentication
+See the [JSON-RPC Guide](jsonrpc.md#server-options) for details.
 
-```yaml
-runtimes:
-  python:
-    host: secure-service.example.com
-    port: 50051
-    auth_token: ${PYTHON_AUTH_TOKEN}  # From environment variable
-```
-
-```typescript
-// Load with environment variable substitution
-const config = await ConfigLoader.load('./forthic-runtimes.yaml', {
-  expandEnvVars: true  // Expand ${VAR} syntax
-});
-```
+Keep secrets in environment variables and read them in code — `ConfigLoader` does **not** expand `${VAR}` in YAML.
 
 ## Example: Complete Setup
-
-### Configuration File
 
 `config/forthic-runtimes.yaml`:
 ```yaml
 runtimes:
   python_ml:
     host: ml-server.internal
-    port: 50051
+    port: 8765
     modules:
       - pandas
       - sklearn
-      - tensorflow
-    connection_timeout: 15000
-    max_retries: 3
 
   ruby_api:
     host: api-server.internal
-    port: 50053
+    port: 8766
     modules:
       - users
       - orders
-      - payments
-    connection_timeout: 5000
-    max_retries: 5
 
-  rust_crypto:
-    host: crypto-server.internal
-    port: 50054
-    modules:
-      - encryption
-      - hashing
-    connection_timeout: 3000
+settings:
+  connection_timeout: 10000
 ```
-
-### Application Code
 
 ```typescript
 import { Interpreter } from '@forthix/forthic';
-import { ConfigLoader, RuntimeManager, RemoteModule } from '@forthix/forthic/grpc';
+import { ConfigLoader, RuntimeManager, RemoteModule, JsonRpcClient } from '@forthix/forthic/jsonrpc';
 
 async function setupMultiRuntime() {
-  // Load configuration
-  const config = await ConfigLoader.load('./config/forthic-runtimes.yaml');
+  const config = ConfigLoader.loadFromFile('./config/forthic-runtimes.yaml');
   const manager = RuntimeManager.getInstance();
   const interp = new Interpreter();
 
-  // Connect to all runtimes
-  for (const [name, runtimeConfig] of Object.entries(config.runtimes)) {
-    const address = `${runtimeConfig.host}:${runtimeConfig.port}`;
-
+  for (const [name, runtime] of Object.entries(config.runtimes)) {
     console.log(`Connecting to ${name}...`);
-    const client = manager.connectRuntime(name, address);
+    const client = new JsonRpcClient(`${runtime.host}:${runtime.port}`);
+    manager.registerClient(name, client);
 
-    // Load configured modules
-    for (const moduleName of runtimeConfig.modules || []) {
+    for (const moduleName of runtime.modules) {
       const module = new RemoteModule(moduleName, client, name);
       await module.initialize();
       interp.register_module(module);
@@ -385,72 +268,62 @@ async function setupMultiRuntime() {
   return interp;
 }
 
-// Use it
 const interp = await setupMultiRuntime();
 
-// Now you can use modules from all runtimes!
 await interp.run(`
-  ["pandas" "users" "encryption"] USE-MODULES
+  ["pandas" "users"] USE-MODULES
 
   # Use pandas from Python
   data-records DF-FROM-RECORDS
 
   # Use users from Ruby
   "alice@example.com" FIND-USER
-
-  # Use encryption from Rust
-  sensitive-data ENCRYPT
 `);
 ```
 
 ## Best Practices
 
-1. **Environment-specific configs**: Use separate files for dev/staging/prod
-2. **Module filtering**: Only load modules you need
-3. **Health checks**: Verify connections at startup
-4. **Timeout tuning**: Adjust based on network latency
-5. **Retry logic**: Configure retries for flaky connections
-6. **Security**: Use TLS and authentication in production
-7. **Documentation**: Comment your YAML files with module purposes
+1. **Environment-specific configs**: separate files for dev/staging/prod
+2. **Module filtering**: only load the modules you need
+3. **Health checks**: verify connections at startup
+4. **Security**: token-authenticate every non-loopback endpoint
+5. **Documentation**: comment your YAML with each module's purpose
 
 ## Troubleshooting
 
 ### Config File Not Found
 
 ```
-Error: ENOENT: no such file or directory
+Error: Configuration file not found: /abs/path/forthic-runtimes.yaml
 ```
 
-**Solution**: Use absolute path or verify relative path:
+Paths resolve against the working directory. Use an absolute path when that's ambiguous:
+
 ```typescript
 import path from 'path';
 
-const configPath = path.join(__dirname, '../config/forthic-runtimes.yaml');
-const config = await ConfigLoader.load(configPath);
+const config = ConfigLoader.loadFromFile(path.join(__dirname, '../config/forthic-runtimes.yaml'));
 ```
 
 ### Invalid YAML Syntax
 
 ```
-Error: bad indentation
+Error: Failed to parse YAML: bad indentation
 ```
 
-**Solution**: Validate YAML syntax (use 2-space indentation, no tabs)
+Use 2-space indentation, no tabs.
 
-### Module Not Available
+### Transport Must Be "jsonrpc"
 
 ```
-Error: Module 'pandas' not found
+Error: Runtime "python" "transport" must be "jsonrpc". The gRPC transport was removed in v0.16.0; use "jsonrpc".
 ```
 
-**Solutions:**
-1. Check module name spelling
-2. Verify module is loaded in remote runtime
-3. Remove from config if not needed
+Delete the `transport: grpc` line or change it to `jsonrpc`.
 
 ## Next Steps
 
-- **[gRPC Guide](grpc.md)** - Using the configured connections
+- **[JSON-RPC Guide](jsonrpc.md)** - Using the configured connections
 - **[WebSocket Guide](websocket.md)** - WebSocket configuration
 - **[Overview](README.md)** - Multi-runtime introduction
 - **[Examples](../../examples/)** - Working code samples

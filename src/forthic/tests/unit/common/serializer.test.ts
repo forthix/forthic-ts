@@ -1,9 +1,9 @@
 /**
  * Unit tests for gRPC serializer (also covers JSON-RPC, which re-exports it)
  */
-import { serializeValue, deserializeValue } from '../../../../grpc/serializer.js';
+import { serializeValue, deserializeValue } from '../../../../common/serializer.js';
 
-describe('gRPC Serializer', () => {
+describe('Wire Serializer', () => {
   describe('Round-trip smoke tests', () => {
     test('integer round-trip', () => {
       expect(deserializeValue(serializeValue(42))).toBe(42);

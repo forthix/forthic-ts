@@ -1,5 +1,5 @@
 /**
- * gRPC Serialization/Deserialization for Forthic types
+ * Wire serialization/deserialization for Forthic types
  * Converts JavaScript values to/from protobuf StackValue format
  * Uses shared type detection from common/type_utils
  */

@@ -13,7 +13,7 @@
 import * as http from 'http';
 import * as crypto from 'crypto';
 import { StandardInterpreter } from '../forthic/interpreter.js';
-import { serializeValue, deserializeValue } from '../grpc/serializer.js';
+import { serializeValue, deserializeValue } from '../common/serializer.js';
 import { FsModule } from '../forthic/modules/typescript/fs_module.js';
 import { JsonRpcErrorCode } from './errors.js';
 

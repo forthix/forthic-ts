@@ -6,8 +6,8 @@
  * Uses the global `fetch` (Node ≥18). For older Node, inject your own
  * fetch via the constructor's `fetchImpl` option.
  */
-import { serializeValue, deserializeValue } from '../grpc/serializer.js';
-import { RemoteRuntimeError, parseErrorInfo } from '../grpc/errors.js';
+import { serializeValue, deserializeValue } from '../common/serializer.js';
+import { RemoteRuntimeError, parseErrorInfo } from '../common/errors.js';
 import type {
   RuntimeClient,
   ModuleSummary,

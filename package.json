@@ -37,7 +37,8 @@
   "files": [
     "dist",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "forthic": "tsx scripts/forthic.ts",
@@ -53,7 +54,6 @@
     "test": "jest",
     "smoke": "node scripts/smoke.mjs",
     "test:unit": "jest",
-    "test:integration": "jest --testPathIgnorePatterns=[]",
     "test:watch": "jest --watch",
     "docs:build": "tsx scripts/generate-docs.ts",
     "jsonrpc:server": "node dist/cjs/jsonrpc/server.js"

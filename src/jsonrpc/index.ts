@@ -10,12 +10,12 @@ export { JsonRpcClient } from './client.js';
 export { serve as startJsonRpcServer } from './server.js';
 export type { ServeOptions } from './server.js';
 export { JsonRpcErrorCode } from './errors.js';
-export { RemoteRuntimeError } from '../grpc/errors.js';
+export { RemoteRuntimeError } from '../common/errors.js';
 
 // Reuse existing pieces: they already accept any RuntimeClient implementation.
-export { RemoteModule } from '../grpc/remote_module.js';
-export { RuntimeManager } from '../grpc/runtime_manager.js';
-export { ConfigLoader } from '../grpc/config_loader.js';
+export { RemoteModule } from '../common/remote_module.js';
+export { RuntimeManager } from '../common/runtime_manager.js';
+export { ConfigLoader } from '../common/config_loader.js';
 
 export type {
   ModuleSummary,
@@ -28,4 +28,4 @@ export type {
   ForthicRuntimesConfig,
   ConnectionSettings,
   RuntimeTransport,
-} from '../grpc/config_loader.js';
+} from '../common/config_loader.js';

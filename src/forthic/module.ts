@@ -196,7 +196,7 @@ export class DefinitionWord extends Word {
     // Optimization: Use ExecutionPlanner to batch remote words
     // Lazy import to avoid circular dependency
     const { ExecutionPlanner } = await import('./execution_planner.js');
-    const { RuntimeManager } = await import('../grpc/runtime_manager.js');
+    const { RuntimeManager } = await import('../common/runtime_manager.js');
 
     const planner = new ExecutionPlanner();
     const batches = planner.planExecution(this.words);
@@ -266,7 +266,7 @@ export class DefinitionWord extends Word {
     const client = runtimeManager.getClient(batch.runtime);
 
     if (!client) {
-      throw new Error(`No gRPC client registered for runtime '${batch.runtime}'`);
+      throw new Error(`No remote runtime client registered for runtime '${batch.runtime}'`);
     }
 
     // Extract word names from the batch

@@ -16,11 +16,6 @@
   "exclude": [
     "src/**/__tests__",
     "src/**/__mocks__",
-    "src/**/tests",
-    "src/grpc/client.ts",
-    "src/grpc/server.ts",
-    "src/grpc/index.ts",
-    "src/grpc/browser-stub.ts",
-    "src/grpc/remote_runtime_module.ts"
+    "src/**/tests"
   ]
 }

@@ -1,6 +1,6 @@
 /**
  * ActionCable Client for Forthic
- * Browser-compatible client that mirrors GrpcClient API
+ * Browser-compatible client that mirrors the RuntimeClient API
  * Specifically designed for Rails ActionCable WebSocket protocol
  */
 
@@ -139,7 +139,7 @@ export interface ActionCableClientConfig {
 
 /**
  * ActionCable client for executing words in remote Forthic runtimes
- * Mirrors the GrpcClient API for compatibility
+ * Mirrors the RuntimeClient API for compatibility
  * Uses Rails ActionCable WebSocket protocol
  */
 export class ActionCableClient {
@@ -337,7 +337,7 @@ export class ActionCableClient {
 
   /**
    * Execute a word in the remote runtime
-   * Mirrors GrpcClient.executeWord
+   * Mirrors RuntimeClient.executeWord
    */
   async executeWord(word: string, stack: any[]): Promise<any[]> {
     const message: ExecuteWordRequest = {
@@ -355,7 +355,7 @@ export class ActionCableClient {
 
   /**
    * Execute a sequence of words (batched execution)
-   * Mirrors GrpcClient.executeSequence
+   * Mirrors RuntimeClient.executeSequence
    */
   async executeSequence(words: string[], stack: any[]): Promise<any[]> {
     const message: ExecuteSequenceRequest = {
@@ -373,7 +373,7 @@ export class ActionCableClient {
 
   /**
    * List available runtime-specific modules
-   * Mirrors GrpcClient.listModules
+   * Mirrors RuntimeClient.listModules
    */
   async listModules(): Promise<ModuleSummary[]> {
     const message: ListModulesRequest = {
@@ -387,7 +387,7 @@ export class ActionCableClient {
 
   /**
    * Get detailed information about a specific module
-   * Mirrors GrpcClient.getModuleInfo
+   * Mirrors RuntimeClient.getModuleInfo
    */
   async getModuleInfo(moduleName: string): Promise<ModuleInfo> {
     const message: GetModuleInfoRequest = {

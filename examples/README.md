@@ -28,8 +28,8 @@ npm run repl
 4. **04-composition.forthic** - Defining and composing words
 
 **Multi-Runtime Examples** (.ts files):
-5. **05-grpc-server.ts** - Expose TypeScript runtime via gRPC
-6. **06-grpc-client.ts** - Call Python/Ruby from TypeScript via gRPC
+5. **05-jsonrpc-server.ts** - Expose TypeScript runtime via JSON-RPC
+6. **06-jsonrpc-client.ts** - Call Python/Ruby from TypeScript via JSON-RPC
 
 ---
 
@@ -377,34 +377,34 @@ Call code from other language runtimes transparently - use Python's pandas from 
 
 ### Running the Examples
 
-#### Example 5: gRPC Server (Expose TypeScript)
+#### Example 5: JSON-RPC Server (Expose TypeScript)
 
-Start TypeScript as a gRPC server to expose runtime-specific modules (like `fs`) to other runtimes:
+Start TypeScript as a JSON-RPC server to expose runtime-specific modules (like `fs`) to other runtimes:
 
 ```bash
 # Run the server example
-npx tsx examples/05-grpc-server.ts
+npx tsx examples/05-jsonrpc-server.ts
 
 # Or use the built-in script
-npm run grpc:server
+npm run jsonrpc:server
 ```
 
 The server exposes:
 - **fs module**: File operations (READ-FILE, WRITE-FILE, FILE-EXISTS?, etc.)
 
-Other runtimes can now connect and use these TypeScript-specific modules!
+It binds `127.0.0.1` by default. Other runtimes on this machine can now connect and use these TypeScript-specific modules!
 
-#### Example 6: gRPC Client (Call Remote Runtimes)
+#### Example 6: JSON-RPC Client (Call Remote Runtimes)
 
 Connect to a Python or Ruby runtime and call their modules from TypeScript:
 
 ```bash
-# Prerequisites: Start Python gRPC server first
+# Prerequisites: Start the Python JSON-RPC server first
 # (In Python forthic runtime)
-# forthic-server --port 50051 --modules pandas
+# forthic-server --port 8765 --modules pandas
 
 # Then run the client example
-npx tsx examples/06-grpc-client.ts
+npx tsx examples/06-jsonrpc-client.ts
 ```
 
 This example shows:
@@ -415,9 +415,8 @@ This example shows:
 
 ### When to Use Multi-Runtime
 
-**Use gRPC when:**
+**Use JSON-RPC when:**
 - Running in Node.js (not browser)
-- Need high performance
 - Calling between server processes (TypeScript ↔ Python ↔ Ruby)
 - Using runtime-specific libraries (pandas, Rails models, Node.js fs)
 
@@ -440,13 +439,13 @@ Create `forthic-runtimes.yaml` in your project root:
 runtimes:
   python:
     host: localhost
-    port: 50051
+    port: 8765
     modules:
       - pandas
       - numpy
   ruby:
     host: localhost
-    port: 50053
+    port: 8766
     modules:
       - rails_models
 ```
@@ -454,20 +453,20 @@ runtimes:
 Load configuration in your code:
 
 ```typescript
-import { ConfigLoader, RuntimeManager } from '@forthix/forthic/grpc';
+import { ConfigLoader, RuntimeManager, JsonRpcClient } from '@forthix/forthic/jsonrpc';
 
-const config = await ConfigLoader.load('./forthic-runtimes.yaml');
+const config = ConfigLoader.loadFromFile('./forthic-runtimes.yaml');
 const manager = RuntimeManager.getInstance();
 
-// Connect to all configured runtimes
-for (const [name, runtimeConfig] of Object.entries(config.runtimes)) {
-  manager.connectRuntime(name, `${runtimeConfig.host}:${runtimeConfig.port}`);
+// Register a client for each configured runtime
+for (const [name, runtime] of Object.entries(config.runtimes)) {
+  manager.registerClient(name, new JsonRpcClient(`${runtime.host}:${runtime.port}`));
 }
 ```
 
 ### Browser Compatibility
 
-**Important**: gRPC only works in Node.js environments. For browser-compatible multi-runtime execution, use WebSocket:
+**Important**: The JSON-RPC server only works in Node.js environments. For browser-compatible multi-runtime execution, use WebSocket:
 
 ```typescript
 // In browser

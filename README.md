@@ -206,14 +206,14 @@ import { Interpreter, DecoratedModule, Word } from '@forthix/forthic';
 // WebSocket support - Browser-compatible multi-runtime execution
 import { ActionCableClient, WebSocketRemoteModule } from '@forthix/forthic/websocket';
 
-// gRPC support - Node.js-only multi-runtime execution
-import { GrpcClient, RemoteModule, startGrpcServer } from '@forthix/forthic/grpc';
+// JSON-RPC support - Node.js-only multi-runtime execution
+import { JsonRpcClient, RemoteModule, startJsonRpcServer } from '@forthix/forthic/jsonrpc';
 ```
 
 **Environment Compatibility**:
 - **Main package** (`@forthix/forthic`): Works in both Node.js and browsers
 - **WebSocket** (`@forthix/forthic/websocket`): Works in both Node.js and browsers
-- **gRPC** (`@forthix/forthic/grpc`): Node.js only (requires `@grpc/grpc-js`)
+- **JSON-RPC** (`@forthix/forthic/jsonrpc`): Node.js only (uses `http` and global `fetch`)
 
 ---
 
@@ -268,12 +268,12 @@ Call code from other language runtimes seamlessly - use Python's pandas from Typ
 
 ```typescript
 import { Interpreter } from '@forthix/forthic';
-import { GrpcClient, RemoteModule } from '@forthix/forthic/grpc';
+import { JsonRpcClient, RemoteModule } from '@forthix/forthic/jsonrpc';
 
 const interp = new Interpreter();
 
 // Connect to Python runtime
-const client = new GrpcClient('localhost:50051');
+const client = new JsonRpcClient('localhost:8765');
 const pandas = new RemoteModule('pandas', client, 'python');
 await pandas.initialize();
 
@@ -285,7 +285,7 @@ await interp.run(`["pandas"] USE-MODULES  [records] DF-FROM-RECORDS`);
 
 ### Approaches
 
-- **gRPC** - Node.js ↔ Python ↔ Ruby (fast, server-to-server)
+- **JSON-RPC** - Node.js ↔ Python ↔ Ruby (server-to-server, no native dependencies)
 - **WebSocket** - Browser ↔ Rails (ActionCable, client-server)
 
 ### Learn More
@@ -293,10 +293,10 @@ await interp.run(`["pandas"] USE-MODULES  [records] DF-FROM-RECORDS`);
 📖 **[Complete Multi-Runtime Documentation](docs/multi-runtime/)**
 
 - **[Overview](docs/multi-runtime/)** - When and how to use multi-runtime
-- **[gRPC Setup](docs/multi-runtime/grpc.md)** - Server and client configuration
+- **[JSON-RPC Setup](docs/multi-runtime/jsonrpc.md)** - Server and client configuration
 - **[WebSocket Setup](docs/multi-runtime/websocket.md)** - Browser-compatible communication
 - **[Configuration](docs/multi-runtime/configuration.md)** - YAML config and connection management
-- **[Examples](examples/)** - Working code samples (05-grpc-server.ts, 06-grpc-client.ts)
+- **[Examples](examples/)** - Working code samples (05-jsonrpc-server.ts, 06-jsonrpc-client.ts)
 
 **Runtime Status:** ✅ TypeScript, Python, Ruby | 🚧 Rust | 📋 Java, .NET
 

@@ -6,7 +6,7 @@
  */
 import * as http from 'http';
 import { serve } from '../../../../jsonrpc/server.js';
-import { serializeValue, deserializeValue } from '../../../../grpc/serializer.js';
+import { serializeValue, deserializeValue } from '../../../../common/serializer.js';
 import { JsonRpcErrorCode } from '../../../../jsonrpc/errors.js';
 
 describe('JSON-RPC Server', () => {

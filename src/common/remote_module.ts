@@ -3,7 +3,7 @@
  */
 import { Module } from '../forthic/module.js';
 import { Interpreter } from '../forthic/interpreter.js';
-import type { RuntimeClient, GetModuleInfoResponse } from '../common/runtime_client.js';
+import type { RuntimeClient, GetModuleInfoResponse } from './runtime_client.js';
 import { RemoteWord } from './remote_word.js';
 
 /**
@@ -11,11 +11,11 @@ import { RemoteWord } from './remote_word.js';
  *
  * This module discovers words from a remote runtime (e.g., pandas module in Python)
  * and creates RemoteWord proxies for each discovered word. When used in TypeScript
- * Forthic code, these words execute in the remote runtime via gRPC.
+ * Forthic code, these words execute in the remote runtime via the client's transport.
  *
  * Example usage:
  * ```typescript
- * const client = new GrpcClient('localhost:50051');
+ * const client = new JsonRpcClient('localhost:8765');
  * const pandasModule = new RemoteModule('pandas', client, 'python');
  * await pandasModule.initialize();
  * interp.register_module(pandasModule);
