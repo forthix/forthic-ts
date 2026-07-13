@@ -1,5 +1,5 @@
 /**
- * Example 06: Calling Remote Runtimes via gRPC
+ * Example 06: Calling Remote Runtimes via JSON-RPC
  *
  * This example shows how to connect to other Forthic runtimes (Python, Ruby, etc.)
  * and call their runtime-specific modules from TypeScript.
@@ -8,75 +8,70 @@
  * without reimplementing data analysis logic.
  *
  * Prerequisites:
- * 1. Start a Python gRPC server exposing the pandas module:
+ * 1. Start a Python JSON-RPC server exposing the pandas module:
  *    ```bash
- *    # In Python forthic runtime
- *    forthic-server --port 50051 --modules pandas
+ *    # In the Python forthic runtime
+ *    forthic-server --port 8765 --modules pandas
  *    ```
  *
  * 2. Run this example:
  *    ```bash
- *    npx tsx examples/06-grpc-client.ts
+ *    npx tsx examples/06-jsonrpc-client.ts
  *    ```
  */
 
 import { Interpreter } from '@forthix/forthic';
-import { GrpcClient, RemoteModule } from '@forthix/forthic/grpc';
+import { JsonRpcClient, RemoteModule } from '@forthix/forthic/jsonrpc';
 
 async function main() {
-  console.log('Example: Calling Python pandas module from TypeScript\n');
+  console.log('Example: Calling the Python pandas module from TypeScript\n');
 
-  // Connect to Python runtime
-  console.log('1. Connecting to Python runtime at localhost:50051...');
-  const pythonClient = new GrpcClient('localhost:50051');
+  // Connect to the Python runtime ("host:port" becomes http://host:port/rpc)
+  console.log('1. Connecting to Python runtime at localhost:8765...');
+  const pythonClient = new JsonRpcClient('localhost:8765');
 
-  // Discover available modules
   console.log('2. Discovering available modules...');
   const modules = await pythonClient.listModules();
   console.log('   Available modules:', modules.map((m) => m.name).join(', '));
 
-  // Check if pandas is available
   const pandasAvailable = modules.some((m) => m.name === 'pandas');
   if (!pandasAvailable) {
-    console.log('\n⚠️  pandas module not found on Python server.');
-    console.log('   Make sure the Python server is running with pandas module enabled.');
-    console.log('   Example: forthic-server --port 50051 --modules pandas\n');
+    console.log('\n⚠️  pandas module not found on the Python server.');
+    console.log('   Start it with: forthic-server --port 8765 --modules pandas\n');
     pythonClient.close();
     return;
   }
 
-  // Create remote module for pandas
-  console.log('3. Initializing pandas remote module...');
+  console.log('3. Initializing the pandas remote module...');
   const pandas = new RemoteModule('pandas', pythonClient, 'python');
   await pandas.initialize();
   console.log(`   Discovered ${pandas.getWordCount()} pandas words\n`);
 
-  // Register with interpreter
   const interp = new Interpreter();
   interp.register_module(pandas);
 
-  // Example 1: Create DataFrame from records
-  console.log('4. Example: Creating DataFrame from records');
+  // Example 1: build a DataFrame from records
+  console.log('4. Example: creating a DataFrame from records');
   await interp.run(`
     ["pandas"] USE-MODULES
 
-    # Create array of records
+    # Create an array of records
     [
       [["name" "Alice"] ["age" 30] ["city" "NYC"]] REC
       [["name" "Bob"] ["age" 25] ["city" "LA"]] REC
       [["name" "Carol"] ["age" 35] ["city" "Chicago"]] REC
     ]
 
-    # Convert to pandas DataFrame (runs in Python!)
+    # Convert to a pandas DataFrame (runs in Python!)
     DF-FROM-RECORDS
   `);
 
   const df = interp.stack_pop();
   console.log('   Created DataFrame:', df);
-  console.log('   ✅ Success! DataFrame created in Python and returned to TypeScript\n');
+  console.log('   ✅ DataFrame created in Python and returned to TypeScript\n');
 
-  // Example 2: Execute word directly
-  console.log('5. Example: Calling Python word directly via client');
+  // Example 2: call a word directly through the client
+  console.log('5. Example: calling a Python word directly via the client');
   const stack = [
     [1, 2, 3, 4, 5],
     '2 *', // Multiply each by 2
@@ -86,7 +81,7 @@ async function main() {
   console.log('   Result:', result);
   console.log('   ✅ Array transformation executed in Python\n');
 
-  // Example 3: Get module info
+  // Example 3: module introspection
   console.log('6. Module introspection:');
   const moduleInfo = await pythonClient.getModuleInfo('pandas');
   console.log(`   Module: ${moduleInfo.name}`);
@@ -97,17 +92,16 @@ async function main() {
     console.log(`       ${word.description}`);
   });
 
-  // Clean up
   pythonClient.close();
-  console.log('\n✨ Done! TypeScript successfully called Python runtime via gRPC.');
+  console.log('\n✨ Done! TypeScript successfully called the Python runtime via JSON-RPC.');
 }
 
 main().catch((error) => {
   console.error('\n❌ Error:', error.message);
   console.error('\nTroubleshooting:');
-  console.error('  1. Is the Python gRPC server running?');
-  console.error('     Command: forthic-server --port 50051 --modules pandas');
-  console.error('  2. Is pandas module available in Python runtime?');
-  console.error('  3. Is port 50051 accessible?');
+  console.error('  1. Is the Python JSON-RPC server running?');
+  console.error('     Command: forthic-server --port 8765 --modules pandas');
+  console.error('  2. Is the pandas module available in the Python runtime?');
+  console.error('  3. Is port 8765 reachable? (servers bind loopback by default)');
   process.exit(1);
 });

@@ -1,6 +1,6 @@
 /**
  * Shared type detection utilities for Forthic value serialization
- * Used by both gRPC and WebSocket serializers
+ * Used by both the JSON-RPC and WebSocket serializers
  */
 
 import { isPlainDate, isPlainTime, isInstant, isZonedDateTime } from './temporal_utils.js';

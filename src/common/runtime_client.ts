@@ -1,9 +1,9 @@
 /**
  * RuntimeClient - Transport-agnostic interface for remote Forthic runtime clients.
  *
- * Implemented by both GrpcClient (src/grpc/client.ts) and JsonRpcClient
- * (src/jsonrpc/client.ts) so RemoteModule, RemoteWord, and RuntimeManager
- * work the same way regardless of underlying transport.
+ * Implemented by JsonRpcClient (src/jsonrpc/client.ts) and the WebSocket
+ * ActionCableClient, so RemoteModule, RemoteWord, and RuntimeManager work the
+ * same way regardless of underlying transport.
  */
 
 export interface ModuleSummary {

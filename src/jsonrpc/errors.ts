@@ -6,7 +6,7 @@ export {
   RemoteRuntimeError,
   parseErrorInfo,
   type RemoteErrorInfo,
-} from '../grpc/errors.js';
+} from '../common/errors.js';
 
 /** JSON-RPC standard error codes plus our custom server-defined codes. */
 export const JsonRpcErrorCode = {

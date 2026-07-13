@@ -1,6 +1,6 @@
 /**
  * WebSocketRemoteWord - Word that executes in a remote runtime via ActionCable
- * Mirrors RemoteWord from gRPC implementation
+ * Mirrors the transport-agnostic RemoteWord
  */
 import { Word, RuntimeInfo } from '../../forthic/module.js';
 import { Interpreter } from '../../forthic/interpreter.js';

@@ -10,13 +10,13 @@ import YAML from 'yaml';
 /**
  * Configuration for a single runtime
  */
-export type RuntimeTransport = 'grpc' | 'jsonrpc';
+export type RuntimeTransport = 'jsonrpc';
 
 export interface RuntimeConfig {
   host: string;
   port: number;
   modules: string[];
-  /** Optional transport. Defaults to 'grpc' when omitted, for backward compatibility. */
+  /** Optional transport. Defaults to 'jsonrpc', the only transport this runtime ships. */
   transport?: RuntimeTransport;
 }
 
@@ -157,9 +157,13 @@ export class ConfigLoader {
     }
 
     if (runtimeConfig.transport !== undefined) {
-      if (runtimeConfig.transport !== 'grpc' && runtimeConfig.transport !== 'jsonrpc') {
+      if (runtimeConfig.transport !== 'jsonrpc') {
+        const hint =
+          runtimeConfig.transport === 'grpc'
+            ? ' The gRPC transport was removed in v0.16.0; use "jsonrpc".'
+            : '';
         throw new Error(
-          `Runtime "${runtimeName}" "transport" must be "grpc" or "jsonrpc"`
+          `Runtime "${runtimeName}" "transport" must be "jsonrpc".${hint}`
         );
       }
     }

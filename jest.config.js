@@ -7,15 +7,7 @@ module.exports = {
     "^.+.tsx?$": ["ts-jest", {}],
   },
   testMatch: ["**/tests/**/*.test.[jt]s?(x)"],
-  testPathIgnorePatterns: [
-    "/node_modules/",
-    // Ignore integration tests that require external servers
-    "tests/integration/phase5_runtime_manager.test.ts",
-    "tests/integration/phase6_config_loader.test.ts",
-    // gRPC binding tests — gRPC surface is currently unhooked
-    "tests/unit/grpc/server.test.ts",
-    "tests/integration/grpc_client.test.ts"
-  ],
+  testPathIgnorePatterns: ["/node_modules/"],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },

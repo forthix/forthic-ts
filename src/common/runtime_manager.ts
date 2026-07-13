@@ -1,10 +1,10 @@
 /**
- * RuntimeManager - Singleton for managing gRPC connections to remote runtimes
+ * RuntimeManager - Singleton for managing connections to remote runtimes
  *
- * Provides centralized access to gRPC clients for different runtimes (python, ruby, etc.)
+ * Provides centralized access to remote runtime clients (python, ruby, etc.)
  * Used by DefinitionWord for batched remote execution.
  */
-import type { RuntimeClient } from '../common/runtime_client.js';
+import type { RuntimeClient } from './runtime_client.js';
 
 /**
  * RuntimeManager - Manages connections to remote Forthic runtimes
@@ -28,10 +28,10 @@ export class RuntimeManager {
   }
 
   /**
-   * Register a gRPC client for a specific runtime
+   * Register a client for a specific runtime
    *
    * @param runtimeName - Name of the runtime (e.g., "python", "ruby")
-   * @param client - GrpcClient instance connected to that runtime
+   * @param client - RuntimeClient instance connected to that runtime
    */
   registerClient(runtimeName: string, client: RuntimeClient): void {
     this.clients.set(runtimeName, client);

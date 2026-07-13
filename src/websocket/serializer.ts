@@ -1,6 +1,6 @@
 /**
  * WebSocket JSON Serializer for Forthic
- * Mirrors gRPC serializer but outputs JSON instead of protobuf
+ * Mirrors the common serializer, scoped to the WebSocket transport
  * Handles: int, float, string, bool, null, array, record, temporal types
  * Uses shared type detection from common/type_utils
  */

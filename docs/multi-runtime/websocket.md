@@ -11,7 +11,7 @@ WebSocket provides browser-compatible, client-server communication for multi-run
 - **Real-time updates** - Progress notifications for long operations
 - **Auto-reconnection** - Handles connection drops gracefully
 
-**Note**: For server-to-server communication with better performance, see [gRPC Guide](grpc.md).
+**Note**: For server-to-server communication, see the [JSON-RPC Guide](jsonrpc.md).
 
 ## Installation
 
@@ -444,15 +444,14 @@ client.on('reconnecting', (attempt) => {
 });
 ```
 
-## Comparison with gRPC
+## Comparison with JSON-RPC
 
-| Feature | WebSocket | gRPC |
-|---------|-----------|------|
-| **Browser Support** | ✅ Yes | ❌ No |
-| **Performance** | Good | Excellent |
-| **Protocol** | JSON | Protocol Buffers |
-| **Streaming** | Server → Client | Bidirectional |
-| **Reconnection** | Built-in | Manual |
+| Feature | WebSocket | JSON-RPC |
+|---------|-----------|----------|
+| **Browser Support** | ✅ Yes | ❌ No (Node.js only) |
+| **Protocol** | JSON over WebSocket | JSON-RPC 2.0 over HTTP |
+| **Streaming** | Server → Client | Request/response |
+| **Reconnection** | Built-in | Per-request |
 | **Use Case** | Browser ↔ Server | Server ↔ Server |
 
 **When to use WebSocket:**
@@ -461,15 +460,14 @@ client.on('reconnecting', (attempt) => {
 - Using Rails/ActionCable
 - Want auto-reconnection
 
-**When to use gRPC:**
+**When to use JSON-RPC:**
 - Server-to-server only
-- Need best performance
-- Want bidirectional streaming
-- See [gRPC Guide](grpc.md)
+- Simple request/response
+- See [JSON-RPC Guide](jsonrpc.md)
 
 ## Next Steps
 
-- **[gRPC Guide](grpc.md)** - Server-to-server alternative
+- **[JSON-RPC Guide](jsonrpc.md)** - Server-to-server alternative
 - **[Configuration Guide](configuration.md)** - Connection management
 - **[Examples](../../examples/)** - More code samples
 - **[Main README](../../README.md)** - Package overview

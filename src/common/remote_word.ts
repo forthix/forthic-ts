@@ -1,16 +1,16 @@
 /**
- * RemoteWord - Word that executes in a remote runtime via gRPC
+ * RemoteWord - Word that executes in a remote runtime
  */
 import { Word, RuntimeInfo } from '../forthic/module.js';
 import { Interpreter } from '../forthic/interpreter.js';
-import type { RuntimeClient } from '../common/runtime_client.js';
+import type { RuntimeClient } from './runtime_client.js';
 
 /**
  * RemoteWord - Proxy word that delegates execution to a remote runtime
  *
  * When executed:
  * 1. Captures current interpreter stack
- * 2. Sends word name + stack to remote runtime via gRPC
+ * 2. Sends word name + stack to remote runtime via its transport
  * 3. Replaces local stack with result stack from remote execution
  *
  * This allows seamless integration of remote runtime words (like pandas.DF-FROM-RECORDS)

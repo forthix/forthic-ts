@@ -2,7 +2,7 @@
  * WebSocketRuntimeManager - Singleton for managing ActionCable connections to remote runtimes
  *
  * Provides centralized access to ActionCable clients for different runtimes
- * Mirrors the gRPC RuntimeManager API for compatibility
+ * Mirrors the RuntimeManager API for compatibility
  */
 import { ActionCableClient, ActionCableClientConfig } from './client.js';
 

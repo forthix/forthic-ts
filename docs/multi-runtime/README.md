@@ -17,12 +17,12 @@ Forthic enables **cross-runtime execution** where code in one language can seaml
 
 ```typescript
 import { Interpreter } from '@forthix/forthic';
-import { GrpcClient, RemoteModule } from '@forthix/forthic/grpc';
+import { JsonRpcClient, RemoteModule } from '@forthix/forthic/jsonrpc';
 
 const interp = new Interpreter();
 
 // Connect to Python runtime
-const client = new GrpcClient('localhost:50051');
+const client = new JsonRpcClient('localhost:8765');
 const pandas = new RemoteModule('pandas', client, 'python');
 await pandas.initialize();
 
@@ -59,21 +59,19 @@ const df = interp.stack_pop();  // pandas DataFrame
 
 ## Approaches
 
-### gRPC (Server-to-Server)
+### JSON-RPC (Server-to-Server)
 
-**Best for:** Node.js ↔ Python ↔ Ruby ↔ Rust communication
+**Best for:** Node.js ↔ Python ↔ Ruby communication
 
 **Advantages:**
-- Fast, production-ready
-- High performance
-- Supports bidirectional streaming
+- No native dependencies — Node's built-in `http` plus global `fetch`
+- Loopback-only bind and bearer-token auth by default
 - Works between backend services
 
 **Requirements:**
-- Node.js environment (not browser)
-- `@grpc/grpc-js` dependency
+- Node.js ≥ 18 (not browser)
 
-**See:** [gRPC Guide](grpc.md)
+**See:** [JSON-RPC Guide](jsonrpc.md)
 
 ### WebSocket/ActionCable (Client-Server)
 
@@ -93,26 +91,26 @@ const df = interp.stack_pop();  // pandas DataFrame
 
 ## Choosing an Approach
 
-| Feature | gRPC | WebSocket |
-|---------|------|-----------|
+| Feature | JSON-RPC | WebSocket |
+|---------|----------|-----------|
 | **Environment** | Node.js only | Node.js + Browser |
-| **Performance** | Very fast | Fast |
 | **Use case** | Server ↔ Server | Browser ↔ Server |
-| **Streaming** | Bidirectional | Server → Client |
-| **Setup** | Medium | Easy |
+| **Streaming** | Request/response | Server → Client |
+| **Setup** | Easy | Easy |
 
 **Decision guide:**
 - Running in browser? → Use **WebSocket**
-- Server-to-server? → Use **gRPC**
-- Need highest performance? → Use **gRPC**
-- Using Rails backend? → Use **WebSocket** (ActionCable)
+- Server-to-server? → Use **JSON-RPC**
+- Using a Rails backend? → Use **WebSocket** (ActionCable)
+
+> **Note**: A gRPC transport existed through v0.15.0 and was removed in v0.16.0. JSON-RPC is the supported server-to-server transport.
 
 ## Runtime Status
 
-| Runtime | Status | gRPC | WebSocket | Notes |
-|---------|--------|------|-----------|-------|
+| Runtime | Status | JSON-RPC | WebSocket | Notes |
+|---------|--------|----------|-----------|-------|
 | **TypeScript** | ✅ Available | Client + Server | Client + Server | Full support |
-| **Python** | ✅ Available | Client + Server | - | gRPC only |
+| **Python** | ✅ Available | Client + Server | - | JSON-RPC only |
 | **Ruby** | ✅ Available | Client + Server | Server (ActionCable) | Rails integration |
 | **Rust** | 🚧 In Development | In progress | - | Coming soon |
 | **Java** | 📋 Planned | - | - | Future |
@@ -122,7 +120,7 @@ const df = interp.stack_pop();  // pandas DataFrame
 
 ### 1. Choose Your Approach
 
-- **For server-to-server**: [gRPC Setup](grpc.md)
+- **For server-to-server**: [JSON-RPC Setup](jsonrpc.md)
 - **For browser-to-server**: [WebSocket Setup](websocket.md)
 
 ### 2. Configuration
@@ -136,25 +134,25 @@ See [Configuration Guide](configuration.md) for:
 ### 3. Run Examples
 
 Check out working examples:
-- [examples/05-grpc-server.ts](../../examples/05-grpc-server.ts) - Expose TypeScript via gRPC
-- [examples/06-grpc-client.ts](../../examples/06-grpc-client.ts) - Call Python from TypeScript
+- [examples/05-jsonrpc-server.ts](../../examples/05-jsonrpc-server.ts) - Expose TypeScript via JSON-RPC
+- [examples/06-jsonrpc-client.ts](../../examples/06-jsonrpc-client.ts) - Call Python from TypeScript
 
 ## Architecture
 
 ### How It Works
 
 ```
-┌─────────────┐                    ┌─────────────┐
-│ TypeScript  │                    │   Python    │
-│  Runtime    │                    │   Runtime   │
-│             │                    │             │
-│  ┌───────┐  │   gRPC/WebSocket  │  ┌───────┐  │
-│  │pandas │◄─┼────────────────────┼──│pandas │  │
-│  │remote │  │                    │  │module │  │
-│  └───────┘  │                    │  └───────┘  │
-│             │                    │             │
-│ Interpreter │                    │ Interpreter │
-└─────────────┘                    └─────────────┘
+┌─────────────┐                        ┌─────────────┐
+│ TypeScript  │                        │   Python    │
+│  Runtime    │                        │   Runtime   │
+│             │                        │             │
+│  ┌───────┐  │  JSON-RPC / WebSocket  │  ┌───────┐  │
+│  │pandas │◄─┼────────────────────────┼──│pandas │  │
+│  │remote │  │                        │  │module │  │
+│  └───────┘  │                        │  └───────┘  │
+│             │                        │             │
+│ Interpreter │                        │ Interpreter │
+└─────────────┘                        └─────────────┘
 ```
 
 **Process:**
@@ -169,13 +167,13 @@ Check out working examples:
 All Forthic types are automatically serialized across runtimes:
 - Primitives: `null`, `boolean`, `integer`, `float`, `string`
 - Collections: `array`, `record` (nested supported)
-- Temporal: `Instant`, `PlainDate`, `ZonedDateTime`
+- Temporal: `Instant`, `PlainDate`, `PlainTime`, `ZonedDateTime`
 
 Type conversion is automatic and transparent.
 
 ## Documentation
 
-- **[gRPC Guide](grpc.md)** - Server and client setup for Node.js
+- **[JSON-RPC Guide](jsonrpc.md)** - Server and client setup for Node.js
 - **[WebSocket Guide](websocket.md)** - Browser-compatible communication
 - **[Configuration](configuration.md)** - YAML config and connection management
 - **[Examples](../../examples/)** - Working code samples
@@ -184,8 +182,7 @@ Type conversion is automatic and transparent.
 
 Multi-runtime communication uses versioned protocols:
 - **v1 Protocol**: Current stable version
-- Protocol buffers (gRPC) and JSON (WebSocket)
-- See `protos/v1/forthic_runtime.proto` for gRPC schema
+- JSON-RPC 2.0 over HTTP, and JSON over WebSocket
 
 ## Community
 

@@ -1,6 +1,6 @@
 /**
  * WebSocketRemoteModule - Module that wraps runtime-specific words from a remote runtime
- * Mirrors RemoteModule from gRPC implementation
+ * Mirrors the transport-agnostic RemoteModule
  */
 import { Module } from '../../forthic/module.js';
 import { Interpreter } from '../../forthic/interpreter.js';
