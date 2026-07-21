@@ -44,6 +44,11 @@ export class Token {
   // True only for a marked redirect string (`<<'''…'''`); the interpreter routes
   // these into a StringRedirectSink instead of pushing them. Ordinary strings leave it false.
   is_string_redirect: boolean;
+  // Raw `input_pos` immediately after this token was gathered (0-based index into
+  // `input_string`, no reference offset). Set by `next_token()`. Definition source
+  // capture reads this instead of the tokenizer's live `input_pos`, so it stays
+  // correct when a caller (streamingRun) tokenizes a whole chunk before executing.
+  end_input_pos: number;
 
   constructor(
     type: TokenType,
@@ -55,6 +60,7 @@ export class Token {
     this.string = string;
     this.location = location;
     this.is_string_redirect = is_string_redirect;
+    this.end_input_pos = 0;
   }
 }
 
@@ -130,7 +136,14 @@ export class Tokenizer {
     // again, so the flag stays true exactly when is_string_redirect() is read.
     this.string_redirect_open = false;
     this.open_triple_quote_delim = null;
-    return this.transition_from_START();
+    const token = this.transition_from_START();
+    // Stamp the post-token cursor while it is still fresh. In the non-streaming
+    // path this equals the live `input_pos` a handler would read immediately
+    // after next_token() returns; in the streaming path (which tokenizes the
+    // whole chunk up front) it's the only correct source. An incomplete trailing
+    // token returns null and is not stamped.
+    if (token) token.end_input_pos = this.input_pos;
+    return token;
   }
 
   // ===================
@@ -349,6 +362,13 @@ export class Tokenizer {
       }
     }
 
+    // Streaming: a chunk boundary landed right after `:` (no name yet). Hold the
+    // token back — the same way an unterminated string does — so the caller
+    // re-tokenizes it once more content arrives, instead of throwing on a
+    // syntactically fine definition whose name simply hasn't streamed in yet.
+    if (this.streaming) {
+      return null as any;
+    }
     throw new InvalidWordNameError(
       this.input_string,
       this.get_token_location(),
@@ -374,6 +394,12 @@ export class Tokenizer {
       }
     }
 
+    // Streaming: a chunk boundary landed right after `@:` (no name yet). Hold the
+    // token back so the caller re-tokenizes it once more content arrives, rather
+    // than throwing on a memo definition whose name hasn't streamed in yet.
+    if (this.streaming) {
+      return null as any;
+    }
     throw new InvalidWordNameError(
       this.input_string,
       this.get_token_location(),
