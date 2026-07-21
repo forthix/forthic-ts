@@ -892,8 +892,11 @@ export class Interpreter {
     this.cur_definition = new DefinitionWord(token.string);
     this.is_compiling = true;
     this.is_memo_definition = false;
-    // Record the position right after the definition name for source capture
-    this.definition_start_input_pos = this.get_tokenizer().input_pos;
+    // Record the position right after the definition name for source capture.
+    // Read it from the token (captured at tokenize time), not the tokenizer's
+    // live input_pos: streamingRun tokenizes the whole chunk before executing,
+    // so by handle time input_pos has already run to the end of the chunk.
+    this.definition_start_input_pos = token.end_input_pos;
   }
 
   handle_start_memo_token(token: Token) {
@@ -906,8 +909,10 @@ export class Interpreter {
     this.cur_definition = new DefinitionWord(token.string);
     this.is_compiling = true;
     this.is_memo_definition = true;
-    // Record the position right after the memo name for source capture
-    this.definition_start_input_pos = this.get_tokenizer().input_pos;
+    // Record the position right after the memo name for source capture. Read it
+    // from the token (captured at tokenize time), not the tokenizer's live
+    // input_pos, for the same reason as handle_start_definition_token.
+    this.definition_start_input_pos = token.end_input_pos;
   }
 
   handle_end_definition_token(token: Token) {
@@ -918,11 +923,14 @@ export class Interpreter {
       );
     }
 
-    // Construct the source text for serialization
+    // Construct the source text for serialization. Slice up to the END_DEF
+    // token's captured position (right after `;`), not the tokenizer's live
+    // input_pos: under streamingRun the whole chunk is tokenized before the `;`
+    // is handled, so live input_pos points past the end of this definition.
     const tokenizer = this.get_tokenizer();
     const body = tokenizer.input_string.substring(
       this.definition_start_input_pos,
-      tokenizer.input_pos,
+      token.end_input_pos,
     );
     const prefix = this.is_memo_definition ? "@:" : ":";
     const source = `${prefix} ${this.cur_definition.name} ${body}`;
@@ -1079,9 +1087,22 @@ export class Interpreter {
     }
   }
 
-  /** Reset streamingRun's per-turn state so the next turn starts from the top. */
+  /**
+   * Reset streamingRun's per-turn state so the next turn starts from the top.
+   *
+   * Also clears in-progress compile state. This runs when a turn ends (done),
+   * aborts, or throws — never between the done=false chunks of a single turn —
+   * so a definition streamed across chunks within one turn is preserved, while a
+   * definition left open by a failed or unterminated turn cannot leak
+   * `is_compiling` into the next turn and wedge the shared interpreter (silently
+   * swallowing later programs into an orphaned definition, or throwing phantom
+   * MissingSemicolonErrors).
+   */
   private resetStreamingSession() {
     this.streamingSession = { tokenIndex: 0 };
+    this.is_compiling = false;
+    this.cur_definition = null;
+    this.is_memo_definition = false;
   }
 
   /**
@@ -1238,23 +1259,32 @@ export function export_state(interp: Interpreter): InterpreterState {
     variables[name] = serializeValue(variable.get_value(), `var:${pathSegmentForKey(name)}`);
   }
 
-  // Collect source text from user-defined words
-  const word_definitions: string[] = [];
-  const seen = new Set<string>();
+  // Collect source text from user-defined words. A name can appear more than once
+  // when a word is redefined in a later turn: add_word appends, so appModule.words
+  // holds every version. Keep the LAST source per name to match the live word that
+  // find_dictionary_word resolves (it scans backward) — otherwise a snapshot/restore
+  // silently reverts a redefinition to its original body. Bang-variant memo words
+  // are skipped by the instanceof guards, so each name contributes one definition.
+  //
+  // delete-then-set moves a redefined name to the END, so import_state replays in
+  // last-definition order. Body words resolve at define time (find_word throws on an
+  // unknown word while compiling), so a redefinition that references a helper defined
+  // after the word's original definition must replay after that helper; leaving the
+  // name at its first-definition slot would replay it too early and throw
+  // UnknownWordError on restore.
+  const latest_source_by_name = new Map<string, string>();
   for (const word of appModule.words) {
-    if (word instanceof DefinitionWord && word.source) {
-      // For DefinitionWords, use the source directly (avoids duplicates from memo bang variants)
-      if (!seen.has(word.name)) {
-        seen.add(word.name);
-        word_definitions.push(word.source);
-      }
-    } else if (word instanceof ModuleMemoWord && word.source) {
-      if (!seen.has(word.name)) {
-        seen.add(word.name);
-        word_definitions.push(word.source);
-      }
+    if (
+      (word instanceof DefinitionWord || word instanceof ModuleMemoWord) &&
+      word.source
+    ) {
+      latest_source_by_name.delete(word.name);
+      latest_source_by_name.set(word.name, word.source);
     }
   }
+  const word_definitions: string[] = Array.from(
+    latest_source_by_name.values(),
+  );
 
   return { stack, variables, word_definitions };
 }
