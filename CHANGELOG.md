@@ -4,6 +4,17 @@ All notable changes to `@forthix/forthic` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is pre-1.0: while `0.x`, **breaking changes ship in minor releases**. Releases before 0.16.0 are recorded in the git history rather than here.
 
+## [0.16.1] - 2026-07-21
+
+A bug-fix release for the streaming execution path (`Interpreter.streamingRun`), which drives the interpreter from a live token stream one chunk at a time against a single long-lived interpreter. Four defects — present since at least 0.15.0 — corrupted user-defined words or wedged the interpreter. No API changes; upgrading is safe and recommended for anyone using `streamingRun` or `export_state`/`import_state`.
+
+### Fixed
+
+- **Compile state leaked across turns, permanently wedging the interpreter.** `is_compiling` / `cur_definition` / `is_memo_definition` were never cleared when a turn ended or threw, so any error inside a definition body left the shared interpreter stuck in compile mode. Every later turn was then silently swallowed into an orphaned definition or threw a `MissingSemicolonError` attributed to unrelated code. These are now reset when a streaming turn ends, aborts, or throws — but never between the chunks of a single in-progress turn, so a definition streamed across chunks still works.
+- **A chunk boundary right after a bare `:` / `@:` threw `InvalidWordNameError`.** The tokenizer ran off the end of input while looking for the definition name. In streaming mode the incomplete token is now held back (like an unterminated string) and re-read once the name arrives, so a definition no longer succeeds or fails based on where the stream happened to split.
+- **A streaming-defined word serialized the wrong source.** The definition body was sliced from the tokenizer's live position, which `streamingRun` had already advanced to the end of the chunk. `export_state` recorded a truncated or shifted body, so `import_state` replayed a different definition than executed (or threw). Tokens now carry the position captured at tokenize time; the non-streaming path is unchanged.
+- **`export_state` reverted redefinitions.** It kept the first definition of each word, but redefining a word appends and lookup resolves the last one, so a word redefined in a later turn was snapshotted with its stale body and reverted on restore. It now serializes the live (last) definition, ordered so a redefinition that references a later-defined word restores in a valid order.
+
 ## [0.16.0] - 2026-07-13
 
 A correctness-and-safety release. Several word contracts were realigned to the cross-runtime Forthic contract (shared with `forthic-rs` and `forthic-py`), the gRPC transport was removed, and the JSON-RPC server was hardened. **Read the migration notes below before upgrading** — this release removes words and changes semantics.
@@ -61,7 +72,10 @@ A correctness-and-safety release. Several word contracts were realigned to the c
 If you ran the server and reached it from another host, it is now unreachable by default. Bind explicitly **and set a token** — the endpoint executes arbitrary words, so never expose it without one:
 
 ```typescript
-await startJsonRpcServer(8765, { host: '0.0.0.0', token: process.env.FORTHIC_TOKEN });
+await startJsonRpcServer(8765, {
+  host: "0.0.0.0",
+  token: process.env.FORTHIC_TOKEN,
+});
 ```
 
 Equivalently: `FORTHIC_JSONRPC_HOST` and `FORTHIC_JSONRPC_TOKEN`. Clients send `Authorization: Bearer <token>`.
