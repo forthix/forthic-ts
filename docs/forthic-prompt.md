@@ -9,34 +9,49 @@ Top of stack is rightmost. Forthic is postfix: arguments precede the word.
 
 ### Strings
 
-- `'''triple single quotes'''` — preferred for prose and multi-line content
-- `"""triple double quotes"""` — preferred for embedding Forthic code as a string
-- `'foo'` and `"foo"` — regular strings; interpret a small whitelist of
-  escapes: `\n \t \r \0 \\ \" \'`. Anything else (`\d`, `\w`, `\U`, etc.)
-  stays as the literal pair, so regex patterns and Windows paths work unchanged.
-- `""` — empty string (NOT `''''`)
+- `'foo'` and `"foo"` — regular strings
+- `'''…'''` — prose and multi-line content
+- `"""…"""` — embedded Forthic code
+- `""` — empty string (`''''` is not empty)
 
-Write escapes normally — `'line1\nline2'` is a real newline.
+Every non-raw form interprets `\n \t \r \0 \\ \" \'`. Other backslash pairs
+remain literal, so `'''\d+\w*'''` preserves the regex while `'''a\nb'''`
+contains a newline.
 
-**`r` is an escape hatch, not a general rule.** `r'foo'`, `r"foo"`,
-`r'''foo'''` and `r"""foo"""` interpret nothing, so every backslash reaches
-whatever reads the string next. Reach for it only when the content carries
-escapes that something *else* has to read:
+#### Escaping quotes
 
-- JSON you are about to parse — `JSON>` reads the escapes itself:
-  `r'''{"msg": "line1\nline2"}''' JSON> [.msg] REC@` → `'line1\nline2'`
-- Forthic source you are about to run — `RUN` reads them itself:
-  `r"""'a\nb'""" RUN` → `'a\nb'`
-- a path or pattern where a letter follows the backslash:
-  `r'C:\temp'` → `'C:\\temp'` — plain `'C:\temp'` holds a tab, not a backslash
+Use a backslash to include a quote that would otherwise close the string. For
+ordinary strings, prefer escaping the quote over changing delimiters just to
+accommodate it:
 
-Do not rely on a bare `'''…'''` to keep a backslash. It is raw today, but a
-future release makes it interpret the whitelist above; only the `r` forms stay
-raw.
+- Write `'he\'s good'` to produce `he's good`.
+- Write `"She said \"yes\""` to produce `She said "yes"`.
 
-A raw string has no escapes, so it cannot contain its own delimiter: `r'don't'`
-ends at the apostrophe. Switch delimiter (`r"don't"`) or widen it
-(`r'''don't'''`).
+Triple-quoted strings use the same rule. Escape each quote in a delimiter-sized
+run so it remains content:
+
+- Write `'''today\'s plan'''` to produce `today's plan`.
+- Write `'''a \'\'\' b'''` to produce `a ''' b`.
+
+Escapes are processed before delimiter detection, so an escaped quote cannot
+close the string. An unescaped delimiter still does: `'''today'''s plan'''`
+ends after `today`.
+
+#### Raw strings
+
+Prefix any form with `r` to disable escape processing: `r'…'`, `r"…"`,
+`r'''…'''`, or `r"""…"""`. Raw strings do not interpret any escape, including
+quote escapes: `r'he\'s good'` closes at the apostrophe instead of producing
+`he's good`.
+
+Use raw strings when backslashes must remain unchanged, especially for:
+
+- JSON: `r'''{"msg": "line1\nline2"}''' JSON>`
+- Forthic passed to `RUN`, `MAP`, `FILTER`, or `WHEN`: `r"""'a\nb'""" RUN`
+- Paths containing recognized escapes: `r'C:\temp'` (plain `'C:\temp'` contains a tab)
+
+A raw string cannot contain its own delimiter. If raw content includes that
+delimiter, use a wider raw form, such as `r'''don't'''`.
 
 ### Arrays and Records
 
@@ -300,4 +315,3 @@ ALWAYS generate code in this structure:
 - `TRIM-SUFFIX` `( str:string suffix:string -- result:string )` — Strip suffix from end of str if present (otherwise return str unchanged).
 - `UNLINES` `( lines:string[] -- str:string )` — Join an array of lines with newlines. Equivalent to /N JOIN.
 - `UPPERCASE` `( string:string -- result:string )` — Convert string to uppercase
-
