@@ -1,8 +1,8 @@
 # Forthic — Standard Words
 
-Generated: 2026-08-14T16:40:42.853Z
+Generated: 2026-09-09T23:06:45.328Z
 
-**8 modules · 165 surface words**
+**8 modules · 168 surface words**
 
 Classic/back-compat words live in `classic/classic_module.ts` and are
 intentionally omitted from this index.
@@ -28,7 +28,7 @@ Array and collection operations for manipulating arrays and records.
 
 ### Transform
 
-- **MAP** `( items:any forthic:string [options:WordOptions] -- mapped:any )` — Map function over items. Options: with_key (bool), depth (num), interps (num), outcomes (bool). With outcomes, each element maps to {ok: value} or {error: {message, error_type}} — per-element failures don't abort and can't disturb the stack (MAP restores its own pushes). Example: [1 2 3] '2 *' [.outcomes TRUE] ~> MAP
+- **MAP** `( items:any forthic:string [options:WordOptions] -- mapped:any )` — Map function over items. Options: with_key (bool), depth (num), interps (num), outcomes (bool). With outcomes, each element maps to {ok: value} or {error: {message, error_type}} — per-element failures don't abort and can't disturb the stack (MAP restores its own pushes). Example: [1 2 3] '2 *' { .outcomes TRUE } ~> MAP
 - **MAP-AT** `( container:any key:any|any[] forthic:string -- container:any )` — Apply forthic to the value at key/index, returning a new container with that slot transformed. The key arg may be a single key (one-level update) or a path-array for deep updates. Polymorphic over arrays and records. Equivalent of jq's |= operator.
 - **REVERSE** `( container:any -- container:any )` — Reverse array
 
@@ -70,7 +70,7 @@ Array and collection operations for manipulating arrays and records.
 ### Group
 
 - **BY-FIELD** `( container:any[] field:string -- indexed:any )` — Index records by field value
-- **GROUP-BY** `( items:any forthic:string [options:WordOptions] -- grouped:any )` — Group items by function result. Options: with_key (bool). Example: [5 15 25] '10 /' [.with_key TRUE] ~> GROUP-BY
+- **GROUP-BY** `( items:any forthic:string [options:WordOptions] -- grouped:any )` — Group items by function result. Options: with_key (bool). Example: [5 15 25] '10 /' { .with_key TRUE } ~> GROUP-BY
 - **GROUP-BY-FIELD** `( container:any[] field:string -- grouped:any )` — Group records by field value
 - **GROUPS-OF** `( container:any[] n:number -- groups:any[] )` — Split array into groups of size n
 
@@ -79,7 +79,7 @@ Array and collection operations for manipulating arrays and records.
 - **FOREACH** _(declared in category but not found in module)_
 - **REDUCE** `( container:any initial:any forthic:string -- result:any )` — Reduce array or record with accumulator
 - **UNPACK** `( container:any -- elements:any )` — Unpack array or record elements onto stack
-- **FLATTEN** `( container:any [options:WordOptions] -- flat:any )` — Flatten nested arrays or records. Options: depth (number). Example: [[[1 2]]] [.depth 1] ~> FLATTEN
+- **FLATTEN** `( container:any [options:WordOptions] -- flat:any )` — Flatten nested arrays or records. Options: depth (number). Example: [[[1 2]]] { .depth 1 } ~> FLATTEN
 - **TIMES-RUN** `( num_times:number forthic:string -- )` — Run forthic num_times. Each invocation runs in the current stack — no automatic per-iteration value passing.
 
 ## boolean
@@ -136,6 +136,9 @@ Essential interpreter operations for stack manipulation, variables, control flow
 ### Module
 
 - **USE-MODULES** `( names:string[] [options:WordOptions] -- )` — Imports modules by name
+- **MODULE** `( module_name:string -- )` — Find or create submodule in current module and make it the current module
+- **END-MODULE** `( -- )` — Pop the current module from the module stack
+- **APP-MODULE** `( -- )` — Make the application module the current module
 
 ### Execution
 
@@ -171,7 +174,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 
 ### Options
 
-- **~> (converts array to WordOptions)** _(declared in category but not found in module)_
+- **~> (converts a record to WordOptions)** _(declared in category but not found in module)_
 
 ### String
 
@@ -185,7 +188,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 
 ### Other
 
-- **~>** `( array:any[] -- options:WordOptions )` — Convert options array to WordOptions. Format: [.key1 val1 .key2 val2]
+- **~>** `( record:any -- options:WordOptions )` — Convert a record to WordOptions. Format: { .key1 val1 .key2 val2 }. The flat array form [.key1 val1] is also accepted.
 - **UNWRAP-OR** `( outcome:record default:any -- value:any )` — Extract the ok value from a TRY outcome, or default if it is an error outcome
 
 ## datetime

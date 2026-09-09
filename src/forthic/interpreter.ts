@@ -1,11 +1,20 @@
 import { TokenType, Token, Tokenizer, CodeLocation } from "./tokenizer.js";
-import { Module, Variable, Word, PushValueWord, DefinitionWord, ModuleMemoWord } from "./module.js";
-import { PositionedString } from "./tokenizer.js";
+import {
+  Module,
+  Variable,
+  Word,
+  PushValueWord,
+  DefinitionWord,
+  ModuleMemoWord,
+} from "./module.js";
+import { DotSymbol, PositionedString } from "./tokenizer.js";
 import {
   UnknownWordError,
   UnknownModuleError,
   StackUnderflowError,
   ModuleStackUnderflowError,
+  RecordKeyError,
+  UnmatchedRecordCloseError,
   UnknownTokenError,
   MissingSemicolonError,
   ExtraSemicolonError,
@@ -17,7 +26,15 @@ import {
   StringRedirectError,
 } from "./errors.js";
 import { StringRedirectRouter } from "./string_redirect_router.js";
-import { LiteralHandler, to_bool, to_float, to_int, to_time, to_literal_date, to_zoned_datetime } from "./literals.js";
+import {
+  LiteralHandler,
+  to_bool,
+  to_float,
+  to_int,
+  to_time,
+  to_literal_date,
+  to_zoned_datetime,
+} from "./literals.js";
 import { CoreModule } from "./modules/standard/core_module.js";
 import { ArrayModule } from "./modules/standard/array_module.js";
 import { RecordModule } from "./modules/standard/record_module.js";
@@ -27,7 +44,13 @@ import { BooleanModule } from "./modules/standard/boolean_module.js";
 import { JsonModule } from "./modules/standard/json_module.js";
 import { DateTimeModule } from "./modules/standard/datetime_module.js";
 import { ClassicModule } from "./modules/standard/classic/classic_module.js";
-import { serializeValue, deserializeValue, serializeStack, deserializeStack, StackValue } from "../websocket/serializer.js";
+import {
+  serializeValue,
+  deserializeValue,
+  serializeStack,
+  deserializeStack,
+  StackValue,
+} from "../websocket/serializer.js";
 import { pathSegmentForKey } from "../common/type_utils.js";
 
 type Timestamp = {
@@ -38,49 +61,60 @@ type Timestamp = {
 type HandleErrorFunction = (e: Error, interp: Interpreter) => Promise<void>;
 
 /**
- * StartModuleWord - Handles module creation and switching
+ * EndRecordWord - Collects key/value pairs from the stack into a record
  *
- * Pushes a module onto the module stack, creating it if necessary.
- * An empty name refers to the app module.
- */
-class StartModuleWord extends Word {
-  async execute(interp: Interpreter): Promise<void> {
-    const self = this;
-
-    // The app module is the only module with a blank name
-    if (self.name === "") {
-      interp.module_stack_push(interp.get_app_module());
-      return;
-    }
-
-    // If the module is used by the current module, push it onto the stack, otherwise
-    // create a new module.
-    let module = interp.cur_module().find_module(self.name);
-    if (!module) {
-      module = new Module(self.name);
-      interp.cur_module().register_module(module.name, module.name, module);
-
-      // If we're at the app module, also register with interpreter
-      if (interp.cur_module().name === "") {
-        interp.register_module(module);
-      }
-    }
-    interp.module_stack_push(module);
-  }
-}
-
-/**
- * EndModuleWord - Pops the current module from the module stack
+ * Pops items back to the matching START_RECORD marker, then folds them into a
+ * record. Keys are dot symbols; a dot symbol with no value after it is a bare
+ * flag and takes `true`.
  *
- * Completes module context and returns to the previous module.
+ * This reads the raw stack rather than `stack_pop`, because `stack_pop` unwraps
+ * a `DotSymbol` to its primitive string and the key/value distinction would be
+ * lost with it.
  */
-class EndModuleWord extends Word {
+class EndRecordWord extends Word {
   constructor() {
     super("}");
   }
 
   async execute(interp: Interpreter): Promise<void> {
-    interp.module_stack_pop();
+    const items: any[] = [];
+    while (true) {
+      if (interp.get_stack().length === 0) {
+        // Running the stack dry means there was never a matching `{`. Say that,
+        // rather than reporting the underflow it looks like from in here.
+        throw new UnmatchedRecordCloseError(interp.get_top_input_string());
+      }
+      const item = interp.stack_pop_raw();
+      if (item instanceof Token && item.type == TokenType.START_RECORD) break;
+      items.push(item);
+    }
+    items.reverse();
+
+    const record: { [key: string]: any } = Object.create(null);
+    let i = 0;
+    while (i < items.length) {
+      const key = items[i];
+      if (!(key instanceof DotSymbol)) {
+        throw new RecordKeyError(
+          interp.get_top_input_string(),
+          key instanceof PositionedString ? key.valueOf() : key,
+          key instanceof PositionedString ? key.location : undefined,
+        );
+      }
+      // A key followed by another key — or by nothing — is a bare flag.
+      if (i + 1 < items.length && !(items[i + 1] instanceof DotSymbol)) {
+        const value = items[i + 1];
+        record[key.valueOf()] =
+          value instanceof PositionedString ? value.valueOf() : value;
+        i += 2;
+      } else {
+        record[key.valueOf()] = true;
+        i += 1;
+      }
+    }
+
+    interp.stack_push(record);
+    return;
   }
 }
 
@@ -127,7 +161,7 @@ export class Stack {
     return new Proxy(this, {
       get(target, prop) {
         // If it's a number or string that looks like a number, treat as array index
-        if (typeof prop === 'string' && /^\d+$/.test(prop)) {
+        if (typeof prop === "string" && /^\d+$/.test(prop)) {
           const index = parseInt(prop, 10);
           return target.items[index];
         }
@@ -136,19 +170,19 @@ export class Stack {
       },
       set(target, prop, value) {
         // If it's a number or string that looks like a number, set array index
-        if (typeof prop === 'string' && /^\d+$/.test(prop)) {
+        if (typeof prop === "string" && /^\d+$/.test(prop)) {
           const index = parseInt(prop, 10);
           target.items[index] = value;
           return true;
         }
         // Don't allow setting readonly properties like 'length'
-        if (prop === 'length') {
+        if (prop === "length") {
           return false;
         }
         // Otherwise set the property on the target object (using any to bypass type checking)
         (target as any)[prop] = value;
         return true;
-      }
+      },
     });
   }
 
@@ -302,7 +336,9 @@ export class Interpreter {
   // Does NOT include words imported via USE-MODULES.
   get_app_defined_word_names(): string[] {
     return this.app_module.words
-      .filter((w: Word) => w instanceof DefinitionWord || w instanceof ModuleMemoWord)
+      .filter(
+        (w: Word) => w instanceof DefinitionWord || w instanceof ModuleMemoWord,
+      )
       .map((w: Word) => w.name);
   }
 
@@ -354,7 +390,6 @@ export class Interpreter {
     // Debug support
     this.string_location = undefined;
   }
-
 
   async run(
     string: string,
@@ -483,7 +518,7 @@ export class Interpreter {
             e,
             word.name,
             token.location,
-            word.get_location() || undefined
+            word.get_location() || undefined,
           );
         }
         throw e;
@@ -552,6 +587,20 @@ export class Interpreter {
     this.stack.push(val);
   }
 
+  /**
+   * Pops without unwrapping a PositionedString to its primitive.
+   *
+   * Only `}` needs this: closing a record literal has to tell a `DotSymbol` key
+   * from a string value, and `stack_pop` erases exactly that distinction. Every
+   * other word wants `stack_pop`.
+   */
+  stack_pop_raw(): any {
+    if (this.stack.length == 0) {
+      throw new StackUnderflowError(this.get_top_input_string());
+    }
+    return this.stack.pop();
+  }
+
   stack_pop(): any {
     if (this.stack.length == 0) {
       // Location is filled in by the dispatch catch site, which has the
@@ -615,12 +664,12 @@ export class Interpreter {
     const prefixed = options.prefixed ?? false;
     for (const name of names) {
       let module_name = name;
-      let prefix = "";  // Default to empty prefix (no prefix)
+      let prefix = ""; // Default to empty prefix (no prefix)
       if (name instanceof Array) {
         module_name = name[0];
-        prefix = name[1];  // Allow explicit prefix specification
+        prefix = name[1]; // Allow explicit prefix specification
       } else if (prefixed) {
-        prefix = name;  // Use module name as its own prefix
+        prefix = name; // Use module name as its own prefix
       }
       const module = this.find_module(module_name);
       this.get_app_module().import_module(prefix, module, this);
@@ -642,8 +691,8 @@ export class Interpreter {
   // Transforms simple module names to unprefixed imports: "math" -> ["math", ""]
   // Preserves explicit prefix specifications: ["math", "m"] -> ["math", "m"]
   use_modules_unprefixed(names: any[]) {
-    const unprefixed = names.map(name =>
-      name instanceof Array ? name : [name, ""]
+    const unprefixed = names.map((name) =>
+      name instanceof Array ? name : [name, ""],
     );
     this.use_modules(unprefixed);
   }
@@ -678,12 +727,12 @@ export class Interpreter {
    */
   private register_standard_literals(): void {
     this.literal_handlers = [
-      to_bool,                              // TRUE, FALSE
-      to_float,                             // 3.14
-      to_zoned_datetime(this.timezone),     // 2020-06-05T10:15:00Z
-      to_literal_date(this.timezone),       // 2020-06-05, YYYY-MM-DD
-      to_time,                              // 9:00, 11:30 PM
-      to_int,                               // 42
+      to_bool, // TRUE, FALSE
+      to_float, // 3.14
+      to_zoned_datetime(this.timezone), // 2020-06-05T10:15:00Z
+      to_literal_date(this.timezone), // 2020-06-05, YYYY-MM-DD
+      to_time, // 9:00, 11:30 PM
+      to_int, // 42
     ];
   }
 
@@ -802,17 +851,18 @@ export class Interpreter {
       await this.handle_start_array_token(token);
     else if (token.type == TokenType.END_ARRAY)
       await this.handle_end_array_token(token);
-    else if (token.type == TokenType.START_MODULE)
-      await this.handle_start_module_token(token);
-    else if (token.type == TokenType.END_MODULE)
-      await this.handle_end_module_token(token);
+    else if (token.type == TokenType.START_RECORD)
+      await this.handle_start_record_token(token);
+    else if (token.type == TokenType.END_RECORD)
+      await this.handle_end_record_token(token);
     else if (token.type == TokenType.START_DEF)
       this.handle_start_definition_token(token);
     else if (token.type == TokenType.START_MEMO)
       this.handle_start_memo_token(token);
     else if (token.type == TokenType.END_DEF)
       this.handle_end_definition_token(token);
-    else if (token.type == TokenType.DOT_SYMBOL) await this.handle_dot_symbol_token(token);
+    else if (token.type == TokenType.DOT_SYMBOL)
+      await this.handle_dot_symbol_token(token);
     else if (token.type == TokenType.WORD) await this.handle_word_token(token);
     else if (token.type == TokenType.EOS) {
       if (this.is_compiling) {
@@ -847,27 +897,16 @@ export class Interpreter {
   }
 
   async handle_dot_symbol_token(token: Token) {
-    const value = new PositionedString(token.string, token.location);
+    const value = new DotSymbol(token.string, token.location);
     await this.handle_word(new PushValueWord("<dot-symbol>", value));
   }
 
-  // Start/end module tokens are treated as IMMEDIATE words *and* are also compiled
-  async handle_start_module_token(token: Token) {
-    const self = this;
-    const word = new StartModuleWord(token.string);
-
-    if (self.is_compiling) self.cur_definition.add_word(word, token.location);
-    self.count_word(word); // For profiling
-    await word.execute(self);
+  async handle_start_record_token(token: Token) {
+    await this.handle_word(new PushValueWord("<start_record_token>", token));
   }
 
-  async handle_end_module_token(_token: Token) {
-    const self = this;
-    const word = new EndModuleWord();
-
-    if (self.is_compiling) self.cur_definition.add_word(word, _token.location);
-    self.count_word(word);
-    await word.execute(self);
+  async handle_end_record_token(_token: Token) {
+    await this.handle_word(new EndRecordWord());
   }
 
   async handle_start_array_token(token: Token) {
@@ -981,7 +1020,11 @@ export class Interpreter {
     reference_location: CodeLocation | null = null,
   ): Promise<void> {
     // Create a new Tokenizer for the full string.
-    const tokenizer = new Tokenizer(codeStream, reference_location, done ? false : true);
+    const tokenizer = new Tokenizer(
+      codeStream,
+      reference_location,
+      done ? false : true,
+    );
     const tokens: Token[] = [];
     let eosFound = false;
     let completedNormally = false;
@@ -1010,7 +1053,9 @@ export class Interpreter {
       // escape-processed). The sink receives this value so the bytes it streams
       // match the completed string that finish() leaves on the stack; feed()
       // turns it into a delta by writing only the not-yet-sent suffix.
-      const openStringContent = eosFound ? undefined : tokenizer.get_string_value();
+      const openStringContent = eosFound
+        ? undefined
+        : tokenizer.get_string_value();
       // Best-effort location for the trailing open string (informational only).
       const openStringLocation = tokenizer.get_token_location();
 
@@ -1050,7 +1095,10 @@ export class Interpreter {
       // feed() opens the sink stream lazily on the first delta.
       if (!eosFound && openStringContent && tokenizer.is_string_redirect()) {
         this.assertCanStringRedirect(openStringLocation);
-        await this.stringRedirectRouter.feed(openStringContent, openStringLocation);
+        await this.stringRedirectRouter.feed(
+          openStringContent,
+          openStringLocation,
+        );
       }
 
       if (done) {
@@ -1250,13 +1298,16 @@ export function export_state(interp: Interpreter): InterpreterState {
   const internal = interp as unknown as InterpreterInternal;
 
   // Serialize the stack (annotate path so errors point at the offending stack entry)
-  const stack = serializeStack(internal.stack.get_items(), 'stack:');
+  const stack = serializeStack(internal.stack.get_items(), "stack:");
 
   // Serialize variables
   const variables: Record<string, StackValue> = {};
   const appModule = internal.app_module;
   for (const [name, variable] of Object.entries(appModule.variables)) {
-    variables[name] = serializeValue(variable.get_value(), `var:${pathSegmentForKey(name)}`);
+    variables[name] = serializeValue(
+      variable.get_value(),
+      `var:${pathSegmentForKey(name)}`,
+    );
   }
 
   // Collect source text from user-defined words. A name can appear more than once
@@ -1282,9 +1333,7 @@ export function export_state(interp: Interpreter): InterpreterState {
       latest_source_by_name.set(word.name, word.source);
     }
   }
-  const word_definitions: string[] = Array.from(
-    latest_source_by_name.values(),
-  );
+  const word_definitions: string[] = Array.from(latest_source_by_name.values());
 
   return { stack, variables, word_definitions };
 }
@@ -1293,7 +1342,10 @@ export function export_state(interp: Interpreter): InterpreterState {
  * Import previously exported state into an interpreter.
  * Replays word definitions, restores variable values, and sets the stack.
  */
-export async function import_state(interp: Interpreter, state: InterpreterState): Promise<void> {
+export async function import_state(
+  interp: Interpreter,
+  state: InterpreterState,
+): Promise<void> {
   const internal = interp as unknown as InterpreterInternal;
 
   // 1. Replay word definitions (this may also create variables via VARIABLES word)

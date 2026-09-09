@@ -25,7 +25,9 @@ function natural_cmp(l: any, r: any): number {
 
 export class ArrayModule extends DecoratedModule {
   static {
-    registerModuleDoc(ArrayModule, `
+    registerModuleDoc(
+      ArrayModule,
+      `
 Array and collection operations for manipulating arrays and records.
 
 ## Categories
@@ -41,7 +43,7 @@ Array and collection operations for manipulating arrays and records.
 - Iteration: FOREACH, REDUCE, UNPACK, FLATTEN, TIMES-RUN
 
 ## Options
-Several words support options via the ~> operator using syntax: [.option_name value ...] ~> WORD
+Several words support options via the ~> operator using syntax: { .option_name value ... } ~> WORD
 - with_key: Push index/key before value (MAP, FOREACH, GROUP-BY, SELECT)
 - depth: Recursion depth for nested operations (MAP, FLATTEN)
 - push_rest: Push remaining items after operation (MAP, TAKE)
@@ -49,11 +51,12 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
 ## Examples
 [10 20 30] '2 *' MAP
-[10 20 30] '+ 2 *' [.with_key TRUE] ~> MAP
-[[[1 2]] [[3 4]]] [.depth 1] ~> FLATTEN
-[3 1 4 1 5] [.comparator "SWAP -"] ~> SORT
-[.with_key TRUE .depth 1] ~> MAP
-`);
+[10 20 30] '+ 2 *' { .with_key TRUE } ~> MAP
+[[[1 2]] [[3 4]]] { .depth 1 } ~> FLATTEN
+[3 1 4 1 5] { .comparator "SWAP -" } ~> SORT
+{ .with_key TRUE .depth 1 } ~> MAP
+`,
+    );
   }
 
   constructor() {
@@ -100,10 +103,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @ForthicWord(
-    "( container:any -- length:number )",
-    "Length of an array or record. For strings, use STR-LENGTH.",
-  )
+  @ForthicWord("( container:any -- length:number )", "Length of an array or record. For strings, use STR-LENGTH.")
   async LENGTH(container: any) {
     if (container === null || container === undefined) return 0;
     if (container instanceof Array) return container.length;
@@ -183,9 +183,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     // SLICE pads out-of-range indexes with nulls, so a huge end index would
     // materialize a huge array. Guard the span before building it.
     if (Math.abs(end - start) + 1 > MAX_MATERIALIZED_ELEMENTS) {
-      throw new Error(
-        `SLICE span ${Math.abs(end - start) + 1} is too large (limit ${MAX_MATERIALIZED_ELEMENTS})`,
-      );
+      throw new Error(`SLICE span ${Math.abs(end - start) + 1} is too large (limit ${MAX_MATERIALIZED_ELEMENTS})`);
     }
 
     const step = start > end ? -1 : 1;
@@ -225,9 +223,12 @@ Several words support options via the ~> operator using syntax: [.option_name va
     }
   }
 
-  @ForthicWord("( container:any n:number [options:WordOptions] -- result:any )", "Take first n elements (record in -> record out, insertion order)")
+  @ForthicWord(
+    "( container:any n:number [options:WordOptions] -- result:any )",
+    "Take first n elements (record in -> record out, insertion order)",
+  )
   async TAKE(container: any, n: number, options: Record<string, any>) {
-    const interp = this.interp
+    const interp = this.interp;
 
     const flags = {
       with_key: options.with_key ?? null,
@@ -254,11 +255,11 @@ Several words support options via the ~> operator using syntax: [.option_name va
     }
 
     if (flags.push_rest) {
-      interp.stack_push(taken)
-      return rest
+      interp.stack_push(taken);
+      return rest;
     }
 
-    return taken
+    return taken;
   }
 
   @ForthicWord("( container:any n:number -- result:any )", "Skip first n elements from array or record")
@@ -369,23 +370,21 @@ Several words support options via the ~> operator using syntax: [.option_name va
       });
     }
 
-    return result
+    return result;
   }
-
 
   @ForthicWord(
     "( container:any[] [options:WordOptions] -- array:any[] )",
-    "Sort container. Options: comparator (string or function). Example: [3 1 4] [.comparator \"-1 *\"] ~> SORT"
+    'Sort container. Options: comparator (string or function). Example: [3 1 4] { .comparator "-1 *" } ~> SORT',
   )
   async SORT(container: any[], options: Record<string, any>) {
     if (!container) return container;
     if (!(container instanceof Array)) return container;
 
-    const interp = this.interp
+    const interp = this.interp;
     const comparator = options.comparator ?? undefined;
 
     const flag_string_position = interp.get_string_location(); // NOTE: If the user specified a comparator flag, we want to get the string position of it
-
 
     // -----
     // Default sort
@@ -458,7 +457,6 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-
   @ForthicWord("( container:any -- elements:any )", "Unpack array or record elements onto stack")
   async UNPACK(container: any) {
     let _container = container;
@@ -481,7 +479,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
   @ForthicWord(
     "( container:any [options:WordOptions] -- flat:any )",
-    "Flatten nested arrays or records. Options: depth (number). Example: [[[1 2]]] [.depth 1] ~> FLATTEN"
+    "Flatten nested arrays or records. Options: depth (number). Example: [[[1 2]]] { .depth 1 } ~> FLATTEN",
   )
   async FLATTEN(container: any, options: Record<string, any>) {
     if (!container) return [];
@@ -591,7 +589,6 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-
   @ForthicWord("( container1:any[] container2:any[] -- result:any[] )", "Zip two arrays into array of pairs")
   async ZIP(container1: any[], container2: any[]) {
     if (!container1) container1 = [];
@@ -616,11 +613,14 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-  @ForthicWord("( container1:any[] container2:any[] forthic:string -- result:any[] )", "Zip two arrays with combining function", "ZIP-WITH")
+  @ForthicWord(
+    "( container1:any[] container2:any[] forthic:string -- result:any[] )",
+    "Zip two arrays with combining function",
+    "ZIP-WITH",
+  )
   async ZIP_WITH(container1: any[], container2: any[], forthic: string) {
-    const interp = this.interp
+    const interp = this.interp;
     const string_location = interp.get_string_location();
-
 
     if (!container1) container1 = [];
     if (!container2) container2 = [];
@@ -658,7 +658,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
   @ForthicWord("( items:any[] forthic:string -- indexed:any )", "Create index mapping from array indices to values")
   async INDEX(items: any[], forthic: string) {
-    const interp = this.interp
+    const interp = this.interp;
     const string_location = interp.get_string_location();
 
     if (!items) {
@@ -698,10 +698,13 @@ Several words support options via the ~> operator using syntax: [.option_name va
     }
   }
 
-
-  @ForthicWord("( container:any forthic:string [options:WordOptions] -- filtered:any )", "Filter items with predicate. Options: with_key (bool)", "FILTER")
+  @ForthicWord(
+    "( container:any forthic:string [options:WordOptions] -- filtered:any )",
+    "Filter items with predicate. Options: with_key (bool)",
+    "FILTER",
+  )
   async FILTER(container: any, forthic: string, options: Record<string, any>) {
-    const interp = this.interp
+    const interp = this.interp;
     const string_location = interp.get_string_location();
 
     const flags = {
@@ -738,9 +741,8 @@ Several words support options via the ~> operator using syntax: [.option_name va
       }
     }
 
-    return result
+    return result;
   }
-
 
   @ForthicWord("( container:any[] field:string -- indexed:any )", "Index records by field value", "BY-FIELD")
   async BY_FIELD(container: any[], field: string) {
@@ -769,7 +771,6 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
   @ForthicWord("( container:any[] field:string -- grouped:any )", "Group records by field value", "GROUP-BY-FIELD")
   async GROUP_BY_FIELD(container: any[], field: string) {
-
     if (!container) container = [];
 
     let values = [];
@@ -797,12 +798,13 @@ Several words support options via the ~> operator using syntax: [.option_name va
       }
     });
 
-    return result
+    return result;
   }
 
   @ForthicWord(
     "( items:any forthic:string [options:WordOptions] -- grouped:any )",
-    "Group items by function result. Options: with_key (bool). Example: [5 15 25] '10 /' [.with_key TRUE] ~> GROUP-BY", "GROUP-BY"
+    "Group items by function result. Options: with_key (bool). Example: [5 15 25] '10 /' { .with_key TRUE } ~> GROUP-BY",
+    "GROUP-BY",
   )
   async GROUP_BY(items: any, forthic: string, options: Record<string, any>) {
     let _items = items;
@@ -873,10 +875,9 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 
-
   @ForthicWord(
     "( items:any forthic:string [options:WordOptions] -- ? )",
-    "Execute forthic for each item. Options: with_key (bool). For error tolerance compose with TRY: items \"'PROCESS' TRY\" FOREACH. Example: ['a' 'b'] 'PROCESS' [.with_key TRUE] ~> FOREACH"
+    "Execute forthic for each item. Options: with_key (bool). For error tolerance compose with TRY: items \"'PROCESS' TRY\" FOREACH. Example: ['a' 'b'] 'PROCESS' { .with_key TRUE } ~> FOREACH",
   )
   async FOREACH(items: any, forthic: string, options: Record<string, any>) {
     let _items = items;
@@ -910,7 +911,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
   @ForthicWord(
     "( items:any forthic:string [options:WordOptions] -- mapped:any )",
-    "Map function over items. Options: with_key (bool), depth (num), interps (num), outcomes (bool). With outcomes, each element maps to {ok: value} or {error: {message, error_type}} — per-element failures don't abort and can't disturb the stack (MAP restores its own pushes). Example: [1 2 3] '2 *' [.outcomes TRUE] ~> MAP"
+    "Map function over items. Options: with_key (bool), depth (num), interps (num), outcomes (bool). With outcomes, each element maps to {ok: value} or {error: {message, error_type}} — per-element failures don't abort and can't disturb the stack (MAP restores its own pushes). Example: [1 2 3] '2 *' { .outcomes TRUE } ~> MAP",
   )
   async MAP(items: any, forthic: string, options: Record<string, any>) {
     const string_location = this.interp.get_string_location();
@@ -982,12 +983,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return container;
   }
 
-  private async _mapAtSingle(
-    container: any,
-    key: any,
-    forthic: string,
-    string_location: any,
-  ): Promise<any> {
+  private async _mapAtSingle(container: any, key: any, forthic: string, string_location: any): Promise<any> {
     if (container instanceof Array) {
       const idx = typeof key === "number" ? key : Number(key);
       if (!Number.isInteger(idx) || idx < 0 || idx >= container.length) return container;
@@ -1045,11 +1041,7 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return null;
   }
 
-  @ForthicWord(
-    "( items:any forthic:string -- n:number )",
-    "Count items where forthic returns truthy.",
-    "COUNT",
-  )
+  @ForthicWord("( items:any forthic:string -- n:number )", "Count items where forthic returns truthy.", "COUNT")
   async COUNT(items: any, forthic: string) {
     if (!items) return 0;
     const string_location = this.interp.get_string_location();
@@ -1166,15 +1158,11 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return items.map((item, i) => [i, item]);
   }
 
-// ========================================
+  // ========================================
   // Bash/shell-flavored array additions (PR 7)
   // ========================================
 
-  @ForthicWord(
-    "( strings:any[] -- strings:any[] )",
-    "Sort an array and remove duplicates (bash sort -u).",
-    "SORT-U",
-  )
+  @ForthicWord("( strings:any[] -- strings:any[] )", "Sort an array and remove duplicates (bash sort -u).", "SORT-U")
   async SORT_U(strings: any) {
     if (!Array.isArray(strings)) return strings;
     const sorted = [...strings].sort(natural_cmp);
@@ -1190,7 +1178,6 @@ Several words support options via the ~> operator using syntax: [.option_name va
     return result;
   }
 }
-
 
 // Support
 
@@ -1217,12 +1204,7 @@ class MapWord {
   processing_item: boolean;
   is_done: boolean;
 
-  constructor(
-    items: any[],
-    forthic: any,
-    forthic_location: any,
-    flags: MapWordFlags,
-  ) {
+  constructor(items: any[], forthic: any, forthic_location: any, flags: MapWordFlags) {
     this.forthic = forthic;
     this.forthic_location = forthic_location;
     this.items = items;
@@ -1254,7 +1236,7 @@ class MapWord {
 
     this.result = [];
     if (this.num_interps > 1) {
-      interp.stack_push(items)
+      interp.stack_push(items);
       await interp.run("LENGTH");
       const num_items = interp.stack_pop();
       const group_size = Math.ceil(num_items / this.num_interps);
@@ -1276,13 +1258,12 @@ class MapWord {
 
       // Gather results
       const is_array = items instanceof Array;
-      let array_result = []
-      let object_result = {}
+      let array_result = [];
+      let object_result = {};
       for (const res of run_results) {
         if (is_array) {
-          array_result = [...array_result, ...res]
-        }
-        else {
+          array_result = [...array_result, ...res];
+        } else {
           object_result = { ...object_result, ...res };
         }
       }
@@ -1331,8 +1312,7 @@ class MapWord {
         // Same payload rule as TRY, relative to the pre-push snapshot: if
         // the stack differs, the top is the element's result (a no-op code
         // yields the pushed item itself — identity map)
-        const unchanged =
-          after.length === snapshot.length && after.every((v, i) => v === snapshot[i]);
+        const unchanged = after.length === snapshot.length && after.every((v, i) => v === snapshot[i]);
         const payload = !unchanged && after.length > 0 ? interp.stack_pop() : null;
         return { ok: payload };
       } catch (e: any) {
@@ -1352,11 +1332,7 @@ class MapWord {
     }
 
     // This recursively descends a record structure
-    async function descend_record(
-      record: { [key: string]: any },
-      depth: number,
-      accum: { [key: string]: any },
-    ) {
+    async function descend_record(record: { [key: string]: any }, depth: number, accum: { [key: string]: any }) {
       const keys = Object.keys(record);
       for (let i = 0; i < keys.length; i++) {
         const k = keys[i];
@@ -1377,11 +1353,7 @@ class MapWord {
     }
 
     // This recursively descends a list
-    async function descend_list(
-      items: any[],
-      depth: number,
-      accum: any[],
-    ) {
+    async function descend_list(items: any[], depth: number, accum: any[]) {
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         if (depth > 0 && item instanceof Array) {
@@ -1409,4 +1381,3 @@ class MapWord {
     return result;
   }
 }
-

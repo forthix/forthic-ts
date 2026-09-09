@@ -21,7 +21,7 @@ Array and collection operations for manipulating arrays and records.
 
 ## Options
 
-Several words support options via the ~> operator using syntax: [.option_name value ...] ~> WORD
+Several words support options via the ~> operator using syntax: { .option_name value ... } ~> WORD
 - with_key: Push index/key before value (MAP, FOREACH, GROUP-BY, SELECT)
 - depth: Recursion depth for nested operations (MAP, FLATTEN)
 - push_rest: Push remaining items after operation (MAP, TAKE)
@@ -31,10 +31,10 @@ Several words support options via the ~> operator using syntax: [.option_name va
 
 ```forthic
 [10 20 30] '2 *' MAP
-[10 20 30] '+ 2 *' [.with_key TRUE] ~> MAP
-[[[1 2]] [[3 4]]] [.depth 1] ~> FLATTEN
-[3 1 4 1 5] [.comparator "SWAP -"] ~> SORT
-[.with_key TRUE .depth 1] ~> MAP
+[10 20 30] '+ 2 *' { .with_key TRUE } ~> MAP
+[[[1 2]] [[3 4]]] { .depth 1 } ~> FLATTEN
+[3 1 4 1 5] { .comparator "SWAP -" } ~> SORT
+{ .with_key TRUE .depth 1 } ~> MAP
 ```
 
 ## Words
@@ -99,7 +99,7 @@ Get first element from array or record (insertion order for records)
 
 **Stack Effect:** `( container:any [options:WordOptions] -- flat:any )`
 
-Flatten nested arrays or records. Options: depth (number). Example: [[[1 2]]] [.depth 1] ~> FLATTEN
+Flatten nested arrays or records. Options: depth (number). Example: [[[1 2]]] { .depth 1 } ~> FLATTEN
 
 ---
 
@@ -107,7 +107,7 @@ Flatten nested arrays or records. Options: depth (number). Example: [[[1 2]]] [.
 
 **Stack Effect:** `( items:any forthic:string [options:WordOptions] -- grouped:any )`
 
-Group items by function result. Options: with_key (bool). Example: [5 15 25] '10 /' [.with_key TRUE] ~> GROUP-BY
+Group items by function result. Options: with_key (bool). Example: [5 15 25] '10 /' { .with_key TRUE } ~> GROUP-BY
 
 ---
 
@@ -171,7 +171,7 @@ Length of an array or record. For strings, use STR-LENGTH.
 
 **Stack Effect:** `( items:any forthic:string [options:WordOptions] -- mapped:any )`
 
-Map function over items. Options: with_key (bool), depth (num), interps (num), outcomes (bool). With outcomes, each element maps to {ok: value} or {error: {message, error_type}} — per-element failures don't abort and can't disturb the stack (MAP restores its own pushes). Example: [1 2 3] '2 *' [.outcomes TRUE] ~> MAP
+Map function over items. Options: with_key (bool), depth (num), interps (num), outcomes (bool). With outcomes, each element maps to {ok: value} or {error: {message, error_type}} — per-element failures don't abort and can't disturb the stack (MAP restores its own pushes). Example: [1 2 3] '2 *' { .outcomes TRUE } ~> MAP
 
 ---
 

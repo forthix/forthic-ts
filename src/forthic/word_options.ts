@@ -9,15 +9,16 @@ import type { Interpreter } from "./interpreter.js";
  * enables flexible, extensible APIs similar to keyword arguments in other languages.
  *
  * Usage in Forthic:
- *   [.option_name value ...] ~> WORD
+ *   { .option_name value ... } ~> WORD
  *
- * The ~> operator takes an options array and a word, passing the options as
- * an additional parameter to words that support them.
+ * The ~> operator takes an options record and a word, passing the options as
+ * an additional parameter to words that support them. The flat array form
+ * [.option_name value ...] predates record literals and stays supported.
  *
  * Example in Forthic code:
- *   [1 2 3] '2 *' [.with_key TRUE] ~> MAP
- *   [10 20 30] [.comparator "-1 *"] ~> SORT
- *   [[[1 2]]] [.depth 1] ~> FLATTEN
+ *   [1 2 3] '2 *' { .with_key TRUE } ~> MAP
+ *   [10 20 30] { .comparator "-1 *" } ~> SORT
+ *   [[[1 2]]] { .depth 1 } ~> FLATTEN
  *
  * Implementation in Module Words:
  * Words declare options support by adding an options parameter with type Record<string, any>:
@@ -51,14 +52,27 @@ import type { Interpreter } from "./interpreter.js";
 export class WordOptions {
   private options: Map<string, any>;
 
-  constructor(flatArray: any[]) {
+  constructor(source: any[] | Record<string, any>) {
+    // A record literal — `{ .depth 1 } ~>` — is already key/value shaped, so it
+    // becomes options directly. This is the preferred spelling; the flat-array
+    // form below predates record literals and stays supported.
+    if (
+      !Array.isArray(source) &&
+      source !== null &&
+      typeof source === "object"
+    ) {
+      this.options = new Map(Object.entries(source));
+      return;
+    }
+
+    const flatArray = source;
     if (!Array.isArray(flatArray)) {
-      throw new Error("Options must be an array");
+      throw new Error("Options must be a record or an array");
     }
 
     if (flatArray.length % 2 !== 0) {
       throw new Error(
-        `Options must be key-value pairs (even length). Got ${flatArray.length} elements`
+        `Options must be key-value pairs (even length). Got ${flatArray.length} elements`,
       );
     }
 
@@ -71,7 +85,7 @@ export class WordOptions {
       // Key should be a string (dot-symbol with . already stripped)
       if (typeof key !== "string") {
         throw new Error(
-          `Option key must be a string (dot-symbol). Got: ${typeof key}`
+          `Option key must be a string (dot-symbol). Got: ${typeof key}`,
         );
       }
 

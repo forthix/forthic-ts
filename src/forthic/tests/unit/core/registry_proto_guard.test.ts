@@ -14,10 +14,10 @@ beforeEach(() => {
 
 describe("core registries resist prototype-name pollution", () => {
   test("a module named 'constructor' resolves to a real module, not Object", async () => {
-    // `{constructor` used to find_module("constructor") -> the inherited Object
+    // MODULE used to find_module("constructor") -> the inherited Object
     // function on a plain {}, push it as the current module, and crash the next
-    // word lookup. (The module name attaches to `{` with no space.)
-    await interp.run("{constructor 1 2 + }");
+    // word lookup.
+    await interp.run('"constructor" MODULE 1 2 + END-MODULE');
     expect(interp.get_stack().get_items()).toEqual([3]);
   });
 
@@ -37,7 +37,7 @@ describe("core registries resist prototype-name pollution", () => {
   test("a module named '__proto__' does not corrupt the interpreter", async () => {
     // register_module used to do modules["__proto__"] = module, swapping the
     // dictionary's prototype. It must stay usable and not pollute globally.
-    await interp.run("{__proto__ 7 8 +}");
+    await interp.run('"__proto__" MODULE 7 8 + END-MODULE');
     expect(interp.get_stack().get_items()).toEqual([15]);
     expect(Object.keys(Object.prototype)).toEqual([]);
   });

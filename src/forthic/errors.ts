@@ -1,7 +1,7 @@
 // Error classes for Forthic interpreter
 
 export interface CodeLocationData {
-  source?: string;  // Source of the code (e.g., module name, file path)
+  source?: string; // Source of the code (e.g., module name, file path)
   line: number;
   column: number;
   start_pos: number;
@@ -15,7 +15,13 @@ export class ForthicError extends Error {
   word?: string;
   cause?: Error;
 
-  constructor(forthic: string, note: string, location?: CodeLocationData, cause?: Error, word?: string) {
+  constructor(
+    forthic: string,
+    note: string,
+    location?: CodeLocationData,
+    cause?: Error,
+    word?: string,
+  ) {
     super(note);
     this.name = this.constructor.name;
     this.forthic = forthic;
@@ -55,7 +61,12 @@ export class ForthicError extends Error {
 export class UnknownWordError extends ForthicError {
   declare word: string; // override optionality on ForthicError
 
-  constructor(forthic: string, word: string, location?: CodeLocationData, cause?: Error) {
+  constructor(
+    forthic: string,
+    word: string,
+    location?: CodeLocationData,
+    cause?: Error,
+  ) {
     const note = `Unknown word: ${word}`;
     super(forthic, note, location, cause, word);
     this.name = "UnknownWordError";
@@ -69,7 +80,12 @@ export class UnknownWordError extends ForthicError {
 export class UnknownVariableError extends ForthicError {
   private varname: string;
 
-  constructor(forthic: string, varname: string, location?: CodeLocationData, cause?: Error) {
+  constructor(
+    forthic: string,
+    varname: string,
+    location?: CodeLocationData,
+    cause?: Error,
+  ) {
     const note = `Unknown variable: ${varname}`;
     super(forthic, note, location, cause);
     this.varname = varname;
@@ -92,7 +108,7 @@ export class WordExecutionError extends ForthicError {
     error: Error,
     word: string,
     call_location?: CodeLocationData,
-    definition_location?: CodeLocationData
+    definition_location?: CodeLocationData,
   ) {
     // Pass the error as cause to maintain compatibility with code that checks .cause
     super("", message, call_location, error, word);
@@ -147,16 +163,50 @@ export class StackUnderflowError extends ForthicError {
 
 export class ModuleStackUnderflowError extends ForthicError {
   constructor(forthic: string, location?: CodeLocationData, cause?: Error) {
-    const note = "Unmatched '}' — no open module to close";
+    const note = "END-MODULE with no open module to close";
     super(forthic, note, location, cause);
     this.name = "ModuleStackUnderflowError";
+  }
+}
+
+export class UnmatchedRecordCloseError extends ForthicError {
+  constructor(forthic: string, location?: CodeLocationData, cause?: Error) {
+    const note = "Unmatched '}' — no open record literal to close";
+    super(forthic, note, location, cause);
+    this.name = "UnmatchedRecordCloseError";
+  }
+}
+
+export class RecordKeyError extends ForthicError {
+  private key: unknown;
+
+  constructor(
+    forthic: string,
+    key: unknown,
+    location?: CodeLocationData,
+    cause?: Error,
+  ) {
+    const rendered = typeof key === "string" ? `"${key}"` : String(key);
+    const note = `Record keys must be dot symbols; got ${rendered}. Write { .key value }, not { ${rendered} value }`;
+    super(forthic, note, location, cause);
+    this.name = "RecordKeyError";
+    this.key = key;
+  }
+
+  getKey(): unknown {
+    return this.key;
   }
 }
 
 export class InvalidVariableNameError extends ForthicError {
   private varname: string;
 
-  constructor(forthic: string, varname: string, location?: CodeLocationData, cause?: Error) {
+  constructor(
+    forthic: string,
+    varname: string,
+    location?: CodeLocationData,
+    cause?: Error,
+  ) {
     const note = `Invalid variable name: ${varname}`;
     super(forthic, note, location, cause);
     this.varname = varname;
@@ -171,7 +221,12 @@ export class InvalidVariableNameError extends ForthicError {
 export class UnknownModuleError extends ForthicError {
   private module_name: string;
 
-  constructor(forthic: string, module_name: string, location?: CodeLocationData, cause?: Error) {
+  constructor(
+    forthic: string,
+    module_name: string,
+    location?: CodeLocationData,
+    cause?: Error,
+  ) {
     const note = `Unknown module: ${module_name}`;
     super(forthic, note, location, cause);
     this.module_name = module_name;
@@ -191,7 +246,12 @@ export class InvalidInputPositionError extends ForthicError {
 }
 
 export class InvalidWordNameError extends ForthicError {
-  constructor(forthic: string, location?: CodeLocationData, note?: string, cause?: Error) {
+  constructor(
+    forthic: string,
+    location?: CodeLocationData,
+    note?: string,
+    cause?: Error,
+  ) {
     const error_note = note || "Invalid word name";
     super(forthic, error_note, location, cause);
     this.name = "InvalidWordNameError";
@@ -207,7 +267,12 @@ export class UnterminatedStringError extends ForthicError {
 }
 
 export class StringRedirectError extends ForthicError {
-  constructor(forthic: string, note?: string, location?: CodeLocationData, cause?: Error) {
+  constructor(
+    forthic: string,
+    note?: string,
+    location?: CodeLocationData,
+    cause?: Error,
+  ) {
     super(forthic, note || "Invalid string redirect", location, cause);
     this.name = "StringRedirectError";
   }
@@ -216,7 +281,12 @@ export class StringRedirectError extends ForthicError {
 export class UnknownTokenError extends ForthicError {
   private token: string;
 
-  constructor(forthic: string, token: string, location?: CodeLocationData, cause?: Error) {
+  constructor(
+    forthic: string,
+    token: string,
+    location?: CodeLocationData,
+    cause?: Error,
+  ) {
     const note = `Unknown type of token: ${token}`;
     super(forthic, note, location, cause);
     this.token = token;
@@ -232,7 +302,13 @@ export class ModuleError extends ForthicError {
   private module_name: string;
   private error: Error;
 
-  constructor(forthic: string, module_name: string, error: Error, location?: CodeLocationData, cause?: Error) {
+  constructor(
+    forthic: string,
+    module_name: string,
+    error: Error,
+    location?: CodeLocationData,
+    cause?: Error,
+  ) {
     const note = `Error in module ${module_name}: ${error.message}`;
     super(forthic, note, location, cause);
     this.module_name = module_name;
@@ -253,7 +329,13 @@ export class TooManyAttemptsError extends ForthicError {
   private num_attempts: number;
   private max_attempts: number;
 
-  constructor(forthic: string, num_attempts: number, max_attempts: number, location?: CodeLocationData, cause?: Error) {
+  constructor(
+    forthic: string,
+    num_attempts: number,
+    max_attempts: number,
+    location?: CodeLocationData,
+    cause?: Error,
+  ) {
     const note = `Too many recovery attempts: ${num_attempts} of ${max_attempts}`;
     super(forthic, note, location, cause);
     this.num_attempts = num_attempts;
@@ -285,11 +367,17 @@ export class IntentionalStopError extends Error {
  */
 function caret_underline(location: CodeLocationData): string {
   const leading = Math.max(0, location.column - 1);
-  const width = Math.max(0, (location.end_pos || location.start_pos + 1) - location.start_pos);
+  const width = Math.max(
+    0,
+    (location.end_pos || location.start_pos + 1) - location.start_pos,
+  );
   return " ".repeat(leading) + "^".repeat(width);
 }
 
-export function get_error_description(forthic: string, forthicError: ForthicError): string {
+export function get_error_description(
+  forthic: string,
+  forthicError: ForthicError,
+): string {
   // If don't have any extra info, just return the note
   if (!forthic || forthic === "" || forthicError.location === undefined) {
     return forthicError.getNote();
@@ -341,4 +429,3 @@ export function get_error_description(forthic: string, forthicError: ForthicErro
   const error_message = `${forthicError.getNote()}${word_hint} ${location_info}:\n\`\`\`\n${lines.map((line) => `${line}`).join("\n")}\n${error_line}\n\`\`\``;
   return error_message;
 }
-

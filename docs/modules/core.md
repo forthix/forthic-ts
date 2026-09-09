@@ -4,24 +4,24 @@
 
 Essential interpreter operations for stack manipulation, variables, control flow, and module system.
 
-**31 words**
+**34 words**
 
 ## Categories
 
 - **Stack**: DROP, DUP, SWAP
 - **Variables**: VARIABLES, !, @, !@
-- **Module**: USE-MODULES
+- **Module**: USE-MODULES, MODULE, END-MODULE, APP-MODULE
 - **Execution**: RUN
 - **Control**: NOP, DEFAULT, DEFAULT-RUN, NULL, UNDEFINED, IF, IF-RUN, WHEN
 - **Predicates**: ARRAY?, NULL?, EMPTY?, STRING?, NUMBER?, RECORD?
 - **Errors**: TRY, OK?, ERROR?, UNWRAP, UNWRAP-OR (Rust Result semantics: 'CODE' TRY UNWRAP is CODE)
-- **Options**: ~> (converts array to WordOptions)
+- **Options**: ~> (converts a record to WordOptions)
 - **String**: INTERPOLATE, PRINT
 - **Debug**: PEEK!, STACK!
 
 ## Options
 
-INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option_name value ...] ~> WORD
+INTERPOLATE and PRINT support options via the ~> operator using syntax: { .option_name value ... } ~> WORD
 - separator: String to use when joining array values (default: ", ")
 - null_text: Text for null/undefined values and missing variables (default: "")
 - json: Use JSON.stringify for all values (default: false)
@@ -30,10 +30,10 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
 
 ```forthic
 5 .count ! "Count: \${count}" PRINT
-"Items: \${items}" [.separator " | "] ~> PRINT
+"Items: \${items}" { .separator " | " } ~> PRINT
 [1 2 3] PRINT                           # Direct printing: 1, 2, 3
-[1 2 3] [.separator " | "] ~> PRINT    # With options: 1 | 2 | 3
-[ [.name "Alice"] ] REC [.json TRUE] ~> PRINT  # JSON format: {"name":"Alice"}
+[1 2 3] { .separator " | " } ~> PRINT   # With options: 1 | 2 | 3
+{ .name "Alice" } { .json TRUE } ~> PRINT  # JSON format: {"name":"Alice"}
 "Hello \${name}" INTERPOLATE .greeting !
 [1 2 3] DUP SWAP
 ```
@@ -66,9 +66,17 @@ Gets variable value (throws UnknownVariableError if string name is undeclared)
 
 ### ~>
 
-**Stack Effect:** `( array:any[] -- options:WordOptions )`
+**Stack Effect:** `( record:any -- options:WordOptions )`
 
-Convert options array to WordOptions. Format: [.key1 val1 .key2 val2]
+Convert a record to WordOptions. Format: { .key1 val1 .key2 val2 }. The flat array form [.key1 val1] is also accepted.
+
+---
+
+### APP-MODULE
+
+**Stack Effect:** `( -- )`
+
+Make the application module the current module
 
 ---
 
@@ -120,6 +128,14 @@ Returns true if value is null/undefined, an empty string, or a container (array/
 
 ---
 
+### END-MODULE
+
+**Stack Effect:** `( -- )`
+
+Pop the current module from the module stack
+
+---
+
 ### ERROR?
 
 **Stack Effect:** `( outcome:record -- boolean:boolean )`
@@ -149,6 +165,14 @@ Conditional code execution: if bool is truthy run then_forthic, otherwise run el
 **Stack Effect:** `( string:string [options:WordOptions] -- result:string )`
 
 Fill ${name} holes from variables (${.name} also works; read-only — a miss renders as null_text and creates nothing). Holes are variable names, never expressions. Escape a literal with \\${. Null template stays null.
+
+---
+
+### MODULE
+
+**Stack Effect:** `( module_name:string -- )`
+
+Find or create submodule in current module and make it the current module
 
 ---
 

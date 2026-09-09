@@ -7,16 +7,28 @@ describe("WordOptions", () => {
     expect(opts.get("with_key")).toBe(true);
   });
 
-  test("requires array input", () => {
-    expect(() => new WordOptions("not an array" as any)).toThrow("must be an array");
+  test("creates from a record", () => {
+    const opts = new WordOptions({ depth: 2, with_key: true });
+    expect(opts.get("depth")).toBe(2);
+    expect(opts.get("with_key")).toBe(true);
+  });
+
+  test("rejects input that is neither a record nor an array", () => {
+    expect(() => new WordOptions("not an array" as any)).toThrow(
+      "must be a record or an array",
+    );
   });
 
   test("requires even number of elements", () => {
-    expect(() => new WordOptions(["depth", 2, "with_key"])).toThrow("even length");
+    expect(() => new WordOptions(["depth", 2, "with_key"])).toThrow(
+      "even length",
+    );
   });
 
   test("requires string keys", () => {
-    expect(() => new WordOptions([123, "value"] as any)).toThrow("must be a string");
+    expect(() => new WordOptions([123, "value"] as any)).toThrow(
+      "must be a string",
+    );
   });
 
   test("returns default for missing key", () => {

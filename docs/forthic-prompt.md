@@ -56,7 +56,12 @@ delimiter, use a wider raw form, such as `r'''don't'''`.
 ### Arrays and Records
 
 - Array: `[ '''item1''' '''item2''' ]`
-- Record: `[ [ .key '''value''' ] ] REC`
+- Record: `{ .key '''value''' .other 2 }` — keys are dot symbols, values are
+  ordinary stack pushes, and records nest: `{ .a { .b [ 10 20 ] } }`
+- A key with no value after it is a flag and takes `TRUE`: `{ .a 1 .verbose }`
+- `REC` builds a record from an array of `[key value]` entries. Reach for it
+  when the entries are computed — `entries '''SOME-WORD''' MAP REC` — and use
+  the literal everywhere else.
 - Field access: `[.key] REC@` (single key) or `[.a .b] REC@` (nested path)
 - Deep transform: `rec [.a .b] '''10 *''' MAP-AT` (equivalent to jq's `.a.b |= ...`)
 - JSON parse/stringify: `JSON>` and `>JSON`. Example: `r'''{"a":1}''' JSON> [.a] REC@` → `1`
@@ -133,7 +138,7 @@ ALWAYS generate code in this structure:
 
 ## Words
 
-8 modules · 165 surface words.
+8 modules · 168 surface words.
 
 ### array
 - `APPEND` `( array:any[] item:any -- array:any[] )` — Append item to array. For records, use JQ! to set a key.
@@ -143,8 +148,8 @@ ALWAYS generate code in this structure:
 - `FILTER` `( container:any forthic:string [options:WordOptions] -- filtered:any )` — Filter items with predicate. Options: with_key (bool)
 - `FIND` `( items:any forthic:string -- item:any )` — Return the first item where forthic returns truthy, or null if none.
 - `FIRST` `( container:any -- item:any )` — Get first element from array or record (insertion order for records)
-- `FLATTEN` `( container:any [options:WordOptions] -- flat:any )` — Flatten nested arrays or records. Options: depth (number). Example: [[[1 2]]] [.depth 1] ~> FLATTEN
-- `GROUP-BY` `( items:any forthic:string [options:WordOptions] -- grouped:any )` — Group items by function result. Options: with_key (bool). Example: [5 15 25] '10 /' [.with_key TRUE] ~> GROUP-BY
+- `FLATTEN` `( container:any [options:WordOptions] -- flat:any )` — Flatten nested arrays or records. Options: depth (number). Example: [[[1 2]]] { .depth 1 } ~> FLATTEN
+- `GROUP-BY` `( items:any forthic:string [options:WordOptions] -- grouped:any )` — Group items by function result. Options: with_key (bool). Example: [5 15 25] '10 /' { .with_key TRUE } ~> GROUP-BY
 - `GROUP-BY-FIELD` `( container:any[] field:string -- grouped:any )` — Group records by field value
 - `GROUPS-OF` `( container:any[] n:number -- groups:any[] )` — Split array into groups of size n
 - `INDEX` `( items:any[] forthic:string -- indexed:any )` — Create index mapping from array indices to values
@@ -152,7 +157,7 @@ ALWAYS generate code in this structure:
 - `KEY-OF` `( container:any value:any -- key:any )` — Find key of value in container
 - `LAST` `( container:any -- item:any )` — Get last element from array or record
 - `LENGTH` `( container:any -- length:number )` — Length of an array or record. For strings, use STR-LENGTH.
-- `MAP` `( items:any forthic:string [options:WordOptions] -- mapped:any )` — Map function over items. Options: with_key (bool), depth (num), interps (num), outcomes (bool). With outcomes, each element maps to {ok: value} or {error: {message, error_type}} — per-element failures don't abort and can't disturb the stack (MAP restores its own pushes). Example: [1 2 3] '2 *' [.outcomes TRUE] ~> MAP
+- `MAP` `( items:any forthic:string [options:WordOptions] -- mapped:any )` — Map function over items. Options: with_key (bool), depth (num), interps (num), outcomes (bool). With outcomes, each element maps to {ok: value} or {error: {message, error_type}} — per-element failures don't abort and can't disturb the stack (MAP restores its own pushes). Example: [1 2 3] '2 *' { .outcomes TRUE } ~> MAP
 - `MAP-AT` `( container:any key:any|any[] forthic:string -- container:any )` — Apply forthic to the value at key/index, returning a new container with that slot transformed. The key arg may be a single key (one-level update) or a path-array for deep updates. Polymorphic over arrays and records. Equivalent of jq's |= operator.
 - `MAX-BY` `( items:any[] forthic:string -- item:any )` — Return the item with the largest value produced by forthic. Null on empty input.
 - `MIN-BY` `( items:any[] forthic:string -- item:any )` — Return the item with the smallest value produced by forthic. Null on empty input.
@@ -195,17 +200,20 @@ ALWAYS generate code in this structure:
 - `!` `( value:any variable:any -- )` — Sets variable value (auto-creates if string name)
 - `!@` `( value:any variable:any -- value:any )` — Sets variable and returns value
 - `@` `( variable:any -- value:any )` — Gets variable value (throws UnknownVariableError if string name is undeclared)
-- `~>` `( array:any[] -- options:WordOptions )` — Convert options array to WordOptions. Format: [.key1 val1 .key2 val2]
+- `~>` `( record:any -- options:WordOptions )` — Convert a record to WordOptions. Format: { .key1 val1 .key2 val2 }. The flat array form [.key1 val1] is also accepted.
+- `APP-MODULE` `( -- )` — Make the application module the current module
 - `ARRAY?` `( value:any -- boolean:boolean )` — Returns true if value is an array
 - `DEFAULT` `( value:any default_value:any -- result:any )` — Returns value or default if value is null/undefined/empty string
 - `DEFAULT-RUN` `( value:any forthic:string -- result:any )` — Lazy default: returns value if non-empty, otherwise runs forthic and uses its result. The forthic is only evaluated when needed.
 - `DROP` `( a:any -- )` — Removes top item from stack
 - `DUP` `( a:any -- a:any a:any )` — Duplicates top stack item
 - `EMPTY?` `( value:any -- boolean:boolean )` — Returns true if value is null/undefined, an empty string, or a container (array/record) with no entries
+- `END-MODULE` `( -- )` — Pop the current module from the module stack
 - `ERROR?` `( outcome:record -- boolean:boolean )` — True if outcome is an error record (structural: has an 'error' key)
 - `IF` `( bool:boolean then_value:any else_value:any -- chosen:any )` — Pure value selection: push then_value if bool is truthy, else push else_value. For lazy code execution use IF-RUN; for one-sided side effects use WHEN.
 - `IF-RUN` `( bool:boolean then_forthic:string else_forthic:string -- ? )` — Conditional code execution: if bool is truthy run then_forthic, otherwise run else_forthic. Branches are Forthic strings.
 - `INTERPOLATE` `( string:string [options:WordOptions] -- result:string )` — Fill ${name} holes from variables (${.name} also works; read-only — a miss renders as null_text and creates nothing). Holes are variable names, never expressions. Escape a literal with \\${. Null template stays null.
+- `MODULE` `( module_name:string -- )` — Find or create submodule in current module and make it the current module
 - `NOP` `( -- )` — Does nothing (no operation)
 - `NULL` `( -- null:null )` — Pushes null onto stack
 - `NULL?` `( value:any -- boolean:boolean )` — Returns true if value is null or undefined
@@ -315,3 +323,4 @@ ALWAYS generate code in this structure:
 - `TRIM-SUFFIX` `( str:string suffix:string -- result:string )` — Strip suffix from end of str if present (otherwise return str unchanged).
 - `UNLINES` `( lines:string[] -- str:string )` — Join an array of lines with newlines. Equivalent to /N JOIN.
 - `UPPERCASE` `( string:string -- result:string )` — Convert string to uppercase
+

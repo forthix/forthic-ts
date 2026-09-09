@@ -4,6 +4,81 @@ All notable changes to `@forthix/forthic` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is pre-1.0: while `0.x`, **breaking changes ship in minor releases**. Releases before 0.16.0 are recorded in the git history rather than here.
 
+## [0.18.0] - 2026-09-09
+
+**Breaking: `{` and `}` are record literals. Brace module syntax is gone.**
+`{ .name "Rino" .city "San Jose" }` builds a record directly, replacing
+`[ [ .name "Rino" ] [ .city "San Jose" ] ] REC` as the way to write one down.
+Modules are now opened with words rather than punctuation. This aligns the
+runtime with `forthic-odin`, which made the same trade.
+
+### Added
+
+- **Record literals.** `{ .key value }` with dot-symbol keys and ordinary stack
+  pushes for values, so records nest and values can be computed:
+  `{ .a { .b [ 10 20 ] } }` and `{ .sum 1 2 + }`. A key with nothing after it is
+  a bare flag and takes `true` — `{ .a 1 .verbose }` and `{ .flag .other }`. A
+  non-dot-symbol key is a `RecordKeyError`, so `{ "not-a-key" 5 }` fails loudly
+  instead of building a record with a string where a key belongs. Keys keep
+  insertion order and a later key wins.
+- **`MODULE`, `END-MODULE`, `APP-MODULE`** in the core module, replacing the
+  brace forms. `"name" MODULE` finds or creates a submodule of the current
+  module and opens it; `END-MODULE` closes it; `APP-MODULE` opens the
+  application module.
+- **`DotSymbol`**, a `PositionedString` subclass pushed for `.name` tokens. It
+  is what lets `}` tell a key from a value. Every word still sees a plain string
+  — `stack_pop` unwraps it — so this changes nothing for word authors.
+- **`~>` accepts a record.** `{ .depth 1 } ~> FLATTEN` is the preferred
+  spelling; the flat array form `[ .depth 1 ] ~>` still works.
+
+### Changed
+
+- **`REC` is unchanged and is not deprecated.** It remains the way to build a
+  record from computed entries — `entries "SOME-WORD" MAP REC` — which no
+  literal can express. Existing `[ [ .k v ] ] REC` code keeps working.
+- Documentation and word docstrings now show the literal form.
+
+### Fixed
+
+- The docs generator lost a module's description, categories and examples when
+  its `registerModuleDoc` call was formatted across several lines with a
+  trailing comma. `array`, `core` and `classic` had dropped to a bare word list;
+  they are whole again.
+
+### Removed
+
+- **Brace module syntax.** `{module-name … }` and the bare `{ … }` app-module
+  block no longer parse as modules; both are record literals now. Rewrite
+  `{mymodule WORD }` as `"mymodule" MODULE WORD END-MODULE`.
+
+### Migration notes
+
+**A definition body can no longer switch modules at compile time.** This is the
+one behavior with no direct replacement. `{mymodule` carried its name in the
+token and executed immediately, so a definition could compile against another
+module's dictionary:
+
+```
+: GO   {mymodule MESSAGE } ;      # 0.17.0: resolves MESSAGE in mymodule
+```
+
+`MODULE` takes its name off the stack, so it can only run at run time, while
+word lookup still happens at compile time. The equivalent now fails with
+`UnknownWordError`. Open the module around the call instead of inside the
+definition:
+
+```
+"mymodule" MODULE MESSAGE END-MODULE
+```
+
+**Auditing for the brace change is mechanical.** A `{` followed by a name was a
+module; a `{` followed by whitespace was the app module. Both are now records.
+Braces inside string literals — SQL `'{status}'`, jq `'{a, b}'`, JSON — were
+never tokenized as braces and are unaffected.
+
+**Unmatched `}`** now raises `UnmatchedRecordCloseError` instead of
+`ModuleStackUnderflowError`.
+
 ## [0.17.0] - 2026-08-14
 
 **Breaking: `'''…'''` and `"""…"""` now interpret the escape whitelist.** The escaping regime no
@@ -19,11 +94,11 @@ you are already done.
   the whitelist is still left as the literal pair, so `'''\d+'''`, `'''C:\Users'''` and
   `'''zoom\.us'''` are unchanged — that is what keeps regexes and Windows paths writable without
   doubling every backslash. Mind the overlap: a path segment starting with a whitelisted letter
-  *is* affected. `'''C:\temp'''` holds a tab, not a backslash, and has to become `r'''C:\temp'''`.
+  _is_ affected. `'''C:\temp'''` holds a tab, not a backslash, and has to become `r'''C:\temp'''`.
   When auditing for this change, grep for `\n`, `\t`, `\r` and `\0` rather than assuming paths are
   safe.
 - **Escapes resolve before the closing delimiter is looked for**, so an escaped quote is content
-  and can never close a literal: `'''a \'\'\' b'''` is `a ''' b`. An *unescaped* run of three
+  and can never close a literal: `'''a \'\'\' b'''` is `a ''' b`. An _unescaped_ run of three
   delimiters still closes early — `'''today'''s plan'''` remains a broken program, loudly. This
   release moves the silent failure classes, not the loud one.
 - **A triple-quoted literal ending in a backslash no longer parses.** `'''C:\'''` consumes `\'` as
@@ -53,7 +128,7 @@ Mechanical: **prefix any triple-quoted literal containing a backslash with `r`.*
 backslash are unaffected. Four things to look for:
 
 - **JSON payloads.** `'''{"a": "x\ny"}''' JSON>` now throws `Bad control character in string
-  literal` — write `r'''{"a": "x\ny"}''' JSON>`.
+literal` — write `r'''{"a": "x\ny"}''' JSON>`.
 - **Embedded Forthic** run through `RUN`, `MAP`, `FILTER` or `WHEN`: `"""'a\\nb'""" RUN` processes
   the escape twice. Write `r"""'a\\nb'""" RUN`.
 - **A literal ending in a backslash** no longer parses, as above.

@@ -9,7 +9,7 @@ import {
 test("Knows token positions", () => {
   const main_forthic = `
     : ADD-ONE   1 23 +;
-    {module
+    {
         # 2 ADD-ONE
     }
     @: MY-MEMO   [ "hello" '''triple-single-quoted-string'''];
@@ -74,14 +74,14 @@ test("Knows token positions", () => {
     end_pos: 24,
   });
 
-  // TOK_START_MODULE
-  const module_start_token = tokenizer.next_token();
-  expect(module_start_token.location).toEqual({
+  // TOK_START_RECORD
+  const record_start_token = tokenizer.next_token();
+  expect(record_start_token.location).toEqual({
     line: 3,
-    column: 6,
+    column: 5,
     source: "main",
-    start_pos: 30,
-    end_pos: 36,
+    start_pos: 29,
+    end_pos: 30,
   });
 
   // TOK_COMMENT
@@ -90,18 +90,18 @@ test("Knows token positions", () => {
     line: 4,
     column: 10,
     source: "main",
-    start_pos: 46,
-    end_pos: 57,
+    start_pos: 40,
+    end_pos: 51,
   });
 
-  // TOK_END_MODULE
-  const end_module_token = tokenizer.next_token();
-  expect(end_module_token.location).toEqual({
+  // TOK_END_RECORD
+  const end_record_token = tokenizer.next_token();
+  expect(end_record_token.location).toEqual({
     line: 5,
     column: 5,
     source: "main",
-    start_pos: 61,
-    end_pos: 62,
+    start_pos: 55,
+    end_pos: 56,
   });
 
   // TOK_START_MEMO
@@ -110,8 +110,8 @@ test("Knows token positions", () => {
     line: 6,
     column: 8,
     source: "main",
-    start_pos: 70,
-    end_pos: 77,
+    start_pos: 64,
+    end_pos: 71,
   });
 
   // TOK_START_ARRAY
@@ -120,8 +120,8 @@ test("Knows token positions", () => {
     line: 6,
     column: 18,
     source: "main",
-    start_pos: 80,
-    end_pos: 81,
+    start_pos: 74,
+    end_pos: 75,
   });
 
   // TOK_STRING
@@ -130,8 +130,8 @@ test("Knows token positions", () => {
     line: 6,
     column: 21,
     source: "main",
-    start_pos: 83,
-    end_pos: 88,
+    start_pos: 77,
+    end_pos: 82,
   });
 
   // TOK_STRING
@@ -140,8 +140,8 @@ test("Knows token positions", () => {
     line: 6,
     column: 31,
     source: "main",
-    start_pos: 93,
-    end_pos: 120,
+    start_pos: 87,
+    end_pos: 114,
   });
 
   // TOK_END_ARRAY,
@@ -150,8 +150,8 @@ test("Knows token positions", () => {
     line: 6,
     column: 61,
     source: "main",
-    start_pos: 123,
-    end_pos: 124,
+    start_pos: 117,
+    end_pos: 118,
   });
 });
 
