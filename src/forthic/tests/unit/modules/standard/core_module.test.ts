@@ -136,8 +136,10 @@ test("Interpret", async () => {
   await interp.run("'24' INTERPRET");
   expect(interp.stack_pop()).toBe(24);
 
-  await interp.run(`'{module-A  : MESSAGE   "Hi" ;}' INTERPRET`);
-  await interp.run("{module-A MESSAGE}");
+  await interp.run(
+    `'"module-A" MODULE  : MESSAGE   "Hi" ; END-MODULE' INTERPRET`,
+  );
+  await interp.run('"module-A" MODULE MESSAGE END-MODULE');
   expect(interp.stack_pop()).toBe("Hi");
 });
 

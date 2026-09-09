@@ -199,8 +199,10 @@ test("Interpret", async () => {
   await interp.run("'24' INTERPRET");
   expect(interp.stack_pop()).toBe(24);
 
-  await interp.run(`'{module-A  : MESSAGE   "Hi" ;}' INTERPRET`);
-  await interp.run("{module-A MESSAGE}");
+  await interp.run(
+    `'"module-A" MODULE  : MESSAGE   "Hi" ; END-MODULE' INTERPRET`,
+  );
+  await interp.run('"module-A" MODULE MESSAGE END-MODULE');
   expect(interp.stack_pop()).toBe("Hi");
 });
 
@@ -594,11 +596,11 @@ test("MAP", async () => {
 
   // Test map in module
   await interp.run(`
-    {my-module
+    "my-module" MODULE
       : DOUBLE   2 *;
       : RUN   [1 2 3 4 5] "DOUBLE" MAP;
-    }
-    {my-module RUN}
+    END-MODULE
+    "my-module" MODULE RUN END-MODULE
   `);
   array = interp.stack_pop();
   expect(array).toEqual([2, 4, 6, 8, 10]);

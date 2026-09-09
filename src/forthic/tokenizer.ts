@@ -9,8 +9,8 @@ export enum TokenType {
   COMMENT,
   START_ARRAY,
   END_ARRAY,
-  START_MODULE,
-  END_MODULE,
+  START_RECORD,
+  END_RECORD,
   START_DEF,
   END_DEF,
   START_MEMO,
@@ -81,6 +81,19 @@ export class PositionedString {
     return this.string;
   }
 }
+
+/**
+ * A `.name` symbol on the stack.
+ *
+ * Dot symbols are strings everywhere a word can see them: `stack_pop` unwraps
+ * any `PositionedString` to its primitive, so `.name` and `"name"` are the same
+ * value to every word that consumes one. The subclass exists solely so that the
+ * one word that must tell a key from a value — `}` closing a record literal —
+ * can read the raw stack and ask. Without a distinct type, `{ .a .b }` could not
+ * be distinguished from `{ .a "b" }`, and the bare-flag rule would be
+ * unimplementable.
+ */
+export class DotSymbol extends PositionedString {}
 
 /**
  * Escape sequences interpreted inside every string literal, at every delimiter
@@ -345,10 +358,16 @@ export class Tokenizer {
       } else if (char === "]") {
         this.token_string = char;
         return new Token(TokenType.END_ARRAY, char, this.get_token_location());
-      } else if (char === "{") return this.transition_from_GATHER_MODULE();
-      else if (char === "}") {
+      } else if (char === "{") {
         this.token_string = char;
-        return new Token(TokenType.END_MODULE, char, this.get_token_location());
+        return new Token(
+          TokenType.START_RECORD,
+          char,
+          this.get_token_location(),
+        );
+      } else if (char === "}") {
+        this.token_string = char;
+        return new Token(TokenType.END_RECORD, char, this.get_token_location());
       } else if (
         char === "<" &&
         this.is_string_redirect_start(this.input_pos)
@@ -360,7 +379,11 @@ export class Tokenizer {
         // content that must carry a literal backslash has to double it.
         const quote = this.input_string[this.input_pos + 1];
         this.advance_position(4);
-        return this.transition_from_GATHER_TRIPLE_QUOTE_STRING(quote, true, false);
+        return this.transition_from_GATHER_TRIPLE_QUOTE_STRING(
+          quote,
+          true,
+          false,
+        );
       } else if (char === "r" && this.is_raw_string_start(this.input_pos)) {
         // Raw string `r'…'` / `r"…"` / `r'''…'''` / `r"""…"""`. The `r` is
         // `char`, so input_pos already sits on the opening quote; skip the
@@ -370,7 +393,11 @@ export class Tokenizer {
           this.advance_position(3);
           // At triple width `r` is the only raw spelling: the bare form
           // interprets the whitelist, so this is what 0.16.2 shipped for.
-          return this.transition_from_GATHER_TRIPLE_QUOTE_STRING(quote, false, true);
+          return this.transition_from_GATHER_TRIPLE_QUOTE_STRING(
+            quote,
+            false,
+            true,
+          );
         }
         this.advance_position(1);
         return this.transition_from_GATHER_STRING(quote, true);
@@ -514,24 +541,6 @@ export class Tokenizer {
     );
   }
 
-  transition_from_GATHER_MODULE(): Token {
-    this.note_start_token();
-    while (this.input_pos < this.input_string.length) {
-      const char = this.input_string[this.input_pos];
-      this.advance_position(1);
-      if (this.is_whitespace(char)) break;
-      else if (char === "}") {
-        this.advance_position(-1);
-        break;
-      } else this.token_string += char;
-    }
-    return new Token(
-      TokenType.START_MODULE,
-      this.token_string,
-      this.get_token_location(),
-    );
-  }
-
   transition_from_GATHER_TRIPLE_QUOTE_STRING(
     delim: string,
     is_string_redirect: boolean = false,
@@ -553,7 +562,11 @@ export class Tokenizer {
       // Escapes resolve before delimiter detection, so an escaped quote is
       // content and can never close the literal. Unlike GATHER_STRING this loop
       // does not pre-advance, so input_pos still points at `char`.
-      if (!raw && char === "\\" && this.input_pos + 1 < this.input_string.length) {
+      if (
+        !raw &&
+        char === "\\" &&
+        this.input_pos + 1 < this.input_string.length
+      ) {
         const next_char = this.input_string[this.input_pos + 1];
         if (Object.prototype.hasOwnProperty.call(ESCAPE_MAP, next_char)) {
           this.advance_position(2);

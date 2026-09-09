@@ -30,20 +30,20 @@ test("Start module", async () => {
   let interp = new StandardInterpreter() as any;
 
   // Push application module onto module stack
-  await interp.run("{");
+  await interp.run("APP-MODULE");
   expect(interp.module_stack.length).toBe(2);
   expect(interp.module_stack[0]).toBe(interp.module_stack[1]);
 
   // Push module-A onto module stack
   interp = new StandardInterpreter();
-  await interp.run("{module-A");
+  await interp.run('"module-A" MODULE');
   expect(interp.module_stack.length).toBe(2);
   expect(interp.module_stack[1].name).toBe("module-A");
   expect(interp.app_module.modules["module-A"]).not.toBeNull();
 
   // Push module-A and then module-B onto module stack
   interp = new StandardInterpreter();
-  await interp.run("{module-A {module-B");
+  await interp.run('"module-A" MODULE "module-B" MODULE');
   expect(interp.module_stack.length).toBe(3);
   expect(interp.module_stack[1].name).toBe("module-A");
   expect(interp.module_stack[2].name).toBe("module-B");
@@ -51,11 +51,10 @@ test("Start module", async () => {
   const module_A = interp.app_module.modules["module-A"];
   expect(module_A.modules["module-B"]).not.toBeNull();
 
-  await interp.run("}}");
+  await interp.run("END-MODULE END-MODULE");
   expect(interp.module_stack.length).toBe(1);
   expect(interp.module_stack[0]).toBe(interp.app_module);
 });
-
 
 test("Definition", async () => {
   // Can define and find a word in the app module
@@ -66,7 +65,7 @@ test("Definition", async () => {
 
   // Words defined in other modules aren't automatically available in the app module
   interp = new StandardInterpreter();
-  await interp.run("{module-A   : NOTHING   ;}");
+  await interp.run('"module-A" MODULE   : NOTHING   ; END-MODULE');
   word = (interp as any).app_module.find_word("NOTHING");
   expect(word).toBeNull();
 
@@ -74,7 +73,6 @@ test("Definition", async () => {
   word = module_A.find_word("NOTHING");
   expect(word).not.toBeNull();
 });
-
 
 test("Memo", async () => {
   const interp = new StandardInterpreter();
@@ -108,27 +106,24 @@ test("Memo", async () => {
   expect(interp.stack_pop()).toBe(101);
 });
 
-
 test("Word scope", async () => {
   const interp = new StandardInterpreter();
   await interp.run(`
     : APP-MESSAGE   "Hello (from app)";
-    {module1
+    "module1" MODULE
         APP-MESSAGE
-    }
+    END-MODULE
   `);
   expect(interp.stack_pop()).toBe("Hello (from app)");
 });
 
-
 test("Open module - Test word", async () => {
   const interp = new StandardInterpreter();
   await interp.run(`
-    {mymodule
+    "mymodule" MODULE
        : MESSAGE   "Hello (from mymodule)";
-    }
-    : MESSAGE   {mymodule MESSAGE };
-    MESSAGE
+    END-MODULE
+    "mymodule" MODULE MESSAGE END-MODULE
   `);
   expect(interp.stack_pop()).toBe("Hello (from mymodule)");
 });
@@ -136,15 +131,31 @@ test("Open module - Test word", async () => {
 test("Open module - Test memo", async () => {
   const interp = new StandardInterpreter();
   await interp.run(`
-    {mymodule
+    "mymodule" MODULE
        @: MESSAGE-MEMO   "Hello (from mymodule memo)";
-    }
-    : MESSAGE   {mymodule MESSAGE-MEMO };
-    MESSAGE
+    END-MODULE
+    "mymodule" MODULE MESSAGE-MEMO END-MODULE
   `);
   expect(interp.stack_pop()).toBe("Hello (from mymodule memo)");
 });
 
+// MODULE takes its name off the stack, so it can only run at run time. The
+// brace form it replaces carried the name in the token and executed
+// immediately, which let a definition body compile against another module's
+// dictionary. Word lookup still happens at compile time, so that pattern is
+// gone: a definition resolves its words in the module open when the definition
+// is COMPILED, not when it runs.
+test("MODULE inside a definition does not switch the compile-time module", async () => {
+  const interp = new StandardInterpreter();
+  await interp.run(`
+    "mymodule" MODULE
+       : MESSAGE   "Hello (from mymodule)";
+    END-MODULE
+  `);
+  await expect(
+    interp.run(`: GO   "mymodule" MODULE MESSAGE END-MODULE ;`),
+  ).rejects.toThrow("Unknown word: MESSAGE");
+});
 
 test("Word", async () => {
   let interp = new StandardInterpreter();
@@ -153,8 +164,12 @@ test("Word", async () => {
   expect(interp.stack_pop()).toBe("Howdy");
 
   interp = new StandardInterpreter();
-  await interp.run("{module-A {module-B   : MESSAGE   'In module-B' ;}}");
-  await interp.run("{module-A {module-B   MESSAGE}}");
+  await interp.run(
+    '"module-A" MODULE "module-B" MODULE   : MESSAGE   \'In module-B\' ; END-MODULE END-MODULE',
+  );
+  await interp.run(
+    '"module-A" MODULE "module-B" MODULE   MESSAGE END-MODULE END-MODULE',
+  );
   expect(interp.stack_pop()).toBe("In module-B");
 });
 
@@ -165,7 +180,6 @@ test("Search global module", async () => {
   await interp.run("POP");
   expect((interp as any).stack.length).toBe(0);
 });
-
 
 test("Use modules", async () => {
   // Test default (no prefix)
@@ -219,13 +233,17 @@ test("Stack", async () => {
 });
 
 test("Stack raw items", async () => {
-  const value = new PositionedString("Hello", { line: 1, column: 1, source: "test", start_pos: 0, end_pos: 5 });
+  const value = new PositionedString("Hello", {
+    line: 1,
+    column: 1,
+    source: "test",
+    start_pos: 0,
+    end_pos: 5,
+  });
   const stack = new Stack([value]);
   expect(stack.get_raw_items()).toEqual([value]);
   expect(stack.get_items()).toEqual(["Hello"]);
 });
-
-
 
 test("Construct interpreter with modules", async () => {
   const interp = new StandardInterpreter([new TestModule()]);

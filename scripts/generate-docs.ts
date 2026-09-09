@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from "fs";
+import * as path from "path";
 
 /**
  * Documentation Generator for Forthic Modules
@@ -30,62 +30,68 @@ interface ModuleDoc {
 /**
  * Parse module documentation from registerModuleDoc call
  */
-function parseModuleMetadata(content: string): ModuleDoc['metadata'] | null {
-  const registerMatch = content.match(/registerModuleDoc\([^,]+,\s*`([^`]+)`\)/s);
+function parseModuleMetadata(content: string): ModuleDoc["metadata"] | null {
+  const registerMatch = content.match(
+    /registerModuleDoc\([^,]+,\s*`([^`]+)`\s*,?\s*\)/s,
+  );
   if (!registerMatch) return null;
 
   const docString = registerMatch[1];
-  const lines = docString.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const lines = docString
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
 
-  const metadata: NonNullable<ModuleDoc['metadata']> = {
-    description: '',
+  const metadata: NonNullable<ModuleDoc["metadata"]> = {
+    description: "",
     categories: [],
     optionsInfo: undefined,
-    examples: []
+    examples: [],
   };
 
-  let currentSection: 'description' | 'categories' | 'options' | 'examples' = 'description';
+  let currentSection: "description" | "categories" | "options" | "examples" =
+    "description";
   let optionsLines: string[] = [];
 
   for (const line of lines) {
     // Check for section headers
-    if (line.startsWith('## Categories')) {
-      currentSection = 'categories';
+    if (line.startsWith("## Categories")) {
+      currentSection = "categories";
       continue;
-    } else if (line.startsWith('## Options')) {
-      currentSection = 'options';
+    } else if (line.startsWith("## Options")) {
+      currentSection = "options";
       continue;
-    } else if (line.startsWith('## Examples')) {
-      currentSection = 'examples';
+    } else if (line.startsWith("## Examples")) {
+      currentSection = "examples";
       continue;
     }
 
     // Process content based on current section
-    if (currentSection === 'description') {
+    if (currentSection === "description") {
       if (metadata.description) {
-        metadata.description += ' ' + line;
+        metadata.description += " " + line;
       } else {
         metadata.description = line;
       }
-    } else if (currentSection === 'categories') {
+    } else if (currentSection === "categories") {
       // Parse "- Category Name: WORD1, WORD2, WORD3"
       const match = line.match(/^-\s*([^:]+):\s*(.+)$/);
       if (match) {
         metadata.categories.push({
           name: match[1].trim(),
-          words: match[2].trim()
+          words: match[2].trim(),
         });
       }
-    } else if (currentSection === 'options') {
+    } else if (currentSection === "options") {
       optionsLines.push(line);
-    } else if (currentSection === 'examples') {
+    } else if (currentSection === "examples") {
       metadata.examples.push(line);
     }
   }
 
   // Join options lines into a single string
   if (optionsLines.length > 0) {
-    metadata.optionsInfo = optionsLines.join('\n');
+    metadata.optionsInfo = optionsLines.join("\n");
   }
 
   return metadata;
@@ -100,7 +106,8 @@ function parseWords(content: string): WordDoc[] {
   // Match @ForthicWord and @ForthicDirectWord decorators (also supports legacy @Word/@DirectWord).
   // The trailing `,?` after each arg group allows multi-line decorators that end with a
   // trailing comma after the last arg (Prettier's default style).
-  const wordRegex = /@(?:ForthicWord|ForthicDirectWord|Word|DirectWord)\s*\(\s*"([^"]+)"\s*,\s*"([^"]*)"\s*(?:,\s*"([^"]+)"\s*,?)?\s*,?\s*\)/g;
+  const wordRegex =
+    /@(?:ForthicWord|ForthicDirectWord|Word|DirectWord)\s*\(\s*"([^"]+)"\s*,\s*"([^"]*)"\s*(?:,\s*"([^"]+)"\s*,?)?\s*,?\s*\)/g;
   let match;
 
   while ((match = wordRegex.exec(content)) !== null) {
@@ -141,21 +148,23 @@ function parseModuleName(content: string): string | null {
   if (!classMatch) return null;
 
   // Look for super("modulename") call in constructor
-  const constructorMatch = content.match(/constructor\s*\([^)]*\)\s*\{[^}]*super\s*\(\s*"([^"]+)"\s*\)/s);
+  const constructorMatch = content.match(
+    /constructor\s*\([^)]*\)\s*\{[^}]*super\s*\(\s*"([^"]+)"\s*\)/s,
+  );
   if (constructorMatch) {
     return constructorMatch[1];
   }
 
   // Fallback: derive from class name
   const className = classMatch[1];
-  return className.replace(/Module$/, '').toLowerCase();
+  return className.replace(/Module$/, "").toLowerCase();
 }
 
 /**
  * Parse a single module file
  */
 function parseModuleFile(filePath: string): ModuleDoc | null {
-  const content = fs.readFileSync(filePath, 'utf-8');
+  const content = fs.readFileSync(filePath, "utf-8");
   const moduleName = parseModuleName(content);
 
   if (!moduleName) {
@@ -169,20 +178,20 @@ function parseModuleFile(filePath: string): ModuleDoc | null {
   return {
     name: moduleName,
     words: words.sort((a, b) => a.name.localeCompare(b.name)),
-    metadata: metadata
+    metadata: metadata,
   };
 }
 
 function generateIndexMarkdown(moduleDocs: ModuleDoc[]): string {
-  let markdown = '# Forthic Module Documentation\n\n';
+  let markdown = "# Forthic Module Documentation\n\n";
   markdown += `Generated: ${new Date().toISOString()}\n\n`;
 
   const totalWords = moduleDocs.reduce((sum, mod) => sum + mod.words.length, 0);
   markdown += `**${moduleDocs.length} modules** with **${totalWords} words** total\n\n`;
 
-  markdown += '## Modules\n\n';
-  markdown += '| Module | Words | Description |\n';
-  markdown += '|--------|-------|-------------|\n';
+  markdown += "## Modules\n\n";
+  markdown += "| Module | Words | Description |\n";
+  markdown += "|--------|-------|-------------|\n";
 
   for (const mod of moduleDocs) {
     markdown += `| [${mod.name}](./modules/${mod.name}.md) | ${mod.words.length} | `;
@@ -192,26 +201,29 @@ function generateIndexMarkdown(moduleDocs: ModuleDoc[]): string {
       markdown += mod.metadata.description;
     } else {
       const descriptions: Record<string, string> = {
-        'array': 'Array and collection operations',
-        'boolean': 'Comparison, logic, and membership operations',
-        'datetime': 'Date and time operations using Temporal API',
-        'json': 'JSON parsing and serialization',
-        'math': 'Mathematical operations and utilities',
-        'record': 'Record (object/dictionary) manipulation',
-        'string': 'String manipulation and processing'
+        array: "Array and collection operations",
+        boolean: "Comparison, logic, and membership operations",
+        datetime: "Date and time operations using Temporal API",
+        json: "JSON parsing and serialization",
+        math: "Mathematical operations and utilities",
+        record: "Record (object/dictionary) manipulation",
+        string: "String manipulation and processing",
       };
-      markdown += descriptions[mod.name] || 'Module operations';
+      markdown += descriptions[mod.name] || "Module operations";
     }
-    markdown += ' |\n';
+    markdown += " |\n";
   }
 
-  markdown += '\n## Quick Links\n\n';
+  markdown += "\n## Quick Links\n\n";
   for (const mod of moduleDocs) {
-    markdown += `- **[${mod.name}](./modules/${mod.name}.md)**: ${mod.words.map(w => w.name).slice(0, 5).join(', ')}`;
+    markdown += `- **[${mod.name}](./modules/${mod.name}.md)**: ${mod.words
+      .map((w) => w.name)
+      .slice(0, 5)
+      .join(", ")}`;
     if (mod.words.length > 5) {
       markdown += `, ... (${mod.words.length - 5} more)`;
     }
-    markdown += '\n';
+    markdown += "\n";
   }
 
   return markdown;
@@ -229,31 +241,34 @@ function generateModuleMarkdown(moduleDoc: ModuleDoc): string {
   markdown += `**${moduleDoc.words.length} words**\n\n`;
 
   // Add categories section if available
-  if (moduleDoc.metadata?.categories && moduleDoc.metadata.categories.length > 0) {
-    markdown += '## Categories\n\n';
+  if (
+    moduleDoc.metadata?.categories &&
+    moduleDoc.metadata.categories.length > 0
+  ) {
+    markdown += "## Categories\n\n";
     for (const cat of moduleDoc.metadata.categories) {
       markdown += `- **${cat.name}**: ${cat.words}\n`;
     }
-    markdown += '\n';
+    markdown += "\n";
   }
 
   // Add options section if available
   if (moduleDoc.metadata?.optionsInfo) {
-    markdown += '## Options\n\n';
+    markdown += "## Options\n\n";
     markdown += `${moduleDoc.metadata.optionsInfo}\n\n`;
   }
 
   // Add examples section if available
   if (moduleDoc.metadata?.examples && moduleDoc.metadata.examples.length > 0) {
-    markdown += '## Examples\n\n';
-    markdown += '```forthic\n';
+    markdown += "## Examples\n\n";
+    markdown += "```forthic\n";
     for (const example of moduleDoc.metadata.examples) {
       markdown += `${example}\n`;
     }
-    markdown += '```\n\n';
+    markdown += "```\n\n";
   }
 
-  markdown += '## Words\n\n';
+  markdown += "## Words\n\n";
 
   for (const word of moduleDoc.words) {
     markdown += `### ${word.name}\n\n`;
@@ -261,7 +276,7 @@ function generateModuleMarkdown(moduleDoc: ModuleDoc): string {
     if (word.description) {
       markdown += `${word.description}\n\n`;
     }
-    markdown += '---\n\n';
+    markdown += "---\n\n";
   }
 
   markdown += `\n[← Back to Index](../index.md)\n`;
@@ -269,7 +284,10 @@ function generateModuleMarkdown(moduleDoc: ModuleDoc): string {
   return markdown;
 }
 
-function findModuleFiles(dir: string, opts: { excludeClassic?: boolean } = {}): string[] {
+function findModuleFiles(
+  dir: string,
+  opts: { excludeClassic?: boolean } = {},
+): string[] {
   const files: string[] = [];
   const entries = fs.readdirSync(dir, { withFileTypes: true });
 
@@ -278,9 +296,9 @@ function findModuleFiles(dir: string, opts: { excludeClassic?: boolean } = {}): 
     if (entry.isDirectory()) {
       // The classic/ subdirectory holds back-compat words that are
       // intentionally excluded from LLM-targeted documentation.
-      if (opts.excludeClassic && entry.name === 'classic') continue;
+      if (opts.excludeClassic && entry.name === "classic") continue;
       files.push(...findModuleFiles(fullPath, opts));
-    } else if (entry.name.endsWith('_module.ts')) {
+    } else if (entry.name.endsWith("_module.ts")) {
       files.push(fullPath);
     }
   }
@@ -294,14 +312,14 @@ function findModuleFiles(dir: string, opts: { excludeClassic?: boolean } = {}): 
  * This is the canonical "what words exist on the surface" reference.
  */
 function generateWordsMarkdown(moduleDocs: ModuleDoc[]): string {
-  let markdown = '# Forthic — Standard Words\n\n';
+  let markdown = "# Forthic — Standard Words\n\n";
   markdown += `Generated: ${new Date().toISOString()}\n\n`;
 
   const totalWords = moduleDocs.reduce((sum, mod) => sum + mod.words.length, 0);
   markdown += `**${moduleDocs.length} modules · ${totalWords} surface words**\n\n`;
   markdown += `Classic/back-compat words live in \`classic/classic_module.ts\` and are\n`;
   markdown += `intentionally omitted from this index.\n\n`;
-  markdown += '---\n\n';
+  markdown += "---\n\n";
 
   for (const mod of moduleDocs) {
     markdown += `## ${mod.name}\n\n`;
@@ -315,7 +333,10 @@ function generateWordsMarkdown(moduleDocs: ModuleDoc[]): string {
 
     if (mod.metadata?.categories && mod.metadata.categories.length > 0) {
       for (const cat of mod.metadata.categories) {
-        const wordNames = cat.words.split(',').map((w) => w.trim()).filter((w) => w.length > 0);
+        const wordNames = cat.words
+          .split(",")
+          .map((w) => w.trim())
+          .filter((w) => w.length > 0);
         if (wordNames.length === 0) continue;
 
         markdown += `### ${cat.name}\n\n`;
@@ -328,18 +349,20 @@ function generateWordsMarkdown(moduleDocs: ModuleDoc[]): string {
             markdown += `- **${wname}** _(declared in category but not found in module)_\n`;
           }
         }
-        markdown += '\n';
+        markdown += "\n";
       }
     }
 
     // Words present in the module but not listed under any declared category.
-    const undeclared = mod.words.filter((w) => !declaredInCategories.has(w.name));
+    const undeclared = mod.words.filter(
+      (w) => !declaredInCategories.has(w.name),
+    );
     if (undeclared.length > 0) {
       markdown += `### Other\n\n`;
       for (const w of undeclared) {
         markdown += `- **${w.name}** \`${w.stackEffect}\` — ${w.description}\n`;
       }
-      markdown += '\n';
+      markdown += "\n";
     }
   }
 
@@ -358,7 +381,7 @@ function generateWordsMarkdown(moduleDocs: ModuleDoc[]): string {
  *      or loses words.
  */
 function generateLLMPrompt(moduleDocs: ModuleDoc[]): string {
-  let markdown = '';
+  let markdown = "";
 
   // ----- Handwritten guidance header -----
   markdown += `You are a Forthic code generator. Given a user message, generate Forthic code
@@ -419,7 +442,12 @@ delimiter, use a wider raw form, such as \`r'''don't'''\`.
 ### Arrays and Records
 
 - Array: \`[ '''item1''' '''item2''' ]\`
-- Record: \`[ [ .key '''value''' ] ] REC\`
+- Record: \`{ .key '''value''' .other 2 }\` — keys are dot symbols, values are
+  ordinary stack pushes, and records nest: \`{ .a { .b [ 10 20 ] } }\`
+- A key with no value after it is a flag and takes \`TRUE\`: \`{ .a 1 .verbose }\`
+- \`REC\` builds a record from an array of \`[key value]\` entries. Reach for it
+  when the entries are computed — \`entries '''SOME-WORD''' MAP REC\` — and use
+  the literal everywhere else.
 - Field access: \`[.key] REC@\` (single key) or \`[.a .b] REC@\` (nested path)
 - Deep transform: \`rec [.a .b] '''10 *''' MAP-AT\` (equivalent to jq's \`.a.b |= ...\`)
 - JSON parse/stringify: \`JSON>\` and \`>JSON\`. Example: \`r'''{"a":1}''' JSON> [.a] REC@\` → \`1\`
@@ -504,19 +532,22 @@ ALWAYS generate code in this structure:
   for (const mod of moduleDocs) {
     markdown += `### ${mod.name}\n`;
     for (const w of mod.words) {
-      const desc = w.description || '';
-      markdown += `- \`${w.name}\` \`${w.stackEffect}\`${desc ? ' — ' + desc : ''}\n`;
+      const desc = w.description || "";
+      markdown += `- \`${w.name}\` \`${w.stackEffect}\`${desc ? " — " + desc : ""}\n`;
     }
-    markdown += '\n';
+    markdown += "\n";
   }
 
   return markdown;
 }
 
-async function generateDocs(opts: { rootDir?: string; excludeClassic?: boolean } = {}) {
+async function generateDocs(
+  opts: { rootDir?: string; excludeClassic?: boolean } = {},
+) {
   const moduleDocs: ModuleDoc[] = [];
 
-  const rootDir = opts.rootDir ?? path.join(__dirname, '..', 'src', 'forthic', 'modules');
+  const rootDir =
+    opts.rootDir ?? path.join(__dirname, "..", "src", "forthic", "modules");
   const files = findModuleFiles(rootDir, opts);
 
   console.log(`Scanning ${rootDir}: ${files.length} module files`);
@@ -526,7 +557,9 @@ async function generateDocs(opts: { rootDir?: string; excludeClassic?: boolean }
     const moduleDoc = parseModuleFile(filePath);
     if (moduleDoc && moduleDoc.words.length > 0) {
       moduleDocs.push(moduleDoc);
-      console.log(`  Parsed ${moduleDoc.name}: ${moduleDoc.words.length} words`);
+      console.log(
+        `  Parsed ${moduleDoc.name}: ${moduleDoc.words.length} words`,
+      );
     }
   }
 
@@ -538,30 +571,37 @@ async function generateDocs(opts: { rootDir?: string; excludeClassic?: boolean }
 
 async function main() {
   try {
-    console.log('Generating Forthic module documentation...');
+    console.log("Generating Forthic module documentation...");
 
     // Per-module docs include every module under modules/, classic too.
     const allModuleDocs = await generateDocs();
 
     // Surfaced-only docs: scoped to standard/ and exclude classic. This
     // is what the small-LLM prompt should see.
-    const standardDir = path.join(__dirname, '..', 'src', 'forthic', 'modules', 'standard');
+    const standardDir = path.join(
+      __dirname,
+      "..",
+      "src",
+      "forthic",
+      "modules",
+      "standard",
+    );
     const surfaceModuleDocs = await generateDocs({
       rootDir: standardDir,
       excludeClassic: true,
     });
 
     // Ensure docs directories exist
-    const docsDir = path.join(__dirname, '..', 'docs');
-    const modulesDir = path.join(docsDir, 'modules');
+    const docsDir = path.join(__dirname, "..", "docs");
+    const modulesDir = path.join(docsDir, "modules");
     if (!fs.existsSync(modulesDir)) {
       fs.mkdirSync(modulesDir, { recursive: true });
     }
 
     // Generate and write index file (all modules, including classic)
     const indexMarkdown = generateIndexMarkdown(allModuleDocs);
-    const indexPath = path.join(docsDir, 'index.md');
-    fs.writeFileSync(indexPath, indexMarkdown, 'utf-8');
+    const indexPath = path.join(docsDir, "index.md");
+    fs.writeFileSync(indexPath, indexMarkdown, "utf-8");
     console.log(`✓ Index generated: ${indexPath}`);
 
     // Generate and write individual module files (all modules)
@@ -569,22 +609,22 @@ async function main() {
     for (const moduleDoc of allModuleDocs) {
       const moduleMarkdown = generateModuleMarkdown(moduleDoc);
       const modulePath = path.join(modulesDir, `${moduleDoc.name}.md`);
-      fs.writeFileSync(modulePath, moduleMarkdown, 'utf-8');
+      fs.writeFileSync(modulePath, moduleMarkdown, "utf-8");
       totalSize += moduleMarkdown.length;
       console.log(`  ✓ ${moduleDoc.name}.md (${moduleDoc.words.length} words)`);
     }
 
     // Cross-module surface words index (excludes classic)
     const wordsMarkdown = generateWordsMarkdown(surfaceModuleDocs);
-    const wordsPath = path.join(docsDir, 'WORDS.md');
-    fs.writeFileSync(wordsPath, wordsMarkdown, 'utf-8');
+    const wordsPath = path.join(docsDir, "WORDS.md");
+    fs.writeFileSync(wordsPath, wordsMarkdown, "utf-8");
     totalSize += wordsMarkdown.length;
     console.log(`✓ WORDS.md generated: ${wordsPath}`);
 
     // Compact LLM-prompt artifact (excludes classic)
     const promptMarkdown = generateLLMPrompt(surfaceModuleDocs);
-    const promptPath = path.join(docsDir, 'forthic-prompt.md');
-    fs.writeFileSync(promptPath, promptMarkdown, 'utf-8');
+    const promptPath = path.join(docsDir, "forthic-prompt.md");
+    fs.writeFileSync(promptPath, promptMarkdown, "utf-8");
     totalSize += promptMarkdown.length;
     console.log(`✓ forthic-prompt.md generated: ${promptPath}`);
 
@@ -592,7 +632,7 @@ async function main() {
     console.log(`  Total files: ${allModuleDocs.length + 3}`);
     console.log(`  Total size: ${(totalSize / 1024).toFixed(2)} KB`);
   } catch (error) {
-    console.error('Error generating documentation:', error);
+    console.error("Error generating documentation:", error);
     process.exit(1);
   }
 }

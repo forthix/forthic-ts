@@ -1,4 +1,4 @@
-import { Variable } from "../../module.js";
+import { Module, Variable } from "../../module.js";
 import { Interpreter } from "../../interpreter.js";
 import { ForthicError, InvalidVariableNameError, IntentionalStopError, UnknownVariableError } from "../../errors.js";
 import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
@@ -6,18 +6,20 @@ import { WordOptions } from "../../word_options.js";
 
 export class CoreModule extends DecoratedModule {
   static {
-    registerModuleDoc(CoreModule, `
+    registerModuleDoc(
+      CoreModule,
+      `
 Essential interpreter operations for stack manipulation, variables, control flow, and module system.
 
 ## Categories
 - Stack: DROP, DUP, SWAP
 - Variables: VARIABLES, !, @, !@
-- Module: USE-MODULES
+- Module: USE-MODULES, MODULE, END-MODULE, APP-MODULE
 - Execution: RUN
 - Control: NOP, DEFAULT, DEFAULT-RUN, NULL, UNDEFINED, IF, IF-RUN, WHEN
 - Predicates: ARRAY?, NULL?, EMPTY?, STRING?, NUMBER?, RECORD?
 - Errors: TRY, OK?, ERROR?, UNWRAP, UNWRAP-OR (Rust Result semantics: 'CODE' TRY UNWRAP is CODE)
-- Options: ~> (converts array to WordOptions)
+- Options: ~> (converts a record to WordOptions)
 - String: INTERPOLATE, PRINT
 - Debug: PEEK!, STACK!
 
@@ -27,36 +29,38 @@ variables. Holes are variable names ONLY — never expressions — so rendering 
 execute Forthic. Lookup is READ-ONLY: a miss renders as null_text and creates nothing. Escape a
 literal with \\\${. Compute on the stack, then render: 5 .count ! "Count: \${count}" PRINT
 
+## Modules
+"name" MODULE opens a submodule of the current module and END-MODULE closes it.
+APP-MODULE opens the application module. MODULE reads its name from the stack,
+so it runs at run time: a definition body resolves its words in whatever module
+was open when the definition was COMPILED, not when it runs.
+
 ## Options
-INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option_name value ...] ~> WORD
+INTERPOLATE and PRINT support options via the ~> operator using syntax: { .option_name value ... } ~> WORD
 - separator: String to use when joining array values (default: ", ")
 - null_text: Text for null/undefined values and missing variables (default: "")
 - json: Use JSON.stringify for all values (default: false)
 
 ## Examples
 5 .count ! "Count: \${count}" PRINT
-"Items: \${items}" [.separator " | "] ~> PRINT
+"Items: \${items}" { .separator " | " } ~> PRINT
 [1 2 3] PRINT                           # Direct printing: 1, 2, 3
-[1 2 3] [.separator " | "] ~> PRINT    # With options: 1 | 2 | 3
-[ [.name "Alice"] ] REC [.json TRUE] ~> PRINT  # JSON format: {"name":"Alice"}
+[1 2 3] { .separator " | " } ~> PRINT   # With options: 1 | 2 | 3
+{ .name "Alice" } { .json TRUE } ~> PRINT  # JSON format: {"name":"Alice"}
 "Hello \${name}" INTERPOLATE .greeting !
 [1 2 3] DUP SWAP
-`);
+`,
+    );
   }
 
   constructor() {
     super("core");
   }
 
-
   private static get_or_create_variable(interp: Interpreter, name: string): Variable {
     // Validate variable name - no __ prefix allowed
     if (name.match(/__.*/)) {
-      throw new InvalidVariableNameError(
-        interp.get_top_input_string(),
-        name,
-        interp.get_string_location(),
-      );
+      throw new InvalidVariableNameError(interp.get_top_input_string(), name, interp.get_string_location());
     }
 
     // An existing module variable (e.g. declared via VARIABLES) always wins —
@@ -86,7 +90,6 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     }
     return variable;
   }
-
 
   @ForthicWord("( a:any -- )", "Removes top item from stack")
   async DROP(_a: any) {
@@ -123,17 +126,12 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     throw new IntentionalStopError("STACK!");
   }
 
-
   @ForthicWord("( varnames:string[] -- )", "Creates variables in current module")
   async VARIABLES(varnames: string[]) {
     const module = this.interp.cur_module();
     varnames.forEach((v: string) => {
       if (v.match(/__.*/)) {
-        throw new InvalidVariableNameError(
-          this.interp.get_top_input_string(),
-          v,
-          this.interp.get_string_location(),
-        );
+        throw new InvalidVariableNameError(this.interp.get_top_input_string(), v, this.interp.get_string_location());
       }
       module.add_variable(v);
     });
@@ -142,7 +140,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
   @ForthicWord("( value:any variable:any -- )", "Sets variable value (auto-creates if string name)")
   async ["!"](value: any, variable: any) {
     let var_obj: Variable;
-    if (typeof variable === 'string') {
+    if (typeof variable === "string") {
       var_obj = CoreModule.get_or_create_variable(this.interp, variable);
     } else {
       var_obj = variable;
@@ -150,10 +148,13 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     var_obj.set_value(value);
   }
 
-  @ForthicWord("( variable:any -- value:any )", "Gets variable value (throws UnknownVariableError if string name is undeclared)")
+  @ForthicWord(
+    "( variable:any -- value:any )",
+    "Gets variable value (throws UnknownVariableError if string name is undeclared)",
+  )
   async ["@"](variable: any) {
     let var_obj: Variable;
-    if (typeof variable === 'string') {
+    if (typeof variable === "string") {
       var_obj = CoreModule.get_existing_variable(this.interp, variable);
     } else {
       var_obj = variable;
@@ -164,7 +165,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
   @ForthicWord("( value:any variable:any -- value:any )", "Sets variable and returns value")
   async ["!@"](value: any, variable: any) {
     let var_obj: Variable;
-    if (typeof variable === 'string') {
+    if (typeof variable === "string") {
       var_obj = CoreModule.get_or_create_variable(this.interp, variable);
     } else {
       var_obj = variable;
@@ -173,8 +174,11 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     return var_obj.get_value();
   }
 
-
-  @ForthicWord("( forthic:string -- ? )", "Run a Forthic string in the current context. Whatever the forthic produces is left on the stack.", "RUN")
+  @ForthicWord(
+    "( forthic:string -- ? )",
+    "Run a Forthic string in the current context. Whatever the forthic produces is left on the stack.",
+    "RUN",
+  )
   async RUN(forthic: string) {
     const string_location = this.interp.get_string_location();
     if (forthic) await this.interp.run(forthic, string_location);
@@ -218,6 +222,35 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     this.interp.use_modules(names, options);
   }
 
+  @ForthicWord(
+    "( module_name:string -- )",
+    "Find or create submodule in current module and make it the current module",
+    "MODULE",
+  )
+  async MODULE(module_name: string) {
+    let module = this.interp.cur_module().find_module(module_name);
+    if (!module) {
+      module = new Module(module_name);
+      this.interp.cur_module().register_module(module.name, module.name, module);
+
+      // A module opened at the app level is also registered with the
+      // interpreter, so USE-MODULES can resolve it by name later.
+      if (this.interp.cur_module().name === "") {
+        this.interp.register_module(module);
+      }
+    }
+    this.interp.module_stack_push(module);
+  }
+
+  @ForthicWord("( -- )", "Pop the current module from the module stack", "END-MODULE")
+  async END_MODULE() {
+    this.interp.module_stack_pop();
+  }
+
+  @ForthicWord("( -- )", "Make the application module the current module", "APP-MODULE")
+  async APP_MODULE() {
+    this.interp.module_stack_push(this.interp.get_app_module());
+  }
 
   @ForthicWord("( -- )", "Does nothing (no operation)")
   async NOP() {
@@ -267,7 +300,10 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     return typeof value === "string";
   }
 
-  @ForthicWord("( value:any -- boolean:boolean )", "Returns true if value is a number (Infinity is a number; NaN is not)")
+  @ForthicWord(
+    "( value:any -- boolean:boolean )",
+    "Returns true if value is a number (Infinity is a number; NaN is not)",
+  )
   async ["NUMBER?"](value: any) {
     return typeof value === "number" && !Number.isNaN(value);
   }
@@ -292,7 +328,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     'Run forthic, capturing the outcome as data: {"ok": value} on success (value = top of stack if the run changed the stack; null for no-net-effect code), ' +
       '{"error": {message, error_type}} on failure. On failure the stack is restored byte-for-byte to its state before TRY ' +
       "(transactional for the stack; side effects like variable writes persist), and modules left open by the failed code are unwound. " +
-      "For error-tolerant mapping use MAP's outcomes option ([.outcomes TRUE] ~> MAP): TRY inside MAP would transactionally restore the item MAP pushed, stranding it beneath the outcome.",
+      "For error-tolerant mapping use MAP's outcomes option ({ .outcomes TRUE } ~> MAP): TRY inside MAP would transactionally restore the item MAP pushed, stranding it beneath the outcome.",
     "TRY",
   )
   async TRY(forthic: string) {
@@ -309,8 +345,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
       // (covers transforms like '2 *' that consume inputs and push results,
       // leaving the length unchanged). A run with no net stack effect — or
       // one that only consumed — succeeds with ok: null.
-      const unchanged =
-        after.length === snapshot.length && after.every((v, i) => v === snapshot[i]);
+      const unchanged = after.length === snapshot.length && after.every((v, i) => v === snapshot[i]);
       const payload = !unchanged && after.length > 0 ? interp.stack_pop() : null;
       return { ok: payload };
     } catch (e: any) {
@@ -331,12 +366,20 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     }
   }
 
-  @ForthicWord("( outcome:record -- boolean:boolean )", "True if outcome is an ok record (structural: has an 'ok' key)", "OK?")
+  @ForthicWord(
+    "( outcome:record -- boolean:boolean )",
+    "True if outcome is an ok record (structural: has an 'ok' key)",
+    "OK?",
+  )
   async ["OK?"](outcome: any) {
     return outcome !== null && typeof outcome === "object" && !Array.isArray(outcome) && "ok" in outcome;
   }
 
-  @ForthicWord("( outcome:record -- boolean:boolean )", "True if outcome is an error record (structural: has an 'error' key)", "ERROR?")
+  @ForthicWord(
+    "( outcome:record -- boolean:boolean )",
+    "True if outcome is an error record (structural: has an 'error' key)",
+    "ERROR?",
+  )
   async ["ERROR?"](outcome: any) {
     return outcome !== null && typeof outcome === "object" && !Array.isArray(outcome) && "error" in outcome;
   }
@@ -371,7 +414,10 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     throw new Error("UNWRAP-OR requires a TRY outcome record with an 'ok' or 'error' key");
   }
 
-  @ForthicWord("( value:any default_value:any -- result:any )", "Returns value or default if value is null/undefined/empty string")
+  @ForthicWord(
+    "( value:any default_value:any -- result:any )",
+    "Returns value or default if value is null/undefined/empty string",
+  )
   async DEFAULT(value: any, default_value: any) {
     if (value === undefined || value === null || value === "") {
       return default_value;
@@ -393,14 +439,18 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     return value;
   }
 
-  @ForthicWord("( array:any[] -- options:WordOptions )", "Convert options array to WordOptions. Format: [.key1 val1 .key2 val2]")
-  async ["~>"](array: any[]) {
-    return new WordOptions(array);
+  @ForthicWord(
+    "( record:any -- options:WordOptions )",
+    "Convert a record to WordOptions. Format: { .key1 val1 .key2 val2 }. The flat array form [.key1 val1] is also accepted.",
+  )
+  async ["~>"](record: any) {
+    return new WordOptions(record);
   }
 
-
-
-  @ForthicWord("( string:string [options:WordOptions] -- result:string )", "Fill ${name} holes from variables (${.name} also works; read-only — a miss renders as null_text and creates nothing). Holes are variable names, never expressions. Escape a literal with \\${. Null template stays null.")
+  @ForthicWord(
+    "( string:string [options:WordOptions] -- result:string )",
+    "Fill ${name} holes from variables (${.name} also works; read-only — a miss renders as null_text and creates nothing). Holes are variable names, never expressions. Escape a literal with \\${. Null template stays null.",
+  )
   async INTERPOLATE(string: string, options: Record<string, any>) {
     if (string === null || string === undefined) return string;
     const separator = options.separator ?? ", ";
@@ -410,14 +460,17 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
     return this.interpolateString(String(string), separator, null_text, use_json);
   }
 
-  @ForthicWord("( value:any [options:WordOptions] -- )", "Print value to stdout. Strings interpolate ${name} holes first; other values format with the same options. Escape a literal with \\${.")
+  @ForthicWord(
+    "( value:any [options:WordOptions] -- )",
+    "Print value to stdout. Strings interpolate ${name} holes first; other values format with the same options. Escape a literal with \\${.",
+  )
   async PRINT(value: any, options: Record<string, any>) {
     const separator = options.separator ?? ", ";
     const null_text = options.null_text ?? "";
     const use_json = options.json ?? false;
 
     let result: string;
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       // String: interpolate variables
       result = this.interpolateString(value, separator, null_text, use_json);
     } else {
@@ -437,7 +490,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
 
     // \${ escapes a literal ${: swap for a NUL-fenced placeholder so the
     // hole regex can't see it, restore after
-    const ESCAPED_HOLE = '\x00ESCAPED_HOLE\x00';
+    const ESCAPED_HOLE = "\x00ESCAPED_HOLE\x00";
     const escaped = string.replace(/\\\$\{/g, ESCAPED_HOLE);
 
     const interpolated = escaped.replace(/\$\{([^{}]*)\}/g, (_match, body) => {
@@ -449,14 +502,14 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
       return this.valueToString(value, separator, null_text, use_json);
     });
 
-    return interpolated.replace(/\x00ESCAPED_HOLE\x00/g, '${');
+    return interpolated.replace(/\x00ESCAPED_HOLE\x00/g, "${");
   }
 
   // Validate a hole body into a variable name. ${1 + 2} is a hard error,
   // not a template feature. __ names are reserved, same as ! / @.
   private holeName(body: string): string {
     const trimmed = String(body).trim();
-    const name = trimmed.startsWith('.') ? trimmed.slice(1) : trimmed;
+    const name = trimmed.startsWith(".") ? trimmed.slice(1) : trimmed;
     if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(name)) {
       throw new ForthicError(
         this.interp.get_top_input_string(),
@@ -464,12 +517,8 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
         this.interp.get_string_location(),
       );
     }
-    if (name.startsWith('__')) {
-      throw new InvalidVariableNameError(
-        this.interp.get_top_input_string(),
-        name,
-        this.interp.get_string_location(),
-      );
+    if (name.startsWith("__")) {
+      throw new InvalidVariableNameError(this.interp.get_top_input_string(), name, this.interp.get_string_location());
     }
     return name;
   }
@@ -481,7 +530,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: [.option
       // Elements render recursively, so null elements also use null_text
       return value.map((v) => this.valueToString(v, separator, null_text, use_json)).join(separator);
     }
-    if (typeof value === 'object') return JSON.stringify(value);
+    if (typeof value === "object") return JSON.stringify(value);
     return String(value);
   }
 }

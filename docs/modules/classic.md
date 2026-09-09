@@ -2,6 +2,8 @@
 
 [← Back to Index](../index.md)
 
+Legacy/classic Forthic words retained for back-compat. These words remain fully functional at runtime. They are intentionally omitted from LLM-targeted documentation in favor of canonical siblings in the sibling standard modules.
+
 **34 words**
 
 ## Words
