@@ -7,7 +7,7 @@ import {
   DefinitionWord,
   ModuleMemoWord,
 } from "./module.js";
-import { DotSymbol, PositionedString } from "./tokenizer.js";
+import { DotSymbol, PositionedString, CollectionMark } from "./tokenizer.js";
 import {
   UnknownWordError,
   UnknownModuleError,
@@ -66,7 +66,7 @@ type HandleErrorFunction = (e: Error, interp: Interpreter) => Promise<void>;
 /**
  * EndRecordWord - Collects key/value pairs from the stack into a record
  *
- * Pops items back to the matching START_RECORD marker, then folds them into a
+ * Pops items back to the matching record `CollectionMark`, then folds them into a
  * record. Keys are dot symbols, and every key takes a value: the items are
  * strictly alternating, so an odd count means a key was left dangling.
  *
@@ -88,16 +88,16 @@ class EndRecordWord extends Word {
         throw new UnmatchedRecordCloseError(interp.get_top_input_string());
       }
       const item = interp.stack_pop_raw();
-      if (item instanceof Token && item.type == TokenType.START_RECORD) break;
-      // A `[` marker down here means the array it opened was never closed. It
-      // is not a delimiter to this word, so without this check it is collected
-      // as an ordinary item and `{ .a [ .b 1 }` yields a record whose `a` is a
-      // raw Token — even in count, so no other check sees it either.
-      if (item instanceof Token && item.type == TokenType.START_ARRAY) {
+      if (item instanceof CollectionMark) {
+        if (item.kind === "record") break;
+        // An array mark down here means the `[` it came from was never closed.
+        // It is not a delimiter to this word, so without this check it is
+        // collected as an ordinary item and `{ .a [ .b 1 }` yields a record
+        // whose `a` is a mark — even in count, so no other check sees it.
         throw new MismatchedCollectionError(
           interp.get_top_input_string(),
           "{",
-          "[",
+          item.open,
           item.location,
         );
       }
@@ -149,8 +149,8 @@ class EndRecordWord extends Word {
 /**
  * EndArrayWord - Collects items from stack into an array
  *
- * Pops items from the stack until a START_ARRAY token is found,
- * then pushes them as a single array in the correct order.
+ * Pops items from the stack until the matching array `CollectionMark` is
+ * found, then pushes them as a single array in the correct order.
  *
  * Unlike the record fold this uses `stack_pop`, so a `DotSymbol` arrives as its
  * primitive string: `[ .a ]` is `["a"]`, and an array draws no key/value
@@ -170,15 +170,15 @@ class EndArrayWord extends Word {
         throw new UnmatchedArrayCloseError(interp.get_top_input_string());
       }
       const item = interp.stack_pop();
-      if (item instanceof Token && item.type == TokenType.START_ARRAY) break;
-      // A `{` marker down here means the record it opened was never closed —
-      // the mirror of the case in EndRecordWord, and just as silent without the
-      // check: `[ .a { 1 2 ]` would yield an array holding a raw Token.
-      if (item instanceof Token && item.type == TokenType.START_RECORD) {
+      if (item instanceof CollectionMark) {
+        if (item.kind === "array") break;
+        // A record mark down here means the `{` it came from was never closed —
+        // the mirror of the case in EndRecordWord, and just as silent without
+        // the check: `[ .a { 1 2 ]` would yield an array holding a mark.
         throw new MismatchedCollectionError(
           interp.get_top_input_string(),
           "[",
-          "{",
+          item.open,
           item.location,
         );
       }
@@ -948,7 +948,8 @@ export class Interpreter {
   }
 
   async handle_start_record_token(token: Token) {
-    await this.handle_word(new PushValueWord("<start_record_token>", token));
+    const mark = new CollectionMark("record", token.location);
+    await this.handle_word(new PushValueWord("<start_record_mark>", mark));
   }
 
   async handle_end_record_token(_token: Token) {
@@ -956,7 +957,8 @@ export class Interpreter {
   }
 
   async handle_start_array_token(token: Token) {
-    await this.handle_word(new PushValueWord("<start_array_token>", token));
+    const mark = new CollectionMark("array", token.location);
+    await this.handle_word(new PushValueWord("<start_array_mark>", mark));
   }
 
   async handle_end_array_token(_token: Token) {

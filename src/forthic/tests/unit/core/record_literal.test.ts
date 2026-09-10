@@ -122,7 +122,7 @@ test("REC still builds records from a computed array", async () => {
 /**
  * A close word recognizes only its own opening marker, so the other one used to
  * be collected as an ordinary item: `{ .a [ .b 1 }` produced a record whose `a`
- * was a raw tokenizer Token, at an even item count so the key/value check saw
+ * was the array's own open mark, at an even item count so the key/value check saw
  * nothing wrong either. The failure mode was a wrong value rather than an
  * exception, which is why both directions are pinned.
  */

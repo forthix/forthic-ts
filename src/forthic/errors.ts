@@ -190,9 +190,9 @@ export class UnmatchedArrayCloseError extends ForthicError {
  * never closed.
  *
  * Worth its own error because the alternative is silence. A close word
- * recognizes only its own opening marker, so the other one is not a delimiter
- * to it: without this check it is collected as an ordinary item and ends up
- * *inside* the collection being built, as a raw tokenizer Token.
+ * recognizes only its own opening mark, so the other one is not a delimiter to
+ * it: without this check it is collected as an ordinary item and ends up
+ * *inside* the collection being built, as a `CollectionMark`.
  */
 export class MismatchedCollectionError extends ForthicError {
   constructor(

@@ -6,33 +6,58 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [0.20.0] - 2026-09-10
 
-**Breaking: an unclosed `[` or `{` inside a literal is an error.** A close word
-recognizes only its own opening marker, so the other one was collected as an
-ordinary item: `{ .a [ .b 1 }` built `{"a": <Token>, "b": 1}` — a record holding
-a raw tokenizer object — and reported nothing. The item count stayed even, so
-the key/value check from 0.19.0 saw nothing wrong either. Both close words now
-reject the mismatch.
+**Breaking: the open marker a collection literal leaves on the stack is a
+Forthic value, and an unclosed `[` or `{` inside another literal is an error.**
+Both halves are the same subject — what happens when that marker meets code
+treating it as data. It used to be the tokenizer's own `Token`, so it could end
+up inside a record, and it could cross the wire as a record of parser internals.
 
 ### Changed
 
 - **`]` and `}` reject a mismatched delimiter.** `{ .a [ .b 1 }` and
   `[ .a { 1 2 ]` raise `MismatchedCollectionError` naming the delimiter that is
   missing, instead of folding the stray marker into the collection as a value.
-  This is the silent-wrong-collection class that 0.19.0 addressed for a missing
-  _value_; a dropped bracket is at least as easy to make.
+  A close word recognizes only its own marker, so the other one was collected as
+  an ordinary item and the count stayed even — the key/value check from 0.19.0
+  saw nothing wrong either. This is the same silent-wrong-collection class that
+  0.19.0 addressed for a missing _value_; a dropped bracket is at least as easy
+  to make. The error points at the unclosed opener, not at the close word that
+  tripped over it.
 - **A stray `]` says what went wrong.** Previously `StackUnderflowError`, which
   describes the symptom from inside the fold rather than the mistake. Now
   `UnmatchedArrayCloseError`, matching what `}` has said since 0.18.0. Catch
   sites keying on `StackUnderflowError` for this case need updating.
+- **`[` and `{` push a `CollectionMark`, not a tokenizer `Token`.** The mark is
+  a Forthic value with exactly two fields: `kind` (`"array"` or `"record"`) and
+  `location`. A `Token` carries parse bookkeeping that means nothing on the
+  stack — `is_string_redirect`, `end_input_pos`, and a twelve-way `type`. Code
+  that reads a mark off the stack sees the new shape.
+- **A collection mark can no longer be serialized.** `getForthicType` classifies
+  any object as a record, so a mark that escaped a fold — `[ DUP 1 ]` leaves one
+  — crossed the JSON-RPC and websocket wire as an ordinary record of `type`,
+  `string`, and `start_pos` fields, which the receiving runtime could not tell
+  from data the program meant to send. Serializing one now raises at the
+  boundary. Marks join `WordOptions` as interpreter state with no wire form.
+
+### Unchanged, and now deliberate
+
+`[` is a word, not syntax, and the mark is an ordinary value that words can
+move. `1 [ SWAP ]` is `[[1]]` — moving the mark changes what the literal
+captures — and `: MARK   [ ;   MARK 1 2 ]` builds `[1, 2]`. Dropping the mark
+leaves nothing for `]` to close, so `1 2 [ DROP 3 ]` raises
+`UnmatchedArrayCloseError`. These were already true; tests now pin them.
 
 ### Added
 
+- **`CollectionMark`** and the **`CollectionKind`** type.
 - **`MismatchedCollectionError`** and **`UnmatchedArrayCloseError`**.
 
 ### Migration
 
-Nothing well-formed changes. Any code these now reject was already producing a
-collection with a tokenizer `Token` inside it.
+Nothing well-formed changes. Code these now reject was already building a
+collection with a mark inside it, and any mark that reached the wire was
+arriving at the far side as a record of parser internals. Code that inspects a
+mark on the stack should read `kind` and `location` instead of `Token` fields.
 
 ## [0.19.0] - 2026-09-10
 

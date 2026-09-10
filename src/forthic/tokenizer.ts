@@ -95,6 +95,47 @@ export class PositionedString {
  */
 export class DotSymbol extends PositionedString {}
 
+export type CollectionKind = "array" | "record";
+
+/**
+ * The open marker a collection literal leaves on the stack.
+ *
+ * `[` and `{` push one of these, and `]` and `}` fold the stack back to the
+ * matching one. It is deliberately a Forthic *value* rather than the tokenizer's
+ * `Token`. A `Token` carries parse bookkeeping that means nothing on the stack —
+ * `is_string_redirect`, `end_input_pos`, and a twelve-way `type` — and because
+ * `getForthicType` classifies any object as a record, a `Token` that escaped a
+ * fold serialized onto the wire as an ordinary record of parser internals. A
+ * mark is not serializable; see `getForthicType`.
+ *
+ * Deliberately NOT a `PositionedString`. `stack_pop` unwraps those to their
+ * primitive, so `]` — which reads the stack through `stack_pop` — would see the
+ * bare string `"["` and never recognize its own opener.
+ */
+export class CollectionMark {
+  kind: CollectionKind;
+  location: CodeLocation;
+
+  constructor(kind: CollectionKind, location: CodeLocation) {
+    this.kind = kind;
+    this.location = location;
+  }
+
+  /** The delimiter that opened this mark: `[` or `{`. */
+  get open(): "[" | "{" {
+    return this.kind === "array" ? "[" : "{";
+  }
+
+  /** The delimiter that would close it: `]` or `}`. */
+  get close(): "]" | "}" {
+    return this.kind === "array" ? "]" : "}";
+  }
+
+  toString(): string {
+    return `<${this.open}>`;
+  }
+}
+
 /**
  * Escape sequences interpreted inside every string literal, at every delimiter
  * width. Only the `r` prefix (`r'…'`, `r'''…'''`) turns escaping off.
