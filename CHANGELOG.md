@@ -4,6 +4,61 @@ All notable changes to `@forthix/forthic` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is pre-1.0: while `0.x`, **breaking changes ship in minor releases**. Releases before 0.16.0 are recorded in the git history rather than here.
 
+## [0.20.0] - 2026-09-10
+
+**Breaking: the open marker a collection literal leaves on the stack is a
+Forthic value, and an unclosed `[` or `{` inside another literal is an error.**
+Both halves are the same subject — what happens when that marker meets code
+treating it as data. It used to be the tokenizer's own `Token`, so it could end
+up inside a record, and it could cross the wire as a record of parser internals.
+
+### Changed
+
+- **`]` and `}` reject a mismatched delimiter.** `{ .a [ .b 1 }` and
+  `[ .a { 1 2 ]` raise `MismatchedCollectionError` naming the delimiter that is
+  missing, instead of folding the stray marker into the collection as a value.
+  A close word recognizes only its own marker, so the other one was collected as
+  an ordinary item and the count stayed even — the key/value check from 0.19.0
+  saw nothing wrong either. This is the same silent-wrong-collection class that
+  0.19.0 addressed for a missing _value_; a dropped bracket is at least as easy
+  to make. The error points at the unclosed opener, not at the close word that
+  tripped over it.
+- **A stray `]` says what went wrong.** Previously `StackUnderflowError`, which
+  describes the symptom from inside the fold rather than the mistake. Now
+  `UnmatchedArrayCloseError`, matching what `}` has said since 0.18.0. Catch
+  sites keying on `StackUnderflowError` for this case need updating.
+- **`[` and `{` push a `CollectionMark`, not a tokenizer `Token`.** The mark is
+  a Forthic value with exactly two fields: `kind` (`"array"` or `"record"`) and
+  `location`. A `Token` carries parse bookkeeping that means nothing on the
+  stack — `is_string_redirect`, `end_input_pos`, and a twelve-way `type`. Code
+  that reads a mark off the stack sees the new shape.
+- **A collection mark can no longer be serialized.** `getForthicType` classifies
+  any object as a record, so a mark that escaped a fold — `[ DUP 1 ]` leaves one
+  — crossed the JSON-RPC and websocket wire as an ordinary record of `type`,
+  `string`, and `start_pos` fields, which the receiving runtime could not tell
+  from data the program meant to send. Serializing one now raises at the
+  boundary. Marks join `WordOptions` as interpreter state with no wire form.
+
+### Unchanged, and now deliberate
+
+`[` is a word, not syntax, and the mark is an ordinary value that words can
+move. `1 [ SWAP ]` is `[[1]]` — moving the mark changes what the literal
+captures — and `: MARK   [ ;   MARK 1 2 ]` builds `[1, 2]`. Dropping the mark
+leaves nothing for `]` to close, so `1 2 [ DROP 3 ]` raises
+`UnmatchedArrayCloseError`. These were already true; tests now pin them.
+
+### Added
+
+- **`CollectionMark`** and the **`CollectionKind`** type.
+- **`MismatchedCollectionError`** and **`UnmatchedArrayCloseError`**.
+
+### Migration
+
+Nothing well-formed changes. Code these now reject was already building a
+collection with a mark inside it, and any mark that reached the wire was
+arriving at the far side as a record of parser internals. Code that inspects a
+mark on the stack should read `kind` and `location` instead of `Token` fields.
+
 ## [0.19.0] - 2026-09-10
 
 **Breaking: every key in a record literal takes a value.** The bare-flag rule
@@ -13,15 +68,20 @@ strictly alternating key/value, and an odd number of items is an error.
 
 ### Changed
 
-- **A dangling key is an error, not a flag.** The bare-flag rule made a missing
-  value indistinguishable from an intentional one: `{ .file .file @ }` with the
-  `@` dropped became two flags rather than a variable lookup, and nothing
-  reported it. Requiring the pair turns that class of typo into an error at the
-  point the literal closes. Write `{ .verbose TRUE }` where you would have
-  written `{ .verbose }`.
+- **A dangling key is an error, not a flag.** The bare-flag rule made a value
+  the author meant to write and didn't look exactly like a flag they meant to
+  set: `{ .a 1 .b }` was a well-formed record with `b: true`, so nothing
+  reported the omission. Requiring the pair separates the two. Write
+  `{ .verbose TRUE }` where you would have written `{ .verbose }`.
+
+  This does **not** catch a dropped `@`. `@` is stack-neutral, so
+  `{ .file .file }` closes with the same item count as `{ .file .file @ }` and
+  silently stores the string `"file"`. (An earlier version of this entry claimed
+  otherwise; the release behaves as described here.)
+
 - **A dot symbol in value position is still an ordinary string.**
   `{ .flag .other }` is `{"flag": "other"}` — a well-formed pair, and the same
-  thing `[ [ .flag .other ] ] REC` has always meant. Only the item *count*
+  thing `[ [ .flag .other ] ] REC` has always meant. Only the item _count_
   changed meaning.
 
 ### Added

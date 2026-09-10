@@ -4,6 +4,7 @@
  */
 
 import { isPlainDate, isPlainTime, isInstant, isZonedDateTime } from './temporal_utils.js';
+import { CollectionMark } from '../forthic/tokenizer.js';
 
 /**
  * Forthic value types
@@ -72,6 +73,17 @@ export function getForthicType(value: any, path: string = ''): ForthicType {
   // Handle array (check before object)
   if (Array.isArray(value)) {
     return 'array';
+  }
+
+  // A collection mark is an interpreter control value, like WordOptions: it has
+  // no wire representation and must not acquire one by accident. Without this
+  // branch it falls through to 'record' below and a mark left on the stack (say
+  // by `[ DUP 1 ]`) crosses the wire as an ordinary record of parser internals,
+  // which the receiving runtime cannot tell from real data.
+  if (value instanceof CollectionMark) {
+    throw new Error(
+      `A collection mark (${value}) cannot be serialized - it is interpreter state, not data. An unclosed '${value.open}' left it on the stack${path ? ` at path: ${path}` : ''}`,
+    );
   }
 
   // Handle object/record
