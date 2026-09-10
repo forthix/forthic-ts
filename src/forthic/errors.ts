@@ -177,6 +177,27 @@ export class UnmatchedRecordCloseError extends ForthicError {
   }
 }
 
+export class RecordValueError extends ForthicError {
+  private key: unknown;
+
+  constructor(
+    forthic: string,
+    key: unknown,
+    location?: CodeLocationData,
+    cause?: Error,
+  ) {
+    const rendered = typeof key === "string" ? `.${key}` : String(key);
+    const note = `Record key ${rendered} has no value. Every key in a { } literal takes one — write { ${rendered} value }`;
+    super(forthic, note, location, cause);
+    this.name = "RecordValueError";
+    this.key = key;
+  }
+
+  getKey(): unknown {
+    return this.key;
+  }
+}
+
 export class RecordKeyError extends ForthicError {
   private key: unknown;
 

@@ -14,6 +14,7 @@ import {
   StackUnderflowError,
   ModuleStackUnderflowError,
   RecordKeyError,
+  RecordValueError,
   UnmatchedRecordCloseError,
   UnknownTokenError,
   MissingSemicolonError,
@@ -64,8 +65,8 @@ type HandleErrorFunction = (e: Error, interp: Interpreter) => Promise<void>;
  * EndRecordWord - Collects key/value pairs from the stack into a record
  *
  * Pops items back to the matching START_RECORD marker, then folds them into a
- * record. Keys are dot symbols; a dot symbol with no value after it is a bare
- * flag and takes `true`.
+ * record. Keys are dot symbols, and every key takes a value: the items are
+ * strictly alternating, so an odd count means a key was left dangling.
  *
  * This reads the raw stack rather than `stack_pop`, because `stack_pop` unwraps
  * a `DotSymbol` to its primitive string and the key/value distinction would be
@@ -90,9 +91,25 @@ class EndRecordWord extends Word {
     }
     items.reverse();
 
+    // Every key takes a value. A record literal is strictly alternating
+    // key/value, so an odd number of items means a key was left dangling.
+    //
+    // This is deliberately stricter than a bare-flag rule would be. Under one,
+    // a value that goes missing does not fail — `{ .file .file @ }` with the
+    // `@` dropped quietly becomes two flags rather than a lookup, and the
+    // record is wrong in a way nothing reports. Requiring the pair turns that
+    // into an error at the point the literal closes.
+    if (items.length % 2 !== 0) {
+      const dangling = items[items.length - 1];
+      throw new RecordValueError(
+        interp.get_top_input_string(),
+        dangling instanceof PositionedString ? dangling.valueOf() : dangling,
+        dangling instanceof PositionedString ? dangling.location : undefined,
+      );
+    }
+
     const record: { [key: string]: any } = Object.create(null);
-    let i = 0;
-    while (i < items.length) {
+    for (let i = 0; i < items.length; i += 2) {
       const key = items[i];
       if (!(key instanceof DotSymbol)) {
         throw new RecordKeyError(
@@ -101,16 +118,9 @@ class EndRecordWord extends Word {
           key instanceof PositionedString ? key.location : undefined,
         );
       }
-      // A key followed by another key — or by nothing — is a bare flag.
-      if (i + 1 < items.length && !(items[i + 1] instanceof DotSymbol)) {
-        const value = items[i + 1];
-        record[key.valueOf()] =
-          value instanceof PositionedString ? value.valueOf() : value;
-        i += 2;
-      } else {
-        record[key.valueOf()] = true;
-        i += 1;
-      }
+      const value = items[i + 1];
+      record[key.valueOf()] =
+        value instanceof PositionedString ? value.valueOf() : value;
     }
 
     interp.stack_push(record);

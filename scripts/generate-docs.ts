@@ -444,7 +444,8 @@ delimiter, use a wider raw form, such as \`r'''don't'''\`.
 - Array: \`[ '''item1''' '''item2''' ]\`
 - Record: \`{ .key '''value''' .other 2 }\` — keys are dot symbols, values are
   ordinary stack pushes, and records nest: \`{ .a { .b [ 10 20 ] } }\`
-- A key with no value after it is a flag and takes \`TRUE\`: \`{ .a 1 .verbose }\`
+- Every key takes a value — a key left dangling is an error, so write
+  \`{ .verbose TRUE }\` rather than \`{ .verbose }\`
 - \`REC\` builds a record from an array of \`[key value]\` entries. Reach for it
   when the entries are computed — \`entries '''SOME-WORD''' MAP REC\` — and use
   the literal everywhere else.
