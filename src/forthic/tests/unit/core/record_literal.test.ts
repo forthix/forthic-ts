@@ -22,19 +22,24 @@ test("builds a record from key/value pairs", async () => {
   expect(interp.stack_pop()).toEqual({ name: "Player One", score: 100 });
 });
 
-test("a trailing bare flag takes the value true", async () => {
-  const interp = await run(`{ .a 1 .flag }`);
-  expect(interp.stack_pop()).toEqual({ a: 1, flag: true });
+test("a key with no value is an error", async () => {
+  await expect(run(`{ .a 1 .flag }`)).rejects.toThrow("has no value");
 });
 
-test("consecutive bare flags each take true", async () => {
+test("a lone key is an error", async () => {
+  await expect(run(`{ .flag }`)).rejects.toThrow("has no value");
+});
+
+test("the error names the dangling key", async () => {
+  await expect(run(`{ .a 1 .flag }`)).rejects.toThrow(/\.flag/);
+});
+
+// A dot symbol is an ordinary string once it reaches a value position, so this
+// is a well-formed pair — and means exactly what `[ [ .flag .other ] ] REC`
+// always meant. Only an odd number of items is an error.
+test("a dot symbol is usable as a value", async () => {
   const interp = await run(`{ .flag .other }`);
-  expect(interp.stack_pop()).toEqual({ flag: true, other: true });
-});
-
-test("a record of nothing but bare flags", async () => {
-  const interp = await run(`{ .flag }`);
-  expect(interp.stack_pop()).toEqual({ flag: true });
+  expect(interp.stack_pop()).toEqual({ flag: "other" });
 });
 
 test("a non-dot-symbol key is an error", async () => {

@@ -4,6 +4,35 @@ All notable changes to `@forthix/forthic` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is pre-1.0: while `0.x`, **breaking changes ship in minor releases**. Releases before 0.16.0 are recorded in the git history rather than here.
 
+## [0.19.0] - 2026-09-10
+
+**Breaking: every key in a record literal takes a value.** The bare-flag rule
+from 0.18.0 is gone — `{ .a 1 .flag }` and `{ .flag }` now raise
+`RecordValueError` instead of defaulting the key to `true`. A literal is
+strictly alternating key/value, and an odd number of items is an error.
+
+### Changed
+
+- **A dangling key is an error, not a flag.** The bare-flag rule made a missing
+  value indistinguishable from an intentional one: `{ .file .file @ }` with the
+  `@` dropped became two flags rather than a variable lookup, and nothing
+  reported it. Requiring the pair turns that class of typo into an error at the
+  point the literal closes. Write `{ .verbose TRUE }` where you would have
+  written `{ .verbose }`.
+- **A dot symbol in value position is still an ordinary string.**
+  `{ .flag .other }` is `{"flag": "other"}` — a well-formed pair, and the same
+  thing `[ [ .flag .other ] ] REC` has always meant. Only the item *count*
+  changed meaning.
+
+### Added
+
+- **`RecordValueError`**, naming the key that was left without a value.
+
+### Migration
+
+Mechanical: any `{ … }` literal with an odd number of items needs the missing
+value written out. `REC` is unaffected — it never had a flag rule.
+
 ## [0.18.0] - 2026-09-09
 
 **Breaking: `{` and `}` are record literals. Brace module syntax is gone.**

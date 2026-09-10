@@ -90,8 +90,8 @@ export class PositionedString {
  * value to every word that consumes one. The subclass exists solely so that the
  * one word that must tell a key from a value — `}` closing a record literal —
  * can read the raw stack and ask. Without a distinct type, `{ .a .b }` could not
- * be distinguished from `{ .a "b" }`, and the bare-flag rule would be
- * unimplementable.
+ * be distinguished from `{ .a "b" }`, and a key in key position could not be
+ * told from a string in value position.
  */
 export class DotSymbol extends PositionedString {}
 
