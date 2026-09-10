@@ -177,6 +177,39 @@ export class UnmatchedRecordCloseError extends ForthicError {
   }
 }
 
+export class UnmatchedArrayCloseError extends ForthicError {
+  constructor(forthic: string, location?: CodeLocationData, cause?: Error) {
+    const note = "Unmatched ']' — no open array literal to close";
+    super(forthic, note, location, cause);
+    this.name = "UnmatchedArrayCloseError";
+  }
+}
+
+/**
+ * A `}` that reached a `[`, or a `]` that reached a `{` — the inner literal was
+ * never closed.
+ *
+ * Worth its own error because the alternative is silence. A close word
+ * recognizes only its own opening marker, so the other one is not a delimiter
+ * to it: without this check it is collected as an ordinary item and ends up
+ * *inside* the collection being built, as a raw tokenizer Token.
+ */
+export class MismatchedCollectionError extends ForthicError {
+  constructor(
+    forthic: string,
+    outer: "[" | "{",
+    inner: "[" | "{",
+    location?: CodeLocationData,
+    cause?: Error,
+  ) {
+    const outerClose = outer === "[" ? "]" : "}";
+    const innerClose = inner === "[" ? "]" : "}";
+    const note = `Mismatched '${outerClose}' — an unclosed '${inner}' is open inside this '${outer}'. Add the '${innerClose}' it needs`;
+    super(forthic, note, location, cause);
+    this.name = "MismatchedCollectionError";
+  }
+}
+
 export class RecordValueError extends ForthicError {
   private key: unknown;
 

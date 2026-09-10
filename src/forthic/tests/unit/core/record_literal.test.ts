@@ -118,3 +118,34 @@ test("REC still builds records from a computed array", async () => {
   const interp = await run(`[ [ .a 1 ] [ .b 2 ] ] "DUP" MAP REC`);
   expect(interp.stack_pop()).toEqual({ a: 1, b: 2 });
 });
+
+/**
+ * A close word recognizes only its own opening marker, so the other one used to
+ * be collected as an ordinary item: `{ .a [ .b 1 }` produced a record whose `a`
+ * was a raw tokenizer Token, at an even item count so the key/value check saw
+ * nothing wrong either. The failure mode was a wrong value rather than an
+ * exception, which is why both directions are pinned.
+ */
+test("a `}` reaching an unclosed `[` is an error, not a Token in the record", async () => {
+  await expect(run(`{ .a [ .b 1 }`)).rejects.toThrow("Mismatched '}'");
+});
+
+test("a `]` reaching an unclosed `{` is an error, not a Token in the array", async () => {
+  await expect(run(`[ .a { 1 2 ]`)).rejects.toThrow("Mismatched ']'");
+});
+
+test("the mismatch error names the delimiter that is missing", async () => {
+  await expect(run(`{ .a [ .b 1 }`)).rejects.toThrow(`Add the ']' it needs`);
+  await expect(run(`[ .a { 1 2 ]`)).rejects.toThrow(`Add the '}' it needs`);
+});
+
+test("a closing bracket with no open array is a clear error", async () => {
+  // Previously a bare StackUnderflowError, which describes the symptom from
+  // inside the fold rather than what the author got wrong.
+  await expect(run(`1 2 ]`)).rejects.toThrow(`Unmatched ']'`);
+});
+
+test("well-formed nesting of both kinds still builds", async () => {
+  const interp = await run(`{ .a [ 1 { .b 2 } ] }`);
+  expect(interp.stack_pop()).toEqual({ a: [1, { b: 2 }] });
+});

@@ -16,6 +16,8 @@ import {
   RecordKeyError,
   RecordValueError,
   UnmatchedRecordCloseError,
+  UnmatchedArrayCloseError,
+  MismatchedCollectionError,
   UnknownTokenError,
   MissingSemicolonError,
   ExtraSemicolonError,
@@ -87,6 +89,18 @@ class EndRecordWord extends Word {
       }
       const item = interp.stack_pop_raw();
       if (item instanceof Token && item.type == TokenType.START_RECORD) break;
+      // A `[` marker down here means the array it opened was never closed. It
+      // is not a delimiter to this word, so without this check it is collected
+      // as an ordinary item and `{ .a [ .b 1 }` yields a record whose `a` is a
+      // raw Token — even in count, so no other check sees it either.
+      if (item instanceof Token && item.type == TokenType.START_ARRAY) {
+        throw new MismatchedCollectionError(
+          interp.get_top_input_string(),
+          "{",
+          "[",
+          item.location,
+        );
+      }
       items.push(item);
     }
     items.reverse();
@@ -95,10 +109,14 @@ class EndRecordWord extends Word {
     // key/value, so an odd number of items means a key was left dangling.
     //
     // This is deliberately stricter than a bare-flag rule would be. Under one,
-    // a value that goes missing does not fail — `{ .file .file @ }` with the
-    // `@` dropped quietly becomes two flags rather than a lookup, and the
-    // record is wrong in a way nothing reports. Requiring the pair turns that
-    // into an error at the point the literal closes.
+    // `{ .a 1 .b }` is a well-formed record with `b: true`, so a value the
+    // author meant to write and didn't looks exactly like a flag they meant to
+    // set. Requiring the pair separates the two.
+    //
+    // What it does NOT catch is a dropped `@`. `@` is stack-neutral, so
+    // `{ .file .file }` closes with the same item count as `{ .file .file @ }`
+    // and silently stores the string "file". The check for that is rejecting a
+    // DotSymbol in value position, which is a separate rule this is not.
     if (items.length % 2 !== 0) {
       const dangling = items[items.length - 1];
       throw new RecordValueError(
@@ -133,6 +151,10 @@ class EndRecordWord extends Word {
  *
  * Pops items from the stack until a START_ARRAY token is found,
  * then pushes them as a single array in the correct order.
+ *
+ * Unlike the record fold this uses `stack_pop`, so a `DotSymbol` arrives as its
+ * primitive string: `[ .a ]` is `["a"]`, and an array draws no key/value
+ * distinction that would need the wrapper.
  */
 class EndArrayWord extends Word {
   constructor() {
@@ -141,12 +163,26 @@ class EndArrayWord extends Word {
 
   async execute(interp: Interpreter): Promise<void> {
     const items = [];
-    let item = interp.stack_pop();
-    // NOTE: This won't infinite loop because interp.stack_pop() will eventually fail
     while (true) {
+      if (interp.get_stack().length === 0) {
+        // Running the stack dry means there was never a matching `[`. Say that,
+        // rather than reporting the underflow it looks like from in here.
+        throw new UnmatchedArrayCloseError(interp.get_top_input_string());
+      }
+      const item = interp.stack_pop();
       if (item instanceof Token && item.type == TokenType.START_ARRAY) break;
+      // A `{` marker down here means the record it opened was never closed —
+      // the mirror of the case in EndRecordWord, and just as silent without the
+      // check: `[ .a { 1 2 ]` would yield an array holding a raw Token.
+      if (item instanceof Token && item.type == TokenType.START_RECORD) {
+        throw new MismatchedCollectionError(
+          interp.get_top_input_string(),
+          "[",
+          "{",
+          item.location,
+        );
+      }
       items.push(item);
-      item = interp.stack_pop();
     }
     items.reverse();
     interp.stack_push(items);

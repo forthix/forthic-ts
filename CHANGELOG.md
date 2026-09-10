@@ -4,6 +4,36 @@ All notable changes to `@forthix/forthic` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is pre-1.0: while `0.x`, **breaking changes ship in minor releases**. Releases before 0.16.0 are recorded in the git history rather than here.
 
+## [0.20.0] - 2026-09-10
+
+**Breaking: an unclosed `[` or `{` inside a literal is an error.** A close word
+recognizes only its own opening marker, so the other one was collected as an
+ordinary item: `{ .a [ .b 1 }` built `{"a": <Token>, "b": 1}` — a record holding
+a raw tokenizer object — and reported nothing. The item count stayed even, so
+the key/value check from 0.19.0 saw nothing wrong either. Both close words now
+reject the mismatch.
+
+### Changed
+
+- **`]` and `}` reject a mismatched delimiter.** `{ .a [ .b 1 }` and
+  `[ .a { 1 2 ]` raise `MismatchedCollectionError` naming the delimiter that is
+  missing, instead of folding the stray marker into the collection as a value.
+  This is the silent-wrong-collection class that 0.19.0 addressed for a missing
+  _value_; a dropped bracket is at least as easy to make.
+- **A stray `]` says what went wrong.** Previously `StackUnderflowError`, which
+  describes the symptom from inside the fold rather than the mistake. Now
+  `UnmatchedArrayCloseError`, matching what `}` has said since 0.18.0. Catch
+  sites keying on `StackUnderflowError` for this case need updating.
+
+### Added
+
+- **`MismatchedCollectionError`** and **`UnmatchedArrayCloseError`**.
+
+### Migration
+
+Nothing well-formed changes. Any code these now reject was already producing a
+collection with a tokenizer `Token` inside it.
+
 ## [0.19.0] - 2026-09-10
 
 **Breaking: every key in a record literal takes a value.** The bare-flag rule
@@ -13,15 +43,20 @@ strictly alternating key/value, and an odd number of items is an error.
 
 ### Changed
 
-- **A dangling key is an error, not a flag.** The bare-flag rule made a missing
-  value indistinguishable from an intentional one: `{ .file .file @ }` with the
-  `@` dropped became two flags rather than a variable lookup, and nothing
-  reported it. Requiring the pair turns that class of typo into an error at the
-  point the literal closes. Write `{ .verbose TRUE }` where you would have
-  written `{ .verbose }`.
+- **A dangling key is an error, not a flag.** The bare-flag rule made a value
+  the author meant to write and didn't look exactly like a flag they meant to
+  set: `{ .a 1 .b }` was a well-formed record with `b: true`, so nothing
+  reported the omission. Requiring the pair separates the two. Write
+  `{ .verbose TRUE }` where you would have written `{ .verbose }`.
+
+  This does **not** catch a dropped `@`. `@` is stack-neutral, so
+  `{ .file .file }` closes with the same item count as `{ .file .file @ }` and
+  silently stores the string `"file"`. (An earlier version of this entry claimed
+  otherwise; the release behaves as described here.)
+
 - **A dot symbol in value position is still an ordinary string.**
   `{ .flag .other }` is `{"flag": "other"}` — a well-formed pair, and the same
-  thing `[ [ .flag .other ] ] REC` has always meant. Only the item *count*
+  thing `[ [ .flag .other ] ] REC` has always meant. Only the item _count_
   changed meaning.
 
 ### Added
