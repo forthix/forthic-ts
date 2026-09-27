@@ -295,3 +295,18 @@ describe('WebSocket Serializer', () => {
     });
   });
 });
+
+// See the same block in common/serializer.test.ts.
+describe('Integers on the wire', () => {
+  test('the largest safe integer is an int', () => {
+    expect(serializeValue(Number.MAX_SAFE_INTEGER)).toEqual({ type: 'int', value: Number.MAX_SAFE_INTEGER });
+  });
+
+  test.each([
+    ['2^53', 2 ** 53],
+    ['1e21', 1e21],
+  ])('%s is a float', (_label, n) => {
+    expect(serializeValue(n)).toEqual({ type: 'float', value: n });
+    expect(deserializeValue(serializeValue(n))).toBe(n);
+  });
+});

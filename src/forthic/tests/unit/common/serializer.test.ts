@@ -130,3 +130,27 @@ describe('Wire Serializer', () => {
     });
   });
 });
+
+// A whole number goes on the wire as an int only when it is a safe integer.
+// Other runtimes read int_value into a 64-bit integer, and a JS number past
+// 2^53 is not exact anyway, so it goes as a float instead of overflowing there.
+describe('Integers on the wire', () => {
+  test.each([
+    ['0', 0],
+    ['a small negative', -42],
+    ['the largest safe integer', Number.MAX_SAFE_INTEGER],
+    ['the smallest safe integer', Number.MIN_SAFE_INTEGER],
+  ])('%s is an int', (_label, n) => {
+    expect(serializeValue(n)).toEqual({ int_value: n });
+  });
+
+  test.each([
+    ['2^53', 2 ** 53],
+    ['-(2^53)', -(2 ** 53)],
+    ['1e21', 1e21],
+    ['past int64', 2 ** 64],
+  ])('%s is a float', (_label, n) => {
+    expect(serializeValue(n)).toEqual({ float_value: n });
+    expect(deserializeValue(serializeValue(n))).toBe(n);
+  });
+});

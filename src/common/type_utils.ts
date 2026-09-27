@@ -62,9 +62,12 @@ export function getForthicType(value: any, path: string = ''): ForthicType {
     return 'boolean';
   }
 
-  // Handle number (distinguish integer vs float)
+  // Handle number (distinguish integer vs float). A whole number is an integer
+  // on the wire only while it is a safe integer: other runtimes read int values
+  // into 64-bit integers, and past 2^53 a JS number is not exact anyway, so a
+  // larger one (1e21) goes as a float rather than overflowing the receiver.
   if (typeof value === 'number') {
-    return Number.isInteger(value) ? 'integer' : 'float';
+    return Number.isSafeInteger(value) ? 'integer' : 'float';
   }
 
   // Handle string
