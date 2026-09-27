@@ -77,6 +77,21 @@ describe("the cases a plain code string gets wrong", () => {
 });
 
 describe("the frame is shared, not copied", () => {
+  // The creating word's frame leaves the frame stack when the word returns, but
+  // the closure still holds the frame object. It sees every variable the word
+  // put there — including ones assigned after CLOSURE — at their latest values.
+  test("a stored closure run later sees the frame as the word left it", async () => {
+    const code = `
+      : T   10 .x !  '.x @ .y @ +' CLOSURE .f !  5 .y !  20 .x !  .f @ ;
+      : OTHER   1 .x !  2 .y ! ;
+      T .saved !
+      OTHER
+      .saved @ RUN  .saved @ RUN`;
+    const interp = await run(code);
+    expect(interp.stack_pop()).toBe(25);
+    expect(interp.stack_pop()).toBe(25);
+  });
+
   test("writes reach the creating word", async () => {
     const code = `
       : MY-FOREACH   .f !  .items !  .items @ .f @ FOREACH ;
