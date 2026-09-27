@@ -110,9 +110,12 @@ read the word's variables as-is. When code that reads them LEAVES the word —
 passed to a word you defined, stored in a variable, or returned — wrap it in
 `CLOSURE` so it keeps them: `10 .x !  '''.x @ +''' CLOSURE MY-WORD`.
 
-When you build Forthic code as a string, put each value in with `>LITERAL` —
-never `CONCAT` or `INTERPOLATE` a value into code, because a quote in the value
-changes the code: `[ .name @ >LITERAL ''' .who !''' ] CONCAT RUN`.
+When you generate Forthic code, write it as a template with `$name` holes and
+use `INTERPOLATE-CODE`: `.f !  ''': GET-$f [.$f] REC@ ;''' INTERPOLATE-CODE RUN`.
+A hole that is a whole token becomes the value as a literal; a hole inside a
+name splices into the name. Holes are `$name`, not `${name}`. Never `CONCAT`
+or `INTERPOLATE` a value into code — a quote in the value changes the code.
+To add a single value to code built another way, use `>LITERAL`.
 
 ## Generation Pattern
 
@@ -148,7 +151,7 @@ ALWAYS generate code in this structure:
 
 ## Words
 
-8 modules · 174 surface words.
+8 modules · 175 surface words.
 
 ### array
 - `APPEND` `( array:any[] item:any -- array:any[] )` — Append item to array. For records, use JQ! to set a key.
@@ -229,6 +232,7 @@ ALWAYS generate code in this structure:
 - `IF` `( bool:boolean then_value:any else_value:any -- chosen:any )` — Pure value selection: push then_value if bool is truthy, else push else_value. For lazy code execution use IF-RUN; for one-sided side effects use WHEN.
 - `IF-RUN` `( bool:boolean then_forthic:string else_forthic:string -- ? )` — Conditional code execution: if bool is truthy run then_forthic, otherwise run else_forthic. Branches are Forthic strings.
 - `INTERPOLATE` `( string:string [options:WordOptions] -- result:string )` — Fill ${name} holes from variables (${.name} also works; read-only — a miss renders as null_text and creates nothing). Holes are variable names, never expressions. Escape a literal with \\${. Null template stays null.
+- `INTERPOLATE-CODE` `( template:string [options:WordOptions] -- code:string )` — Forthic's quasiquote: fill $name holes in Forthic code from variables. A token that is only a hole ($v) becomes the value as a literal, so a value can never add code. A hole inside a name (: GET-$f, .$f, GET-$f) splices the value into the name. Holes inside string literals are not filled. An unknown variable is an error. Options: words (array of names whose whole-token holes insert the value as one word, e.g. { .words [.op] }). Holes are $name, not ${name}: braces end a token. Example: .f ! ': GET-$f [.$f] REC@ ;' INTERPOLATE-CODE RUN
 - `MODULE` `( module_name:string -- )` — Find or create submodule in current module and make it the current module
 - `NOP` `( -- )` — Does nothing (no operation)
 - `NULL` `( -- null:null )` — Pushes null onto stack

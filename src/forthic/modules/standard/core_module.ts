@@ -4,7 +4,7 @@ import { ForthicError, InvalidVariableNameError, IntentionalStopError, UnknownVa
 import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
 import { WordOptions } from "../../word_options.js";
 import { Closure, new_local_frame } from "../../closure.js";
-import { to_literal, code_to_quotation, quotation_to_code, gensym } from "../../code.js";
+import { to_literal, code_to_quotation, quotation_to_code, gensym, interpolate_code } from "../../code.js";
 
 export class CoreModule extends DecoratedModule {
   static {
@@ -19,7 +19,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - Module: USE-MODULES, MODULE, END-MODULE, APP-MODULE
 - Execution: RUN
 - Closures: CLOSURE, CLOSURE?, CLOSURE-CODE
-- Code: >LITERAL, CODE>, >CODE, GENSYM
+- Code: >LITERAL, CODE>, >CODE, GENSYM, INTERPOLATE-CODE
 - Control: NOP, DEFAULT, DEFAULT-RUN, NULL, UNDEFINED, IF, IF-RUN, WHEN
 - Predicates: ARRAY?, NULL?, EMPTY?, STRING?, NUMBER?, RECORD?
 - Errors: TRY, OK?, ERROR?, UNWRAP, UNWRAP-OR (Rust Result semantics: 'CODE' TRY UNWRAP is CODE)
@@ -249,6 +249,23 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: { .optio
   )
   async GENSYM(prefix: string) {
     return gensym(prefix ?? "");
+  }
+
+  @ForthicWord(
+    "( template:string [options:WordOptions] -- code:string )",
+    "Forthic's quasiquote: fill $name holes in Forthic code from variables. A token that is only a hole ($v) becomes the value as a literal, so a value can never add code. A hole inside a name (: GET-$f, .$f, GET-$f) splices the value into the name. Holes inside string literals are not filled. An unknown variable is an error. Options: words (array of names whose whole-token holes insert the value as one word, e.g. { .words [.op] }). Holes are $name, not ${name}: braces end a token. Example: .f ! ': GET-$f [.$f] REC@ ;' INTERPOLATE-CODE RUN",
+    "INTERPOLATE-CODE",
+  )
+  async ["INTERPOLATE-CODE"](template: string, options: Record<string, any>) {
+    const words = options.words ?? [];
+    if (!Array.isArray(words)) {
+      throw new Error("INTERPOLATE-CODE's words option must be an array of variable names");
+    }
+    const lookup = (name: string) => {
+      const variable = this.interp.find_variable(name);
+      return variable ? { found: true, value: variable.get_value() } : { found: false, value: undefined };
+    };
+    return interpolate_code(template ?? "", lookup, new Set(words));
   }
 
   @ForthicWord(

@@ -6,7 +6,8 @@ import { StandardInterpreter } from "../../interpreter";
  * Each test names the book's construct it stands in for. Forthic has no macros,
  * so where the book expands code at compile time these build it at run time:
  * closures (CLOSURE) supply the lexical scope, and code as data (>LITERAL, CODE>,
- * >CODE, GENSYM) supplies the code generation.
+ * >CODE, GENSYM) supplies the code generation. INTERPOLATE-CODE plays the part
+ * of backquote.
  *
  * Not covered, because Forthic cannot do them: compile-time expansion inside a
  * definition, the chapter 7 speed techniques, and tail-call loops (nlet-tail).
@@ -96,10 +97,10 @@ describe("Chapter 2: closures", () => {
 
 describe("Chapter 3: macro basics", () => {
   test("defmacro that defines functions (defgetter): generate words from data", async () => {
+    // The template is the book's `(defun ,(symb 'get- name) () ...)`.
     const code = `
       # ( field:string -- code:string )
-      : GETTER-CODE   .f !
-          [ { .def [ 'GET-' .f @ ] CONCAT }  '['  { .dot .f @ }  ']'  'REC@'  ';' ] >CODE ;
+      : GETTER-CODE      .f !  ': GET-$f  [.$f] REC@ ;' INTERPOLATE-CODE ;
       : DEFINE-GETTERS   'GETTER-CODE' MAP  ' ' JOIN  RUN ;
 
       [ 'name' 'age' ] DEFINE-GETTERS
@@ -131,9 +132,7 @@ describe("Chapter 3: macro basics", () => {
     // temporary. The naive version names the temporary .tmp.
     const swap_code = (temp: string) => `
       : SWAP-CODE   .b ! .a !  ${temp} .t !
-          [ { .dot .a @ } '@' { .dot .t @ } '!'
-            { .dot .b @ } '@' { .dot .a @ } '!'
-            { .dot .t @ } '@' { .dot .b @ } '!' ] >CODE ;
+          '.$a @ .$t !   .$b @ .$a !   .$t @ .$b !' INTERPOLATE-CODE ;
       : TEST        1 .tmp !  2 .y !  'tmp' 'y' SWAP-CODE RUN  [ .tmp @ .y @ ] ;
       TEST`;
 
@@ -149,6 +148,16 @@ describe("Chapter 3: macro basics", () => {
 
 describe("Chapter 4: read macros", () => {
   test("sharp-backquote: map a template over data to build code", async () => {
+    // The book's (mapcar #`(,a1 ',a1) '(x y z)): each name as a word, then as data.
+    const code = `
+      [ 'x' 'y' 'z' ]
+      '''.w !  .w @ .s !  "$w $s" { .words [.w] } ~> INTERPOLATE-CODE''' MAP
+      ' ' JOIN`;
+    expect(await top(code)).toBe("x 'x' y 'y' z 'z'");
+  });
+
+  test("the same template built as a quotation", async () => {
+    // INTERPOLATE-CODE is shorthand for this: CODE>-style tokens assembled by hand.
     const code = `[ 'x' 'y' 'z' ]  '.w !  [ .w @ { .str .w @ } ] >CODE' MAP  ' ' JOIN`;
     expect(await top(code)).toBe("x 'x' y 'y' z 'z'");
   });

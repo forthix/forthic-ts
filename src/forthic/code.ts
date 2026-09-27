@@ -39,6 +39,10 @@ import {
  * quotation a template: a number, record, or array can be spliced in as-is,
  * and a string value goes in as `{ .str value }`, because a bare string is a
  * word.
+ *
+ * `INTERPOLATE-CODE` is the readable front end — Forthic's quasiquote. The
+ * template is written as Forthic with `$name` holes, and each filled token is
+ * checked by the same tokenizer tests.
  */
 
 // ---------------------------------------------------------------------------
@@ -305,6 +309,153 @@ export function quotation_to_code(quotation: any[]): string {
     throw new Error(">CODE requires a quotation (an array)");
   }
   return quotation.map(item_to_code).join(" ");
+}
+
+// ---------------------------------------------------------------------------
+// INTERPOLATE-CODE
+
+export type VariableLookup = (name: string) => { found: boolean; value: any };
+
+// A hole starts at the first `$` in a token and runs to the end of the token:
+// `$limit`, `GET-$f`, `.$f`. Braces cannot delimit it, because `{` and `}` end
+// a token.
+function split_hole(text: string): { prefix: string; name: string } | null {
+  const i = text.indexOf("$");
+  if (i < 0 || i === text.length - 1) return null;
+  return { prefix: text.slice(0, i), name: text.slice(i + 1) };
+}
+
+const BRACE_HINT =
+  "Use $name, not ${name}, in a code template: braces end a token, so they cannot delimit a hole";
+
+/**
+ * Fill `$name` holes in a Forthic template from variables, working on tokens.
+ *
+ * - A whole-token hole (`$v`) is replaced by the variable's value as a
+ *   literal: "push this value here". A string stays one string, so a value
+ *   can never add code.
+ * - A hole named in `word_holes` inserts its value as a word instead. The
+ *   value must be a string that reads as exactly one word.
+ * - A hole inside a name (`GET-$f`, `.$f`, `: $f`) splices the value into the
+ *   name, and the result must still read as that kind of name.
+ * - String literals are data: holes inside them are not filled.
+ *
+ * An unknown variable is an error, not an empty string: a missing value would
+ * make wrong code.
+ */
+export function interpolate_code(
+  template: string,
+  lookup: VariableLookup,
+  word_holes: Set<string>,
+): string {
+  let tokens: Token[];
+  try {
+    tokens = tokenize(template);
+  } catch (e) {
+    // `: GET-${f}` fails in the tokenizer itself: definition names reject `{`.
+    if (template.includes("${")) {
+      throw new Error(
+        `${BRACE_HINT}. (${(e as Error).message.split("\n")[0]})`,
+      );
+    }
+    throw e;
+  }
+
+  function value_of(name: string): any {
+    const { found, value } = lookup(name);
+    if (!found) throw new Error(`Unknown variable in code template: $${name}`);
+    return value;
+  }
+
+  function name_piece(name: string): string {
+    const value = value_of(name);
+    if (typeof value === "string") return value;
+    if (typeof value === "number" && Number.isInteger(value))
+      return String(value);
+    throw new Error(
+      `Template hole $${name} is inside a name, so its value must be a string or an integer`,
+    );
+  }
+
+  function fill_word(text: string): string {
+    const hole = split_hole(text);
+    if (!hole) return text;
+
+    if (hole.prefix === "") {
+      const value = value_of(hole.name);
+      if (!word_holes.has(hole.name)) return to_literal(value);
+      if (typeof value !== "string" || !is_word(value)) {
+        throw new Error(
+          `Template hole $${hole.name} is a word hole, so its value must be a single word; got ${JSON.stringify(value)}`,
+        );
+      }
+      return value;
+    }
+
+    const word = hole.prefix + name_piece(hole.name);
+    if (!is_word(word)) {
+      throw new Error(
+        `Template hole $${hole.name} makes ${JSON.stringify(word)}, which is not a single word`,
+      );
+    }
+    return word;
+  }
+
+  function fill_name(text: string, kind: "dot" | ":" | "@:"): string {
+    const hole = split_hole(text);
+    const name = hole ? hole.prefix + name_piece(hole.name) : text;
+    const valid =
+      kind === "dot" ? is_dot_name(name) : is_definition_name(name, kind);
+    if (!valid) {
+      const what = kind === "dot" ? "dot symbol" : "definition name";
+      throw new Error(
+        `Template makes ${JSON.stringify(name)}, which is not a valid ${what}`,
+      );
+    }
+    return name;
+  }
+
+  const out: string[] = [];
+  tokens.forEach((token, i) => {
+    // `${f}` in a word or dot symbol reads as a token ending in `$`, then a `{`
+    // with no space between them.
+    const next = tokens[i + 1];
+    if (
+      token.string.endsWith("$") &&
+      next?.type === TokenType.START_RECORD &&
+      next.location.start_pos === token.location.end_pos
+    ) {
+      throw new Error(BRACE_HINT);
+    }
+
+    switch (token.type) {
+      case TokenType.COMMENT:
+        return;
+      case TokenType.STRING:
+        if (token.is_string_redirect) {
+          throw new Error(
+            "INTERPOLATE-CODE does not support redirect strings (<<'''…''')",
+          );
+        }
+        out.push(string_literal(token.string));
+        return;
+      case TokenType.WORD:
+        out.push(fill_word(token.string));
+        return;
+      case TokenType.DOT_SYMBOL:
+        out.push(`.${fill_name(token.string, "dot")}`);
+        return;
+      case TokenType.START_DEF:
+        out.push(`: ${fill_name(token.string, ":")}`);
+        return;
+      case TokenType.START_MEMO:
+        out.push(`@: ${fill_name(token.string, "@:")}`);
+        return;
+      default:
+        out.push(token.string);
+    }
+  });
+  return out.join(" ");
 }
 
 // ---------------------------------------------------------------------------

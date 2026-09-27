@@ -1,8 +1,8 @@
 # Forthic — Standard Words
 
-Generated: 2026-09-27T17:40:20.579Z
+Generated: 2026-09-27T18:27:31.484Z
 
-**8 modules · 174 surface words**
+**8 modules · 175 surface words**
 
 Classic/back-compat words live in `classic/classic_module.ts` and are
 intentionally omitted from this index.
@@ -156,6 +156,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - **CODE>** _(declared in category but not found in module)_
 - **>CODE** `( quotation:any[] -- code:string )` — Write a quotation as Forthic code. Takes the items CODE> makes; any other item is a value, written with >LITERAL, so a quotation works as a template. A string item must be one word — write a string value as { .str value }. code CODE> >CODE CODE> equals code CODE>.
 - **GENSYM** `( prefix:string -- name:string )` — A new variable name, prefix~N, that no other name can collide with. Use it for the temporary variables of generated code, so they cannot capture the caller's variables.
+- **INTERPOLATE-CODE** `( template:string [options:WordOptions] -- code:string )` — Forthic's quasiquote: fill $name holes in Forthic code from variables. A token that is only a hole ($v) becomes the value as a literal, so a value can never add code. A hole inside a name (: GET-$f, .$f, GET-$f) splices the value into the name. Holes inside string literals are not filled. An unknown variable is an error. Options: words (array of names whose whole-token holes insert the value as one word, e.g. { .words [.op] }). Holes are $name, not ${name}: braces end a token. Example: .f ! ': GET-$f [.$f] REC@ ;' INTERPOLATE-CODE RUN
 
 ### Control
 

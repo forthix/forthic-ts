@@ -4,7 +4,7 @@
 
 Essential interpreter operations for stack manipulation, variables, control flow, and module system.
 
-**40 words**
+**41 words**
 
 ## Categories
 
@@ -13,7 +13,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - **Module**: USE-MODULES, MODULE, END-MODULE, APP-MODULE
 - **Execution**: RUN
 - **Closures**: CLOSURE, CLOSURE?, CLOSURE-CODE
-- **Code**: >LITERAL, CODE>, >CODE, GENSYM
+- **Code**: >LITERAL, CODE>, >CODE, GENSYM, INTERPOLATE-CODE
 - **Control**: NOP, DEFAULT, DEFAULT-RUN, NULL, UNDEFINED, IF, IF-RUN, WHEN
 - **Predicates**: ARRAY?, NULL?, EMPTY?, STRING?, NUMBER?, RECORD?
 - **Errors**: TRY, OK?, ERROR?, UNWRAP, UNWRAP-OR (Rust Result semantics: 'CODE' TRY UNWRAP is CODE)
@@ -215,6 +215,14 @@ Conditional code execution: if bool is truthy run then_forthic, otherwise run el
 **Stack Effect:** `( string:string [options:WordOptions] -- result:string )`
 
 Fill ${name} holes from variables (${.name} also works; read-only — a miss renders as null_text and creates nothing). Holes are variable names, never expressions. Escape a literal with \\${. Null template stays null.
+
+---
+
+### INTERPOLATE-CODE
+
+**Stack Effect:** `( template:string [options:WordOptions] -- code:string )`
+
+Forthic's quasiquote: fill $name holes in Forthic code from variables. A token that is only a hole ($v) becomes the value as a literal, so a value can never add code. A hole inside a name (: GET-$f, .$f, GET-$f) splices the value into the name. Holes inside string literals are not filled. An unknown variable is an error. Options: words (array of names whose whole-token holes insert the value as one word, e.g. { .words [.op] }). Holes are $name, not ${name}: braces end a token. Example: .f ! ': GET-$f [.$f] REC@ ;' INTERPOLATE-CODE RUN
 
 ---
 

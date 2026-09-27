@@ -84,7 +84,7 @@ cannot be sent to them until they do. When they add it, the receiver must build
 a frame from `env` — it must not fall back to running `code` as a plain string,
 which would run without its values and could answer wrongly.
 
-**Code as data: write values as code, and read code as data.** Four words let a
+**Code as data: write values as code, and read code as data.** Five words let a
 program build Forthic safely instead of joining text.
 
 ### Added
@@ -108,6 +108,24 @@ program build Forthic safely instead of joining text.
 - **`GENSYM`** `( prefix:string -- name:string )` makes a variable name,
   `prefix~N`, for the temporaries of generated code, so they cannot capture the
   caller's variables.
+- **`INTERPOLATE-CODE`** `( template:string [options] -- code:string )` is
+  Forthic's quasiquote: write the code as Forthic with `$name` holes, filled
+  from variables like `INTERPOLATE`.
+  `.f !  ': GET-$f [.$f] REC@ ;' INTERPOLATE-CODE` makes `: GET-name [ .name ] REC@ ;`.
+  It works on tokens, not text:
+  - A hole that is a whole token (`$v`) becomes the value as a literal, so a
+    value can never add code.
+  - A hole inside a name (`GET-$f`, `.$f`, `: $f`) splices the value into the
+    name, and the result must still read as that kind of name.
+  - Holes inside string literals are not filled; strings are data.
+  - An unknown variable is an error, not an empty string.
+  - The `words` option names holes that insert a word instead:
+    `'1 2 $op' { .words [.op] } ~> INTERPOLATE-CODE`. The value must read as
+    exactly one word. Only use it with values the program controls — a single
+    word can still be any word.
+
+  Holes are `$name`, not `${name}`: braces end a token, so they cannot delimit
+  a hole in a name. A `${` gets an error that says so.
 - **`let_over_lambda.test.ts`** runs the techniques of *Let Over Lambda* that
   closures and these words support: counters and shared state, `dlambda`
   objects, `alet-fsm`, `alambda`, `aif`, generated definitions, unwanted
@@ -117,7 +135,7 @@ program build Forthic safely instead of joining text.
 ### Cross-runtime
 
 A quotation is plain JSON and crosses the wire as an ordinary array. The other
-runtimes need the four words to run programs that use them. `>LITERAL` writes
+runtimes need the five words to run programs that use them. `>LITERAL` writes
 only syntax that `forthic-odin` already reads — a float always has a decimal
 point, so `1e21` is written `1.0e+21`.
 

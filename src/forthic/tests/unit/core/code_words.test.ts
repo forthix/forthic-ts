@@ -248,3 +248,164 @@ describe("GENSYM", () => {
     );
   });
 });
+
+describe("INTERPOLATE-CODE", () => {
+  test.each([
+    [
+      "a whole-token hole becomes a literal value",
+      `10 .n !  '$n TAKE'`,
+      "10 TAKE",
+    ],
+    [
+      "a string value stays one string",
+      `"he's" .s !  '$s PRINT'`,
+      "'he\\'s' PRINT",
+    ],
+    [
+      "a record value stays a record",
+      `{ .a [ 1 2 ] } .r !  '$r'`,
+      "{ .a [ 1 2 ] }",
+    ],
+    [
+      "a record shaped like a token stays a record",
+      `{ .str 'x' } .r !  '$r'`,
+      "{ .str 'x' }",
+    ],
+    [
+      "a hole inside a word splices a name",
+      `'name' .f !  'GET-$f'`,
+      "GET-name",
+    ],
+    [
+      "a hole in a dot symbol splices a name",
+      `'name' .f !  '[.$f] REC@'`,
+      "[ .name ] REC@",
+    ],
+    [
+      "a hole in a definition name splices a name",
+      `'name' .f !  ': GET-$f ;'`,
+      ": GET-name ;",
+    ],
+    [
+      "a hole in a memo name splices a name",
+      `'N' .f !  '@: MEMO-$f 1 ;'`,
+      "@: MEMO-N 1 ;",
+    ],
+    ["an integer can form part of a name", `3 .i !  'STEP-$i'`, "STEP-3"],
+    [
+      "holes inside string literals are data",
+      `'x' .f !  "'Hello $f' $f"`,
+      "'Hello $f' 'x'",
+    ],
+    ["a token with no name after $ is not a hole", `'US$ 5'`, "US$ 5"],
+    ["comments are dropped", `1 .n !  '$n # note'`, "1"],
+  ])("%s", async (_label, setup_and_template, expected) => {
+    expect(await top(`${setup_and_template} INTERPOLATE-CODE`)).toBe(expected);
+  });
+
+  test("the generated code runs", async () => {
+    const code = `
+      : GETTER-CODE   .f !  ': GET-$f [.$f] REC@ ;' INTERPOLATE-CODE ;
+      'name' GETTER-CODE RUN
+      { .name 'Ann' } GET-name`;
+    expect(await top(code)).toBe("Ann");
+  });
+
+  test("holes read local variables", async () => {
+    expect(await top(`: T  7 .n !  '$n 1 +' INTERPOLATE-CODE RUN ;  T`)).toBe(
+      8,
+    );
+  });
+
+  test("a hostile value cannot add code", async () => {
+    const interp = await run(
+      `"x' TRUE .pwned ! 'y" .v !  '$v .got !' INTERPOLATE-CODE RUN  .got @`,
+    );
+    expect(interp.stack_pop()).toBe("x' TRUE .pwned ! 'y");
+    await expect(interp.run(".pwned @")).rejects.toThrow("Unknown variable");
+  });
+
+  describe("the words option", () => {
+    test("a word hole inserts the value as a word", async () => {
+      expect(
+        await top(`'+' .op !  '1 2 $op' { .words [.op] } ~> INTERPOLATE-CODE`),
+      ).toBe("1 2 +");
+      expect(
+        await top(
+          `'+' .op !  '1 2 $op' { .words [.op] } ~> INTERPOLATE-CODE RUN`,
+        ),
+      ).toBe(3);
+    });
+
+    test("without the option the same hole is a string", async () => {
+      expect(await top(`'+' .op !  '1 2 $op' INTERPOLATE-CODE`)).toBe(
+        "1 2 '+'",
+      );
+    });
+
+    test("only the named holes insert words", async () => {
+      const code = `'+' .op !  'x' .s !  '$s $op' { .words [.op] } ~> INTERPOLATE-CODE`;
+      expect(await top(code)).toBe("'x' +");
+    });
+
+    test.each([
+      ["more than one word", `'DUP DUP'`],
+      ["a hostile string", `"x' TRUE .pwned ! 'y"`],
+      ["a quoted string", `"'a'"`],
+      ["a number", `5`],
+    ])("rejects %s as a word", async (_label, value) => {
+      await expect(
+        run(`${value} .op !  '$op' { .words [.op] } ~> INTERPOLATE-CODE`),
+      ).rejects.toThrow("must be a single word");
+    });
+
+    test("rejects an option that is not an array", async () => {
+      await expect(
+        run(`'+' .op !  '$op' { .words 'op' } ~> INTERPOLATE-CODE`),
+      ).rejects.toThrow("must be an array");
+    });
+  });
+
+  describe("errors", () => {
+    test("an unknown variable is an error, not an empty value", async () => {
+      await expect(run(`'$missing' INTERPOLATE-CODE`)).rejects.toThrow(
+        "Unknown variable in code template: $missing",
+      );
+    });
+
+    test.each([
+      ["in a word", `'GET-\${f}'`],
+      ["in a dot symbol", `'.\${f} @'`],
+      ["in a definition name", `': GET-\${f} ;'`],
+    ])("${name} %s gets a hint to use $name", async (_label, template) => {
+      await expect(
+        run(`'x' .f !  ${template} INTERPOLATE-CODE`),
+      ).rejects.toThrow("Use $name, not ${name}");
+    });
+
+    test("a separate record after a $ word is not mistaken for ${", async () => {
+      expect(await top(`'US$ { .a 1 }' INTERPOLATE-CODE`)).toBe("US$ { .a 1 }");
+    });
+
+    test.each([
+      ["a word", `'a b' .f !  'GET-$f'`, "not a single word"],
+      ["a dot symbol", `'a b' .f !  '.$f'`, "not a valid dot symbol"],
+      [
+        "a definition name",
+        `'a[' .f !  ': GET-$f ;'`,
+        "not a valid definition name",
+      ],
+    ])(
+      "a value that makes an invalid name is an error: %s",
+      async (_label, code, message) => {
+        await expect(run(`${code} INTERPOLATE-CODE`)).rejects.toThrow(message);
+      },
+    );
+
+    test("a value inside a name must be a string or an integer", async () => {
+      await expect(run(`[1] .f !  'GET-$f' INTERPOLATE-CODE`)).rejects.toThrow(
+        "must be a string or an integer",
+      );
+    });
+  });
+});
