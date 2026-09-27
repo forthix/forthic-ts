@@ -4,6 +4,7 @@ import { ForthicError, InvalidVariableNameError, IntentionalStopError, UnknownVa
 import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
 import { WordOptions } from "../../word_options.js";
 import { Closure, new_local_frame } from "../../closure.js";
+import { to_literal, code_to_quotation, quotation_to_code, gensym } from "../../code.js";
 
 export class CoreModule extends DecoratedModule {
   static {
@@ -18,6 +19,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - Module: USE-MODULES, MODULE, END-MODULE, APP-MODULE
 - Execution: RUN
 - Closures: CLOSURE, CLOSURE?, CLOSURE-CODE
+- Code: >LITERAL, CODE>, >CODE, GENSYM
 - Control: NOP, DEFAULT, DEFAULT-RUN, NULL, UNDEFINED, IF, IF-RUN, WHEN
 - Predicates: ARRAY?, NULL?, EMPTY?, STRING?, NUMBER?, RECORD?
 - Errors: TRY, OK?, ERROR?, UNWRAP, UNWRAP-OR (Rust Result semantics: 'CODE' TRY UNWRAP is CODE)
@@ -211,6 +213,42 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: { .optio
       throw new Error("CLOSURE-CODE requires a closure");
     }
     return closure.code;
+  }
+
+  @ForthicWord(
+    "( value:any -- code:string )",
+    "Write a value as Forthic code that pushes it: value >LITERAL RUN gives the value back. Use it to put a value into generated code — never CONCAT or INTERPOLATE a value into code, because a quote in the value would change the code. Records with keys that are not valid dot symbols are written with REC. Closures, instants, and options have no literal.",
+    ">LITERAL",
+  )
+  async [">LITERAL"](value: any) {
+    return to_literal(value);
+  }
+
+  @ForthicWord(
+    "( code:string -- quotation:any[] )",
+    'Read Forthic code into a quotation without running it. Items: a word is a string ("DUP", "[", ";"); a string literal is { .str "text" }; a dot symbol is { .dot "name" }; a definition start is { .def "NAME" } or { .memo "NAME" }. Comments are dropped.',
+    "CODE>",
+  )
+  async ["CODE>"](code: string) {
+    return code_to_quotation(code ?? "");
+  }
+
+  @ForthicWord(
+    "( quotation:any[] -- code:string )",
+    "Write a quotation as Forthic code. Takes the items CODE> makes; any other item is a value, written with >LITERAL, so a quotation works as a template. A string item must be one word — write a string value as { .str value }. code CODE> >CODE CODE> equals code CODE>.",
+    ">CODE",
+  )
+  async [">CODE"](quotation: any[]) {
+    return quotation_to_code(quotation);
+  }
+
+  @ForthicWord(
+    "( prefix:string -- name:string )",
+    "A new variable name, prefix~N, that no other name can collide with. Use it for the temporary variables of generated code, so they cannot capture the caller's variables.",
+    "GENSYM",
+  )
+  async GENSYM(prefix: string) {
+    return gensym(prefix ?? "");
   }
 
   @ForthicWord(

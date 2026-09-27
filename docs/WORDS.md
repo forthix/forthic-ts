@@ -1,8 +1,8 @@
 # Forthic — Standard Words
 
-Generated: 2026-09-27T15:54:02.603Z
+Generated: 2026-09-27T17:40:20.579Z
 
-**8 modules · 171 surface words**
+**8 modules · 174 surface words**
 
 Classic/back-compat words live in `classic/classic_module.ts` and are
 intentionally omitted from this index.
@@ -149,6 +149,13 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - **CLOSURE** `( forthic:string -- closure:closure )` — Bind Forthic code to the current word's local variables. RUN, MAP, IF-RUN and every other word that takes code accept the result, and it reads and writes the creating word's .vars wherever it runs — inside another word, after the creating word returns, or in a parallel MAP. Use it when code leaves the word: passed to a user-defined word, stored in a variable, or returned.
 - **CLOSURE?** `( value:any -- boolean:boolean )` — Returns true if value is a closure
 - **CLOSURE-CODE** `( closure:closure -- forthic:string )` — The Forthic code of a closure
+
+### Code
+
+- **>LITERAL** `( value:any -- code:string )` — Write a value as Forthic code that pushes it: value >LITERAL RUN gives the value back. Use it to put a value into generated code — never CONCAT or INTERPOLATE a value into code, because a quote in the value would change the code. Records with keys that are not valid dot symbols are written with REC. Closures, instants, and options have no literal.
+- **CODE>** _(declared in category but not found in module)_
+- **>CODE** `( quotation:any[] -- code:string )` — Write a quotation as Forthic code. Takes the items CODE> makes; any other item is a value, written with >LITERAL, so a quotation works as a template. A string item must be one word — write a string value as { .str value }. code CODE> >CODE CODE> equals code CODE>.
+- **GENSYM** `( prefix:string -- name:string )` — A new variable name, prefix~N, that no other name can collide with. Use it for the temporary variables of generated code, so they cannot capture the caller's variables.
 
 ### Control
 

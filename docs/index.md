@@ -1,8 +1,8 @@
 # Forthic Module Documentation
 
-Generated: 2026-09-27T15:54:02.601Z
+Generated: 2026-09-27T17:40:20.576Z
 
-**10 modules** with **214 words** total
+**10 modules** with **217 words** total
 
 ## Modules
 
@@ -11,7 +11,7 @@ Generated: 2026-09-27T15:54:02.601Z
 | [array](./modules/array.md) | 37 | Array and collection operations for manipulating arrays and records. |
 | [boolean](./modules/boolean.md) | 15 | Comparison, logic, and membership operations for boolean values and conditions. |
 | [classic](./modules/classic.md) | 34 | Legacy/classic Forthic words retained for back-compat. These words remain fully functional at runtime. They are intentionally omitted from LLM-targeted documentation in favor of canonical siblings in the sibling standard modules. |
-| [core](./modules/core.md) | 37 | Essential interpreter operations for stack manipulation, variables, control flow, and module system. |
+| [core](./modules/core.md) | 40 | Essential interpreter operations for stack manipulation, variables, control flow, and module system. |
 | [datetime](./modules/datetime.md) | 17 | Date and time operations using the Temporal API for timezone-aware datetime manipulation. |
 | [fs](./modules/fs.md) | 9 | TypeScript-specific file system operations for Node.js runtime. |
 | [json](./modules/json.md) | 2 | JSON serialization, parsing, and formatting operations. |
@@ -24,7 +24,7 @@ Generated: 2026-09-27T15:54:02.601Z
 - **[array](./modules/array.md)**: APPEND, BY-FIELD, COUNT, DIFFERENCE, FILTER, ... (32 more)
 - **[boolean](./modules/boolean.md)**: !=, <, <=, ==, >, ... (10 more)
 - **[classic](./modules/classic.md)**: *DEFAULT, /R, <DEL, <REPEAT, >FIXED, ... (29 more)
-- **[core](./modules/core.md)**: !, !@, @, ~>, APP-MODULE, ... (32 more)
+- **[core](./modules/core.md)**: !, !@, @, >CODE, >LITERAL, ... (35 more)
 - **[datetime](./modules/datetime.md)**: >DATE, >DATETIME, >TIME, >TIMESTAMP, ADD-DAYS, ... (12 more)
 - **[fs](./modules/fs.md)**: APPEND-FILE, BASENAME, DIR-EXISTS?, DIRNAME, FILE-EXISTS?, ... (4 more)
 - **[json](./modules/json.md)**: >JSON, JSON>

@@ -84,6 +84,43 @@ cannot be sent to them until they do. When they add it, the receiver must build
 a frame from `env` — it must not fall back to running `code` as a plain string,
 which would run without its values and could answer wrongly.
 
+**Code as data: write values as code, and read code as data.** Four words let a
+program build Forthic safely instead of joining text.
+
+### Added
+
+- **`>LITERAL`** `( value:any -- code:string )` writes a value as Forthic that
+  pushes it: `value >LITERAL RUN` gives the value back. It is the safe way to put
+  a value into generated code. Joining a value into code with `CONCAT` or
+  `INTERPOLATE` lets a quote in the value change the code; `>LITERAL` keeps it
+  one string. Records use `{ .k v }` when every key is a dot symbol and `REC`
+  entries otherwise. Times with seconds use `'…' >TIME`, because the bare time
+  literal is `HH:MM`. Closures, instants, options, `NaN`, and infinities have no
+  literal and say so.
+- **`CODE>`** `( code:string -- quotation:any[] )` reads Forthic into a
+  quotation without running it, and **`>CODE`** `( quotation:any[] -- code:string )`
+  writes one back. A quotation is plain JSON: a word is a string (`"DUP"`,
+  `"["`, `";"`), and a string literal, dot symbol, and definition start are
+  `{ .str … }`, `{ .dot … }`, and `{ .def … }` / `{ .memo … }`. Comments are
+  dropped. `code CODE> >CODE CODE>` equals `code CODE>`. Any other item in a
+  quotation is a value written with `>LITERAL`, so a quotation is a template.
+  A string item must be one word, which `>CODE` checks with the tokenizer.
+- **`GENSYM`** `( prefix:string -- name:string )` makes a variable name,
+  `prefix~N`, for the temporaries of generated code, so they cannot capture the
+  caller's variables.
+- **`let_over_lambda.test.ts`** runs the techniques of *Let Over Lambda* that
+  closures and these words support: counters and shared state, `dlambda`
+  objects, `alet-fsm`, `alambda`, `aif`, generated definitions, unwanted
+  capture fixed by `GENSYM`, code walking, sub-lexical renaming, pandoric
+  get/set and hotpatching, and `>LITERAL` against code injection.
+
+### Cross-runtime
+
+A quotation is plain JSON and crosses the wire as an ordinary array. The other
+runtimes need the four words to run programs that use them. `>LITERAL` writes
+only syntax that `forthic-odin` already reads — a float always has a decimal
+point, so `1e21` is written `1.0e+21`.
+
 ## [0.20.0] - 2026-09-10
 
 **Breaking: the open marker a collection literal leaves on the stack is a

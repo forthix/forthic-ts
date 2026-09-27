@@ -110,6 +110,10 @@ read the word's variables as-is. When code that reads them LEAVES the word —
 passed to a word you defined, stored in a variable, or returned — wrap it in
 `CLOSURE` so it keeps them: `10 .x !  '''.x @ +''' CLOSURE MY-WORD`.
 
+When you build Forthic code as a string, put each value in with `>LITERAL` —
+never `CONCAT` or `INTERPOLATE` a value into code, because a quote in the value
+changes the code: `[ .name @ >LITERAL ''' .who !''' ] CONCAT RUN`.
+
 ## Generation Pattern
 
 ALWAYS generate code in this structure:
@@ -144,7 +148,7 @@ ALWAYS generate code in this structure:
 
 ## Words
 
-8 modules · 171 surface words.
+8 modules · 174 surface words.
 
 ### array
 - `APPEND` `( array:any[] item:any -- array:any[] )` — Append item to array. For records, use JQ! to set a key.
@@ -206,6 +210,8 @@ ALWAYS generate code in this structure:
 - `!` `( value:any variable:any -- )` — Sets variable value (auto-creates if string name)
 - `!@` `( value:any variable:any -- value:any )` — Sets variable and returns value
 - `@` `( variable:any -- value:any )` — Gets variable value (throws UnknownVariableError if string name is undeclared)
+- `>CODE` `( quotation:any[] -- code:string )` — Write a quotation as Forthic code. Takes the items CODE> makes; any other item is a value, written with >LITERAL, so a quotation works as a template. A string item must be one word — write a string value as { .str value }. code CODE> >CODE CODE> equals code CODE>.
+- `>LITERAL` `( value:any -- code:string )` — Write a value as Forthic code that pushes it: value >LITERAL RUN gives the value back. Use it to put a value into generated code — never CONCAT or INTERPOLATE a value into code, because a quote in the value would change the code. Records with keys that are not valid dot symbols are written with REC. Closures, instants, and options have no literal.
 - `~>` `( record:any -- options:WordOptions )` — Convert a record to WordOptions. Format: { .key1 val1 .key2 val2 }. The flat array form [.key1 val1] is also accepted.
 - `APP-MODULE` `( -- )` — Make the application module the current module
 - `ARRAY?` `( value:any -- boolean:boolean )` — Returns true if value is an array
@@ -219,6 +225,7 @@ ALWAYS generate code in this structure:
 - `EMPTY?` `( value:any -- boolean:boolean )` — Returns true if value is null/undefined, an empty string, or a container (array/record) with no entries
 - `END-MODULE` `( -- )` — Pop the current module from the module stack
 - `ERROR?` `( outcome:record -- boolean:boolean )` — True if outcome is an error record (structural: has an 'error' key)
+- `GENSYM` `( prefix:string -- name:string )` — A new variable name, prefix~N, that no other name can collide with. Use it for the temporary variables of generated code, so they cannot capture the caller's variables.
 - `IF` `( bool:boolean then_value:any else_value:any -- chosen:any )` — Pure value selection: push then_value if bool is truthy, else push else_value. For lazy code execution use IF-RUN; for one-sided side effects use WHEN.
 - `IF-RUN` `( bool:boolean then_forthic:string else_forthic:string -- ? )` — Conditional code execution: if bool is truthy run then_forthic, otherwise run else_forthic. Branches are Forthic strings.
 - `INTERPOLATE` `( string:string [options:WordOptions] -- result:string )` — Fill ${name} holes from variables (${.name} also works; read-only — a miss renders as null_text and creates nothing). Holes are variable names, never expressions. Escape a literal with \\${. Null template stays null.

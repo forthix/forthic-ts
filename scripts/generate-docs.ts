@@ -496,6 +496,10 @@ read the word's variables as-is. When code that reads them LEAVES the word —
 passed to a word you defined, stored in a variable, or returned — wrap it in
 \`CLOSURE\` so it keeps them: \`10 .x !  '''.x @ +''' CLOSURE MY-WORD\`.
 
+When you build Forthic code as a string, put each value in with \`>LITERAL\` —
+never \`CONCAT\` or \`INTERPOLATE\` a value into code, because a quote in the value
+changes the code: \`[ .name @ >LITERAL ''' .who !''' ] CONCAT RUN\`.
+
 ## Generation Pattern
 
 ALWAYS generate code in this structure:
