@@ -4,7 +4,7 @@
 
 Essential interpreter operations for stack manipulation, variables, control flow, and module system.
 
-**37 words**
+**41 words**
 
 ## Categories
 
@@ -13,6 +13,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - **Module**: USE-MODULES, MODULE, END-MODULE, APP-MODULE
 - **Execution**: RUN
 - **Closures**: CLOSURE, CLOSURE?, CLOSURE-CODE
+- **Code**: >LITERAL, CODE>, >CODE, GENSYM, INTERPOLATE-CODE
 - **Control**: NOP, DEFAULT, DEFAULT-RUN, NULL, UNDEFINED, IF, IF-RUN, WHEN
 - **Predicates**: ARRAY?, NULL?, EMPTY?, STRING?, NUMBER?, RECORD?
 - **Errors**: TRY, OK?, ERROR?, UNWRAP, UNWRAP-OR (Rust Result semantics: 'CODE' TRY UNWRAP is CODE)
@@ -62,6 +63,22 @@ Sets variable and returns value
 **Stack Effect:** `( variable:any -- value:any )`
 
 Gets variable value (throws UnknownVariableError if string name is undeclared)
+
+---
+
+### >CODE
+
+**Stack Effect:** `( quotation:any[] -- code:string )`
+
+Write a quotation as Forthic code. Takes the items CODE> makes; any other item is a value, written with >LITERAL, so a quotation works as a template. A string item must be one word — write a string value as { .str value }. code CODE> >CODE CODE> equals code CODE>.
+
+---
+
+### >LITERAL
+
+**Stack Effect:** `( value:any -- code:string )`
+
+Write a value as Forthic code that pushes it: value >LITERAL RUN gives the value back. Use it to put a value into generated code — never CONCAT or INTERPOLATE a value into code, because a quote in the value would change the code. Records with keys that are not valid dot symbols are written with REC. Closures, instants, and options have no literal.
 
 ---
 
@@ -169,6 +186,14 @@ True if outcome is an error record (structural: has an 'error' key)
 
 ---
 
+### GENSYM
+
+**Stack Effect:** `( prefix:string -- name:string )`
+
+A new variable name, prefix~N, that no other name can collide with. Use it for the temporary variables of generated code, so they cannot capture the caller's variables.
+
+---
+
 ### IF
 
 **Stack Effect:** `( bool:boolean then_value:any else_value:any -- chosen:any )`
@@ -190,6 +215,14 @@ Conditional code execution: if bool is truthy run then_forthic, otherwise run el
 **Stack Effect:** `( string:string [options:WordOptions] -- result:string )`
 
 Fill ${name} holes from variables (${.name} also works; read-only — a miss renders as null_text and creates nothing). Holes are variable names, never expressions. Escape a literal with \\${. Null template stays null.
+
+---
+
+### INTERPOLATE-CODE
+
+**Stack Effect:** `( template:string [options:WordOptions] -- code:string )`
+
+Forthic's quasiquote: fill $name holes in Forthic code from variables. A token that is only a hole ($v) becomes the value as a literal, so a value can never add code. A hole inside a name (: GET-$f, .$f, GET-$f) splices the value into the name. Holes inside string literals are not filled. An unknown variable is an error. Options: words (array of names whose whole-token holes insert the value as one word, e.g. { .words [.op] }). Holes are $name, not ${name}: braces end a token. Example: .f ! ': GET-$f [.$f] REC@ ;' INTERPOLATE-CODE RUN
 
 ---
 

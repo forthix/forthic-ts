@@ -496,6 +496,13 @@ read the word's variables as-is. When code that reads them LEAVES the word —
 passed to a word you defined, stored in a variable, or returned — wrap it in
 \`CLOSURE\` so it keeps them: \`10 .x !  '''.x @ +''' CLOSURE MY-WORD\`.
 
+When you generate Forthic code, write it as a template with \`$name\` holes and
+use \`INTERPOLATE-CODE\`: \`.f !  ''': GET-$f [.$f] REC@ ;''' INTERPOLATE-CODE RUN\`.
+A hole that is a whole token becomes the value as a literal; a hole inside a
+name splices into the name. Holes are \`$name\`, not \`\${name}\`. Never \`CONCAT\`
+or \`INTERPOLATE\` a value into code — a quote in the value changes the code.
+To add a single value to code built another way, use \`>LITERAL\`.
+
 ## Generation Pattern
 
 ALWAYS generate code in this structure:
