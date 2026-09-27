@@ -36,6 +36,10 @@ All four now work when the code is wrapped in `CLOSURE`.
   closures made in one call share state — so a record of closures is an object
   with methods, and a closure held in a local is a state machine's `this`.
   Each call of the creating word gets its own frame.
+- **Parallel `MAP` shares the frame too.** Its interpreters run in the same
+  process, so a closure passed to `{ .interps N } ~> MAP` reads and writes the
+  one frame it was made in. Writes to the same local from parallel groups can
+  interleave; keep per-item work on the stack.
 - A closure made outside any word gets a private frame of its own. New locals
   it assigns stay in that frame instead of becoming module variables; module
   variables stay readable and writable as before.

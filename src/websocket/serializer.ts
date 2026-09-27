@@ -68,7 +68,11 @@ export function serializeValue(value: any, path: string = ''): StackValue {
         type: 'closure',
         value: {
           code: value.code,
-          env: closure_env_snapshot(value, serializeValue, path),
+          env: closure_env_snapshot(
+            value,
+            (v, name) => serializeValue(v, `${path}.env${pathSegmentForKey(name)}`),
+            path,
+          ),
         },
       };
 
@@ -125,7 +129,7 @@ export function deserializeValue(stackValue: StackValue, path: string = ''): any
     case 'closure': {
       const env: Record<string, any> = {};
       for (const [name, v] of Object.entries(stackValue.value.env as Record<string, StackValue>)) {
-        env[name] = deserializeValue(v, `${path}.env.${name}`);
+        env[name] = deserializeValue(v, `${path}.env${pathSegmentForKey(name)}`);
       }
       return closure_from_env(stackValue.value.code, env);
     }

@@ -61,11 +61,12 @@ const frames_in_progress = new Set<LocalFrame>();
 /**
  * Copy a closure's frame for the wire: each variable's value, run through the
  * caller's value serializer. Values the serializer rejects (options, collection
- * marks) raise at the boundary, naming the variable.
+ * marks) raise at the boundary. `serialize` receives the variable name so the
+ * caller can build the error path with its own key formatting.
  */
 export function closure_env_snapshot<T>(
   closure: Closure,
-  serialize: (value: any, path: string) => T,
+  serialize: (value: any, name: string) => T,
   path: string,
 ): { [name: string]: T } {
   if (frames_in_progress.has(closure.frame)) {
@@ -77,7 +78,7 @@ export function closure_env_snapshot<T>(
   try {
     const env: { [name: string]: T } = {};
     for (const [name, variable] of Object.entries(closure.frame)) {
-      env[name] = serialize(variable.get_value(), `${path}.env.${name}`);
+      env[name] = serialize(variable.get_value(), name);
     }
     return env;
   } finally {
@@ -89,7 +90,10 @@ export function closure_env_snapshot<T>(
  * Rebuild a closure from its wire form. The frame is a fresh copy, so writes
  * on this side do not reach the runtime that sent it.
  */
-export function closure_from_env(code: string, env: { [name: string]: any }): Closure {
+export function closure_from_env(
+  code: string,
+  env: { [name: string]: any },
+): Closure {
   const frame = new_local_frame();
   for (const [name, value] of Object.entries(env)) {
     frame[name] = new Variable(name, value);
