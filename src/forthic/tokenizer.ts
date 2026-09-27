@@ -188,7 +188,9 @@ export class Tokenizer {
     this.reference_location = reference_location;
     this.line = reference_location.line;
     this.column = reference_location.column;
-    this.input_string = this.unescape_string(string);
+    // The source is tokenized exactly as written. HTML entities are not decoded:
+    // a host that stores Forthic HTML-escaped decodes it before calling run().
+    this.input_string = string;
     this.input_pos = 0;
     this.whitespace = [" ", "\t", "\n", "\r", "(", ")", ","];
     this.quote_chars = ['"', "'"];
@@ -223,12 +225,6 @@ export class Tokenizer {
 
   // ===================
   // Helper functions
-
-  unescape_string(string: string): string {
-    let result = string.replace(/&lt;/g, "<");
-    result = result.replace(/&gt;/g, ">");
-    return result;
-  }
 
   clear_token_string(): void {
     this.token_string = "";
