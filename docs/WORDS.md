@@ -1,8 +1,8 @@
 # Forthic — Standard Words
 
-Generated: 2026-09-10T02:26:35.631Z
+Generated: 2026-09-27T15:54:02.603Z
 
-**8 modules · 168 surface words**
+**8 modules · 171 surface words**
 
 Classic/back-compat words live in `classic/classic_module.ts` and are
 intentionally omitted from this index.
@@ -142,7 +142,13 @@ Essential interpreter operations for stack manipulation, variables, control flow
 
 ### Execution
 
-- **RUN** `( forthic:string -- ? )` — Run a Forthic string in the current context. Whatever the forthic produces is left on the stack.
+- **RUN** `( forthic:string -- ? )` — Run a Forthic string in the current context, or a closure in the context it was created in. Whatever the forthic produces is left on the stack.
+
+### Closures
+
+- **CLOSURE** `( forthic:string -- closure:closure )` — Bind Forthic code to the current word's local variables. RUN, MAP, IF-RUN and every other word that takes code accept the result, and it reads and writes the creating word's .vars wherever it runs — inside another word, after the creating word returns, or in a parallel MAP. Use it when code leaves the word: passed to a user-defined word, stored in a variable, or returned.
+- **CLOSURE?** `( value:any -- boolean:boolean )` — Returns true if value is a closure
+- **CLOSURE-CODE** `( closure:closure -- forthic:string )` — The Forthic code of a closure
 
 ### Control
 

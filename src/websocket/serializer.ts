@@ -1,15 +1,16 @@
 /**
  * WebSocket JSON Serializer for Forthic
  * Mirrors the common serializer, scoped to the WebSocket transport
- * Handles: int, float, string, bool, null, array, record, temporal types
+ * Handles: int, float, string, bool, null, array, record, closure, temporal types
  * Uses shared type detection from common/type_utils
  */
 
 import { getForthicType, pathSegmentForKey } from "../common/type_utils.js";
+import { closure_env_snapshot, closure_from_env } from "../forthic/closure.js";
 
 // JSON StackValue format matching the WebSocket protocol
 export interface StackValue {
-  type: 'int' | 'float' | 'string' | 'bool' | 'null' | 'array' | 'record' | 'instant' | 'plain_date' | 'zoned_datetime';
+  type: 'int' | 'float' | 'string' | 'bool' | 'null' | 'array' | 'record' | 'closure' | 'instant' | 'plain_date' | 'zoned_datetime';
   value: any;
 }
 
@@ -61,6 +62,16 @@ export function serializeValue(value: any, path: string = ''): StackValue {
       };
     }
 
+    // Code plus a copy of the frame. See ClosureValue in common/serializer.
+    case 'closure':
+      return {
+        type: 'closure',
+        value: {
+          code: value.code,
+          env: closure_env_snapshot(value, serializeValue, path),
+        },
+      };
+
     case 'instant':
       return {
         type: 'instant',
@@ -110,6 +121,14 @@ export function deserializeValue(stackValue: StackValue, path: string = ''): any
         },
         {} as Record<string, any>
       );
+
+    case 'closure': {
+      const env: Record<string, any> = {};
+      for (const [name, v] of Object.entries(stackValue.value.env as Record<string, StackValue>)) {
+        env[name] = deserializeValue(v, `${path}.env.${name}`);
+      }
+      return closure_from_env(stackValue.value.code, env);
+    }
 
     case 'instant':
       return Temporal.Instant.from(stackValue.value as string);

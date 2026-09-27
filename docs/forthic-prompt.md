@@ -105,6 +105,11 @@ Variables store and recall values within word definitions:
 Use variables inside word definitions for intermediate values. Use them inline
 in the composition line for cross-turn persistence.
 
+Code passed straight to a built-in word (`MAP`, `FILTER`, `IF-RUN`, ...) can
+read the word's variables as-is. When code that reads them LEAVES the word —
+passed to a word you defined, stored in a variable, or returned — wrap it in
+`CLOSURE` so it keeps them: `10 .x !  '''.x @ +''' CLOSURE MY-WORD`.
+
 ## Generation Pattern
 
 ALWAYS generate code in this structure:
@@ -139,7 +144,7 @@ ALWAYS generate code in this structure:
 
 ## Words
 
-8 modules · 168 surface words.
+8 modules · 171 surface words.
 
 ### array
 - `APPEND` `( array:any[] item:any -- array:any[] )` — Append item to array. For records, use JQ! to set a key.
@@ -204,6 +209,9 @@ ALWAYS generate code in this structure:
 - `~>` `( record:any -- options:WordOptions )` — Convert a record to WordOptions. Format: { .key1 val1 .key2 val2 }. The flat array form [.key1 val1] is also accepted.
 - `APP-MODULE` `( -- )` — Make the application module the current module
 - `ARRAY?` `( value:any -- boolean:boolean )` — Returns true if value is an array
+- `CLOSURE` `( forthic:string -- closure:closure )` — Bind Forthic code to the current word's local variables. RUN, MAP, IF-RUN and every other word that takes code accept the result, and it reads and writes the creating word's .vars wherever it runs — inside another word, after the creating word returns, or in a parallel MAP. Use it when code leaves the word: passed to a user-defined word, stored in a variable, or returned.
+- `CLOSURE-CODE` `( closure:closure -- forthic:string )` — The Forthic code of a closure
+- `CLOSURE?` `( value:any -- boolean:boolean )` — Returns true if value is a closure
 - `DEFAULT` `( value:any default_value:any -- result:any )` — Returns value or default if value is null/undefined/empty string
 - `DEFAULT-RUN` `( value:any forthic:string -- result:any )` — Lazy default: returns value if non-empty, otherwise runs forthic and uses its result. The forthic is only evaluated when needed.
 - `DROP` `( a:any -- )` — Removes top item from stack
@@ -223,7 +231,7 @@ ALWAYS generate code in this structure:
 - `PEEK!` `( -- )` — Prints top of stack and stops execution
 - `PRINT` `( value:any [options:WordOptions] -- )` — Print value to stdout. Strings interpolate ${name} holes first; other values format with the same options. Escape a literal with \\${.
 - `RECORD?` `( value:any -- boolean:boolean )` — Returns true if value is a plain record (object that is not an array and not null)
-- `RUN` `( forthic:string -- ? )` — Run a Forthic string in the current context. Whatever the forthic produces is left on the stack.
+- `RUN` `( forthic:string -- ? )` — Run a Forthic string in the current context, or a closure in the context it was created in. Whatever the forthic produces is left on the stack.
 - `STACK!` `( -- )` — Prints entire stack (reversed) and stops execution
 - `STRING?` `( value:any -- boolean:boolean )` — Returns true if value is a string
 - `SWAP` `( a:any b:any -- b:any a:any )` — Swaps top two stack items

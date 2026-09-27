@@ -29,6 +29,7 @@ import {
   StringRedirectError,
 } from "./errors.js";
 import { StringRedirectRouter } from "./string_redirect_router.js";
+import { Closure, LocalFrame, new_local_frame } from "./closure.js";
 import {
   LiteralHandler,
   to_bool,
@@ -324,7 +325,8 @@ export class Interpreter {
   // Word-local variable frames. A new frame is pushed when a user-defined word
   // (DefinitionWord) executes and popped when it returns, so dot-vars assigned
   // inside a word are private to that call and don't clobber callees/callers.
-  private local_frames: { [name: string]: Variable }[] = [];
+  // A running Closure also pushes the frame it was created in (see run()).
+  private local_frames: LocalFrame[] = [];
   on_word_defined?: (name: string) => void;
 
   constructor(modules: Module[] = [], timezone: Temporal.TimeZoneLike = "UTC") {
@@ -437,10 +439,31 @@ export class Interpreter {
     this.string_location = undefined;
   }
 
+  /**
+   * Run Forthic code: a string, or a Closure made by `CLOSURE`.
+   *
+   * A Closure runs in the frame it was created in: that frame is pushed as the
+   * current word-local frame for the duration of the run, so the code sees its
+   * creator's dot-vars wherever it runs. Every higher-order word funnels
+   * through here, which is what lets them all accept a Closure unchanged.
+   */
   async run(
-    string: string,
+    code: string | Closure,
     reference_location: CodeLocation | null = null,
   ): Promise<boolean | number> {
+    if (code instanceof Closure) {
+      const depth = this.local_frames.length;
+      this.local_frames.push(code.frame);
+      try {
+        return await this.run(code.code, code.location ?? reference_location);
+      } finally {
+        // Restore by depth rather than a bare pop, so a failure that left
+        // frames above this one cannot misalign the stack.
+        this.local_frames.length = depth;
+      }
+    }
+
+    const string = code;
     this.tokenizer_stack.push(new Tokenizer(string, reference_location));
 
     try {
@@ -579,15 +602,14 @@ export class Interpreter {
 
   // --- Word-local variable frames ---
   push_local_frame(): void {
-    // Prototype-less: word-local variable names come from program text.
-    this.local_frames.push(Object.create(null));
+    this.local_frames.push(new_local_frame());
   }
 
   pop_local_frame(): void {
     this.local_frames.pop();
   }
 
-  cur_local_frame(): { [name: string]: Variable } | null {
+  cur_local_frame(): LocalFrame | null {
     return this.local_frames.length > 0
       ? this.local_frames[this.local_frames.length - 1]
       : null;
