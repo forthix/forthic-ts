@@ -4,6 +4,60 @@ All notable changes to `@forthix/forthic` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is pre-1.0: while `0.x`, **breaking changes ship in minor releases**. Releases before 0.16.0 are recorded in the git history rather than here.
 
+## [Unreleased]
+
+**Closures: code that keeps the local variables of the word that made it.**
+`'.x @ +' CLOSURE` binds a code string to the current word's frame, and every
+word that takes code runs it there. Nothing existing changes meaning: a plain
+code string still runs in whatever frame is current when it runs.
+
+### Why
+
+A code string sees the frame of the word that _runs_ it, not the word that
+_wrote_ it. Built-in higher-order words hide this, because they run code
+without pushing a frame of their own. Everything else exposed it:
+
+- A user-defined word that runs its caller's code (`: APPLY .code ! .code @ RUN ;`)
+  raised `Unknown variable` for the caller's locals.
+- If that word had a local of the same name, the caller's code read the
+  helper's value instead — a **wrong answer with no error**.
+- Code stored or returned and run later raised `Unknown variable`.
+- `{ .interps N } ~> MAP` raised `Unknown variable` for every item, because the
+  parallel interpreters have no frames.
+
+All four now work when the code is wrapped in `CLOSURE`.
+
+### Added
+
+- **`CLOSURE`** `( forthic:string -- closure:closure )`, **`CLOSURE?`**, and
+  **`CLOSURE-CODE`**. `RUN`, `MAP`, `FILTER`, `IF-RUN`, `TRY`, `SORT`'s
+  `comparator`, and every other word that takes code accept a closure.
+- **The frame is shared, not copied.** Writes reach the creating word, and
+  closures made in one call share state — so a record of closures is an object
+  with methods, and a closure held in a local is a state machine's `this`.
+  Each call of the creating word gets its own frame.
+- **Parallel `MAP` shares the frame too.** Its interpreters run in the same
+  process, so a closure passed to `{ .interps N } ~> MAP` reads and writes the
+  one frame it was made in. Writes to the same local from parallel groups can
+  interleave; keep per-item work on the stack.
+- A closure made outside any word gets a private frame of its own. New locals
+  it assigns stay in that frame instead of becoming module variables; module
+  variables stay readable and writable as before.
+- **`Closure`** is exported, and `interp.run()` accepts one.
+- **A `closure` wire type.** A closure crosses JSON-RPC and websocket as its
+  code plus a **copy** of its frame (`closure_value: { code, env }` /
+  `{ type: "closure", value: { code, env } }`). The far side runs the code in a
+  fresh frame built from `env`; its writes do not come back. A closure whose
+  frame holds itself cannot be serialized and says so. `export_state` and
+  `import_state` carry closures in variables the same way.
+
+### Cross-runtime
+
+The other runtimes do not implement the `closure` wire type yet, so a closure
+cannot be sent to them until they do. When they add it, the receiver must build
+a frame from `env` — it must not fall back to running `code` as a plain string,
+which would run without its values and could answer wrongly.
+
 ## [0.20.0] - 2026-09-10
 
 **Breaking: the open marker a collection literal leaves on the stack is a

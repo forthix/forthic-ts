@@ -491,6 +491,11 @@ Variables store and recall values within word definitions:
 Use variables inside word definitions for intermediate values. Use them inline
 in the composition line for cross-turn persistence.
 
+Code passed straight to a built-in word (\`MAP\`, \`FILTER\`, \`IF-RUN\`, ...) can
+read the word's variables as-is. When code that reads them LEAVES the word —
+passed to a word you defined, stored in a variable, or returned — wrap it in
+\`CLOSURE\` so it keeps them: \`10 .x !  '''.x @ +''' CLOSURE MY-WORD\`.
+
 ## Generation Pattern
 
 ALWAYS generate code in this structure:

@@ -5,6 +5,7 @@
 
 import { isPlainDate, isPlainTime, isInstant, isZonedDateTime } from './temporal_utils.js';
 import { CollectionMark } from '../forthic/tokenizer.js';
+import { Closure } from '../forthic/closure.js';
 
 /**
  * Forthic value types
@@ -17,6 +18,7 @@ export type ForthicType =
   | 'string'
   | 'array'
   | 'record'
+  | 'closure'
   | 'instant'
   | 'plain_date'
   | 'plain_time'
@@ -84,6 +86,13 @@ export function getForthicType(value: any, path: string = ''): ForthicType {
     throw new Error(
       `A collection mark (${value}) cannot be serialized - it is interpreter state, not data. An unclosed '${value.open}' left it on the stack${path ? ` at path: ${path}` : ''}`,
     );
+  }
+
+  // A closure has a wire form of its own — its code plus a copy of its frame —
+  // so it must be claimed here. Falling through to 'record' would walk the live
+  // Closure object and ship its frame's Variable objects as data.
+  if (value instanceof Closure) {
+    return 'closure';
   }
 
   // Handle object/record

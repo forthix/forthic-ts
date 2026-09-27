@@ -5,6 +5,7 @@
  */
 
 import { getForthicType, pathSegmentForKey } from "../common/type_utils.js";
+import { closure_env_snapshot, closure_from_env } from "../forthic/closure.js";
 
 // Type definitions matching the protobuf schema
 interface StackValue {
@@ -15,6 +16,7 @@ interface StackValue {
   null_value?: Record<string, never>;
   array_value?: ArrayValue;
   record_value?: RecordValue;
+  closure_value?: ClosureValue;
   instant_value?: InstantValue;
   plain_date_value?: PlainDateValue;
   plain_time_value?: PlainTimeValue;
@@ -27,6 +29,13 @@ interface ArrayValue {
 
 interface RecordValue {
   fields: { [key: string]: StackValue };
+}
+
+// A closure crosses the wire as its code plus a copy of its frame. The receiver
+// runs the code in a fresh frame built from `env`; writes there do not come back.
+interface ClosureValue {
+  code: string;
+  env: { [name: string]: StackValue };
 }
 
 interface InstantValue {
@@ -84,6 +93,18 @@ export function serializeValue(value: any, path: string = ''): StackValue {
       }
       return { record_value: { fields } };
     }
+
+    case 'closure':
+      return {
+        closure_value: {
+          code: value.code,
+          env: closure_env_snapshot(
+            value,
+            (v, name) => serializeValue(v, `${path}.env${pathSegmentForKey(name)}`),
+            path,
+          ),
+        },
+      };
 
     case 'instant':
       return {
@@ -171,6 +192,14 @@ export function deserializeValue(stackValue: StackValue, path: string = ''): any
       result[key] = deserializeValue(val, `${path}${pathSegmentForKey(key)}`);
     }
     return result;
+  }
+
+  if ('closure_value' in stackValue && stackValue.closure_value) {
+    const env: { [name: string]: any } = {};
+    for (const [name, val] of Object.entries(stackValue.closure_value.env)) {
+      env[name] = deserializeValue(val, `${path}.env${pathSegmentForKey(name)}`);
+    }
+    return closure_from_env(stackValue.closure_value.code, env);
   }
 
   throw new Error(`Unknown stack value type${path ? ` at path: ${path}` : ''}`);

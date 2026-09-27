@@ -4,7 +4,7 @@
 
 Essential interpreter operations for stack manipulation, variables, control flow, and module system.
 
-**34 words**
+**37 words**
 
 ## Categories
 
@@ -12,6 +12,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - **Variables**: VARIABLES, !, @, !@
 - **Module**: USE-MODULES, MODULE, END-MODULE, APP-MODULE
 - **Execution**: RUN
+- **Closures**: CLOSURE, CLOSURE?, CLOSURE-CODE
 - **Control**: NOP, DEFAULT, DEFAULT-RUN, NULL, UNDEFINED, IF, IF-RUN, WHEN
 - **Predicates**: ARRAY?, NULL?, EMPTY?, STRING?, NUMBER?, RECORD?
 - **Errors**: TRY, OK?, ERROR?, UNWRAP, UNWRAP-OR (Rust Result semantics: 'CODE' TRY UNWRAP is CODE)
@@ -85,6 +86,30 @@ Make the application module the current module
 **Stack Effect:** `( value:any -- boolean:boolean )`
 
 Returns true if value is an array
+
+---
+
+### CLOSURE
+
+**Stack Effect:** `( forthic:string -- closure:closure )`
+
+Bind Forthic code to the current word's local variables. RUN, MAP, IF-RUN and every other word that takes code accept the result, and it reads and writes the creating word's .vars wherever it runs — inside another word, after the creating word returns, or in a parallel MAP. Use it when code leaves the word: passed to a user-defined word, stored in a variable, or returned.
+
+---
+
+### CLOSURE-CODE
+
+**Stack Effect:** `( closure:closure -- forthic:string )`
+
+The Forthic code of a closure
+
+---
+
+### CLOSURE?
+
+**Stack Effect:** `( value:any -- boolean:boolean )`
+
+Returns true if value is a closure
 
 ---
 
@@ -244,7 +269,7 @@ Returns true if value is a plain record (object that is not an array and not nul
 
 **Stack Effect:** `( forthic:string -- ? )`
 
-Run a Forthic string in the current context. Whatever the forthic produces is left on the stack.
+Run a Forthic string in the current context, or a closure in the context it was created in. Whatever the forthic produces is left on the stack.
 
 ---
 

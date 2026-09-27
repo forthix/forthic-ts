@@ -3,6 +3,7 @@ import { Interpreter } from "../../interpreter.js";
 import { ForthicError, InvalidVariableNameError, IntentionalStopError, UnknownVariableError } from "../../errors.js";
 import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } from "../../decorators/word.js";
 import { WordOptions } from "../../word_options.js";
+import { Closure, new_local_frame } from "../../closure.js";
 
 export class CoreModule extends DecoratedModule {
   static {
@@ -16,6 +17,7 @@ Essential interpreter operations for stack manipulation, variables, control flow
 - Variables: VARIABLES, !, @, !@
 - Module: USE-MODULES, MODULE, END-MODULE, APP-MODULE
 - Execution: RUN
+- Closures: CLOSURE, CLOSURE?, CLOSURE-CODE
 - Control: NOP, DEFAULT, DEFAULT-RUN, NULL, UNDEFINED, IF, IF-RUN, WHEN
 - Predicates: ARRAY?, NULL?, EMPTY?, STRING?, NUMBER?, RECORD?
 - Errors: TRY, OK?, ERROR?, UNWRAP, UNWRAP-OR (Rust Result semantics: 'CODE' TRY UNWRAP is CODE)
@@ -176,12 +178,39 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: { .optio
 
   @ForthicWord(
     "( forthic:string -- ? )",
-    "Run a Forthic string in the current context. Whatever the forthic produces is left on the stack.",
+    "Run a Forthic string in the current context, or a closure in the context it was created in. Whatever the forthic produces is left on the stack.",
     "RUN",
   )
   async RUN(forthic: string) {
     const string_location = this.interp.get_string_location();
     if (forthic) await this.interp.run(forthic, string_location);
+  }
+
+  @ForthicWord(
+    "( forthic:string -- closure:closure )",
+    "Bind Forthic code to the current word's local variables. RUN, MAP, IF-RUN and every other word that takes code accept the result, and it reads and writes the creating word's .vars wherever it runs — inside another word, after the creating word returns, or in a parallel MAP. Use it when code leaves the word: passed to a user-defined word, stored in a variable, or returned.",
+    "CLOSURE",
+  )
+  async CLOSURE(forthic: string) {
+    const string_location = this.interp.get_string_location() ?? null;
+    // Outside any user-defined word there is no local frame to capture. Give the
+    // closure a fresh one of its own, so every closure has a frame and its new
+    // locals persist across its runs instead of leaking into module variables.
+    const frame = this.interp.cur_local_frame() ?? new_local_frame();
+    return new Closure(forthic, string_location, frame);
+  }
+
+  @ForthicWord("( value:any -- boolean:boolean )", "Returns true if value is a closure", "CLOSURE?")
+  async ["CLOSURE?"](value: any) {
+    return value instanceof Closure;
+  }
+
+  @ForthicWord("( closure:closure -- forthic:string )", "The Forthic code of a closure", "CLOSURE-CODE")
+  async ["CLOSURE-CODE"](closure: any) {
+    if (!(closure instanceof Closure)) {
+      throw new Error("CLOSURE-CODE requires a closure");
+    }
+    return closure.code;
   }
 
   @ForthicWord(

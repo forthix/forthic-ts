@@ -1,5 +1,6 @@
 import { Interpreter, dup_interpreter } from "../../interpreter.js";
 import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
+import { Closure } from "../../closure.js";
 
 // Generous ceiling on how many elements a single word may materialize from
 // caller-supplied sizes (SLICE, RANGE). Fails fast instead of OOMing the host.
@@ -446,7 +447,9 @@ Several words support options via the ~> operator using syntax: { .option_name v
 
     // Figure out what to do
     let result;
-    if (typeof comparator == "string") {
+    // A closure is Forthic code too; without this it would fall through to the
+    // JS-function branch below and be called as one.
+    if (typeof comparator == "string" || comparator instanceof Closure) {
       result = await sort_with_key_forthic(comparator);
     } else if (comparator === undefined || comparator === null) {
       result = sort_without_comparator();
