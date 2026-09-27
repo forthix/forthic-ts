@@ -4,7 +4,7 @@ All notable changes to `@forthix/forthic` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is pre-1.0: while `0.x`, **breaking changes ship in minor releases**. Releases before 0.16.0 are recorded in the git history rather than here.
 
-## [Unreleased]
+## [0.21.0] - 2026-09-27
 
 **Closures: code that keeps the local variables of the word that made it.**
 `'.x @ +' CLOSURE` binds a code string to the current word's frame, and every
