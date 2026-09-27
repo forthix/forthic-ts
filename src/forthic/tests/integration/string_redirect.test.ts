@@ -388,17 +388,12 @@ describe("Interpreter.streamingRun — marked string redirect into a StringRedir
   });
 
   // The same invariant, generalised over payloads that can put a chunk boundary
-  // ON a backslash — the case escape processing arms. There is deliberately
-  // NO expected text in this test: the streamed deltas are compared against the
-  // string the interpreter actually left on the stack, so a future semantics
-  // change cannot "fix" a real divergence by editing a literal. Exactly one
-  // assertion runs inside the loop; a second would fail first and hide this one,
-  // because Jest stops at the first failing assertion.
-  //
-  // Backslash payloads only. `&lt;` / `&gt;` split mid-entity break the same
-  // invariant, but through unescape_string() rather than the escape branch, and
-  // that is a separate pre-existing bug tracked on its own ticket — adding those
-  // payloads here would go red against something this change does not fix.
+  // ON a backslash — the case escape processing arms — or inside an HTML entity.
+  // There is deliberately NO expected text in this test: the streamed deltas are
+  // compared against the string the interpreter actually left on the stack, so a
+  // future semantics change cannot "fix" a real divergence by editing a literal.
+  // Exactly one assertion runs inside the loop; a second would fail first and
+  // hide this one, because Jest stops at the first failing assertion.
   test.each([
     String.raw`a\nb`, // pending \n — diverges without the hold-back
     String.raw`a\'b`, // pending \' — an escape whose result is the delimiter char
@@ -406,6 +401,9 @@ describe("Interpreter.streamingRun — marked string redirect into a StringRedir
     String.raw`a\\b`, // CONTROL: passes even unfixed. A doubled backslash still
     //                   yields a growing prefix at every cut, so it proves
     //                   nothing on its own.
+    `a &lt;b&gt; c`, // HTML entities are content, not escapes. When the tokenizer
+    //                  decoded them, a cut inside `&lt;` streamed a prefix the
+    //                  finished (decoded) string did not have.
   ])(
     "every chunk boundary streams exactly what lands on the stack: %j",
     async (payload) => {

@@ -807,3 +807,37 @@ describe("Triple-quoted strings interpret the escape whitelist", () => {
     expect(token.is_string_redirect).toBe(true);
   });
 });
+
+describe("HTML entities are ordinary text", () => {
+  // The tokenizer used to decode `&lt;` and `&gt;` across the whole input before
+  // tokenizing. That silently rewrote string content, disagreed with forthic-odin,
+  // and shifted the positions of every token after an entity on the same line.
+
+  test("entities inside a string survive verbatim", () => {
+    const token = new Tokenizer(`'&lt;b&gt;AT&amp;T&lt;/b&gt;'`).next_token();
+    expect(token.type).toBe(TokenType.STRING);
+    expect(token.string).toEqual("&lt;b&gt;AT&amp;T&lt;/b&gt;");
+  });
+
+  // HTML-escaped code is not Forthic: the host must decode it first. Here `;`
+  // ends the word, so `&lt;` is the word `&lt` and then a definition end —
+  // never the `<` comparison it used to be decoded into.
+  test("an entity outside a string is not decoded into a word", () => {
+    const tokenizer = new Tokenizer(`3 5 &lt;`);
+    tokenizer.next_token();
+    tokenizer.next_token();
+    const word = tokenizer.next_token();
+    expect(word.type).toBe(TokenType.WORD);
+    expect(word.string).toEqual("&lt");
+    expect(tokenizer.next_token().type).toBe(TokenType.END_DEF);
+  });
+
+  test("token positions after an entity match the source text", () => {
+    const tokenizer = new Tokenizer(`'&lt;' DUP`);
+    tokenizer.next_token();
+    const dup = tokenizer.next_token();
+    expect(dup.string).toEqual("DUP");
+    expect(dup.location.column).toBe(8);
+    expect(dup.location.start_pos).toBe(7);
+  });
+});

@@ -6,6 +6,32 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+**Breaking: the tokenizer no longer decodes `&lt;` and `&gt;`.** Source is
+tokenized exactly as written.
+
+### Removed
+
+- **HTML entity decoding.** The tokenizer replaced `&lt;` with `<` and `&gt;`
+  with `>` across the whole input before tokenizing — a behavior carried over
+  from the original port, when Forthic was often stored inside HTML pages. It
+  had four costs:
+  - **String content changed silently.** `'&lt;tag&gt;'` was the string
+    `<tag>`, so a program could not hold the text `&lt;` at all. Only these two
+    entities were decoded; `&amp;` and `&quot;` were not.
+  - **The runtimes disagreed.** `forthic-odin` never decoded entities.
+  - **Streaming broke inside an entity.** A chunk boundary inside `&lt;`
+    streamed a prefix that the finished, decoded string did not contain.
+  - **Positions shifted.** Each entity shortened the input by three characters,
+    so the column and offset of every later token on that line were wrong.
+- **`Tokenizer.unescape_string()`**, the method that did it.
+
+### Migration
+
+A host that stores Forthic HTML-escaped must decode it before calling
+`interp.run()` — and can then decode every entity, not only two. Forthic source
+written directly is unaffected unless it contains the literal text `&lt;` or
+`&gt;`, which now means exactly that text.
+
 **Closures: code that keeps the local variables of the word that made it.**
 `'.x @ +' CLOSURE` binds a code string to the current word's frame, and every
 word that takes code runs it there. Nothing existing changes meaning: a plain
