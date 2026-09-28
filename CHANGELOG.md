@@ -4,10 +4,12 @@ All notable changes to `@forthix/forthic` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is pre-1.0: while `0.x`, **breaking changes ship in minor releases**. Releases before 0.16.0 are recorded in the git history rather than here.
 
-## [Unreleased]
+## [0.21.0] - 2026-09-27
 
 **Breaking: the tokenizer no longer decodes `&lt;` and `&gt;`.** Source is
-tokenized exactly as written.
+tokenized exactly as written. Also in this release: **closures**, code that
+keeps the local variables of the word that made it, and **code as data**, five
+words that let a program build Forthic safely instead of joining text.
 
 ### Removed
 
@@ -25,19 +27,13 @@ tokenized exactly as written.
     so the column and offset of every later token on that line were wrong.
 - **`Tokenizer.unescape_string()`**, the method that did it.
 
-### Migration
+### Added
 
-A host that stores Forthic HTML-escaped must decode it before calling
-`interp.run()` — and can then decode every entity, not only two. Forthic source
-written directly is unaffected unless it contains the literal text `&lt;` or
-`&gt;`, which now means exactly that text.
+#### Closures
 
-**Closures: code that keeps the local variables of the word that made it.**
 `'.x @ +' CLOSURE` binds a code string to the current word's frame, and every
 word that takes code runs it there. Nothing existing changes meaning: a plain
 code string still runs in whatever frame is current when it runs.
-
-### Why
 
 A code string sees the frame of the word that _runs_ it, not the word that
 _wrote_ it. Built-in higher-order words hide this, because they run code
@@ -52,8 +48,6 @@ without pushing a frame of their own. Everything else exposed it:
   parallel interpreters have no frames.
 
 All four now work when the code is wrapped in `CLOSURE`.
-
-### Added
 
 - **`CLOSURE`** `( forthic:string -- closure:closure )`, **`CLOSURE?`**, and
   **`CLOSURE-CODE`**. `RUN`, `MAP`, `FILTER`, `IF-RUN`, `TRY`, `SORT`'s
@@ -77,17 +71,9 @@ All four now work when the code is wrapped in `CLOSURE`.
   frame holds itself cannot be serialized and says so. `export_state` and
   `import_state` carry closures in variables the same way.
 
-### Cross-runtime
+#### Code as data
 
-The other runtimes do not implement the `closure` wire type yet, so a closure
-cannot be sent to them until they do. When they add it, the receiver must build
-a frame from `env` — it must not fall back to running `code` as a plain string,
-which would run without its values and could answer wrongly.
-
-**Code as data: write values as code, and read code as data.** Five words let a
-program build Forthic safely instead of joining text.
-
-### Added
+Write values as code, and read code as data.
 
 - **`>LITERAL`** `( value:any -- code:string )` writes a value as Forthic that
   pushes it: `value >LITERAL RUN` gives the value back. It is the safe way to put
@@ -132,13 +118,6 @@ program build Forthic safely instead of joining text.
   capture fixed by `GENSYM`, code walking, sub-lexical renaming, pandoric
   get/set and hotpatching, and `>LITERAL` against code injection.
 
-### Cross-runtime
-
-A quotation is plain JSON and crosses the wire as an ordinary array. The other
-runtimes need the five words to run programs that use them. `>LITERAL` writes
-only syntax that `forthic-odin` already reads — a float always has a decimal
-point, so `1e21` is written `1.0e+21`.
-
 ### Fixed
 
 - **Large whole numbers crossed the wire as ints the receiver could not hold.**
@@ -148,6 +127,29 @@ point, so `1e21` is written `1.0e+21`.
   the wire only while it is a safe integer (`|n| ≤ 2^53 − 1`); a larger whole
   number goes as a float. No value changes: past 2^53 a JavaScript number was
   already a float in all but name. This also covers `export_state`.
+
+### Migration
+
+A host that stores Forthic HTML-escaped must decode it before calling
+`interp.run()` — and can then decode every entity, not only two. Forthic source
+written directly is unaffected unless it contains the literal text `&lt;` or
+`&gt;`, which now means exactly that text.
+
+Nothing else in this release changes the meaning of existing programs.
+
+### Cross-runtime
+
+- **Closures.** The other runtimes do not implement the `closure` wire type
+  yet, so a closure cannot be sent to them until they do. When they add it, the
+  receiver must build a frame from `env` — it must not fall back to running
+  `code` as a plain string, which would run without its values and could answer
+  wrongly.
+- **Code as data.** A quotation is plain JSON and crosses the wire as an
+  ordinary array. The other runtimes need the five words to run programs that
+  use them. `>LITERAL` writes only syntax that `forthic-odin` already reads — a
+  float always has a decimal point, so `1e21` is written `1.0e+21`.
+- **Entities.** `forthic-odin` already tokenizes source as written; this release
+  brings TypeScript into line with it.
 
 ## [0.20.0] - 2026-09-10
 
