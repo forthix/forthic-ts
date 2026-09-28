@@ -139,6 +139,16 @@ runtimes need the five words to run programs that use them. `>LITERAL` writes
 only syntax that `forthic-odin` already reads — a float always has a decimal
 point, so `1e21` is written `1.0e+21`.
 
+### Fixed
+
+- **Large whole numbers crossed the wire as ints the receiver could not hold.**
+  Any whole number was serialized as an int (`int_value` / `type: "int"`),
+  including `1e21` and `2^64`. Other runtimes read ints into 64-bit integers, so
+  those values overflowed or failed on the far side. A number is now an int on
+  the wire only while it is a safe integer (`|n| ≤ 2^53 − 1`); a larger whole
+  number goes as a float. No value changes: past 2^53 a JavaScript number was
+  already a float in all but name. This also covers `export_state`.
+
 ## [0.20.0] - 2026-09-10
 
 **Breaking: the open marker a collection literal leaves on the stack is a
