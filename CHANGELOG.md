@@ -45,7 +45,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 - **`dup_interpreter_recompiled(interp)`**, an async `dup_interpreter` that
   compiles the user definitions again on the duplicate. Use it when the
-  duplicate runs user words. `dup_interpreter` is unchanged.
+  duplicate runs user words. `dup_interpreter` stays synchronous.
 
 ## [0.21.0] - 2026-09-27
 
