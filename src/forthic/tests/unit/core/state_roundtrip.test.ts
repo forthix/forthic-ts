@@ -67,6 +67,23 @@ describe("export_state / import_state round trip", () => {
     await expectSameOutcome([": LENGTH 99 ; : B LENGTH ;", ": LENGTH 7 ;"], "[1 2] B");
   });
 
+  test("a memo redefined as a plain word keeps its bang variants", async () => {
+    await expectSameOutcome(["@: M 1 ;", ": M 2 ;"], "M!@ M M! M");
+  });
+
+  test("a word that uses an old version kept between two later versions", async () => {
+    await expectSameOutcome([": A 1 ; : B A ; : A 2 ; : C A B ;", ": A 3 ; : B 9 ;"], "C A B");
+  });
+
+  test("a body that names a variable called like a literal binds the variable", async () => {
+    // Variables are declared before the replay, and Module.find_word checks
+    // variables before the literal handlers. So a body compiled after the
+    // variable binds it, as it did live. Known limit: a body compiled BEFORE
+    // such a variable was declared (`: F 7 ; ["7"] VARIABLES`) binds the
+    // variable on restore, not the literal. No replay order serves both.
+    await expectSameOutcome(['["7"] VARIABLES 5 7 ! : G 7 @ ;'], "G");
+  });
+
   test("a chain of old versions", async () => {
     await expectSameOutcome([": C 1 ; : A C ; : B A ;", ": C 2 ; : A 5 ;"], "B A C");
   });
@@ -123,8 +140,9 @@ describe("export_state / import_state over short histories", () => {
     '["x"] VARIABLES 5 x ! : V x @ ;',
     ": LENGTH 99 ;",
     ": L [1 2] LENGTH ;",
+    ": M 2 ;",
   ];
-  const probes = ["A", "B", "M", "U", "V", "L", "[1 2 3] LENGTH"];
+  const probes = ["A", "B", "M", "M!", "M!@", "U", "V", "L", "[1 2 3] LENGTH"];
 
   function histories(maxLength: number): string[][] {
     const result: string[][] = [[]];
