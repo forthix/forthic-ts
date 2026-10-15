@@ -1376,7 +1376,9 @@ export interface InterpreterState {
  * Versions that no live word uses are dropped, so a word redefined in each turn
  * does not grow the snapshot.
  *
- * A memo (`@:`) contributes one source; its `!` and `!@` variants bind the memo.
+ * The live words are the latest dictionary word of each name, `!` and `!@`
+ * variants included: after `@: M 1 ; : M 2 ;`, `M!` still reaches the first
+ * memo. A memo (`@:`) contributes one source; its variants bind the memo.
  */
 function definition_sources(app: Module): string[] {
   const definitions = app.words.filter(
@@ -1386,25 +1388,24 @@ function definition_sources(app: Module): string[] {
   );
   const is_definition = new Set<Word>(definitions);
 
+  // The definition a word reaches: itself, or the memo of a `!`/`!@` variant.
+  const definition_of = (w: Word): Word =>
+    w instanceof ModuleMemoBangWord || w instanceof ModuleMemoBangAtWord
+      ? w.memo_word
+      : w;
+
   const latest = new Map<string, Word>();
-  for (const w of definitions) latest.set(w.name, w);
+  for (const w of app.words) latest.set(w.name, w);
 
   const kept = new Set<Word>();
-  const pending = [...latest.values()];
+  const pending = [...latest.values()].map(definition_of);
   while (pending.length > 0) {
     const w = pending.pop()!;
-    if (kept.has(w)) continue;
+    if (!is_definition.has(w) || kept.has(w)) continue;
     kept.add(w);
     const body = w instanceof ModuleMemoWord ? w.word : w;
     if (!(body instanceof DefinitionWord)) continue;
-    for (const used of body.words) {
-      const target =
-        used instanceof ModuleMemoBangWord ||
-        used instanceof ModuleMemoBangAtWord
-          ? used.memo_word
-          : used;
-      if (is_definition.has(target) && !kept.has(target)) pending.push(target);
-    }
+    pending.push(...body.words.map(definition_of));
   }
 
   return definitions.filter((w) => kept.has(w)).map((w) => w.source);

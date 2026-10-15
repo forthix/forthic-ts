@@ -23,7 +23,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
   `import_state` replayed definitions before it declared variables, so
   `["x"] VARIABLES : B x @ ;` threw `Unknown word: x` on restore. Variables are
   now declared first; the dictionary is still searched before variables, so a
-  body that bound a word live binds the same word on restore.
+  body that bound a word live binds the same word on restore. One limit: a
+  variable whose name reads as a literal (`["7"] VARIABLES`) also captures that
+  literal in a body compiled before the variable was declared.
 
 ## [0.21.0] - 2026-09-27
 
