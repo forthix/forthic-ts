@@ -446,3 +446,45 @@ describe("Interpreter.streamingRun — marked string redirect into a StringRedir
     ).rejects.toThrow(StringRedirectError);
   });
 });
+
+// Two marked strings with no word between them: a chunk can open the second
+// string before the first one has run. The second string's text must not reach
+// the first string's sink. (Each such program is invalid: the second string has
+// no sink, and run() throws there too.)
+describe("Interpreter.streamingRun — marked strings with no word between them", () => {
+  function written(record: any[]): string {
+    return record.filter((x) => typeof x === "string").join("");
+  }
+
+  test("the first sink carries only its own string's text", async () => {
+    const record: any[] = [];
+    const interp = makeInterp(() => recordingSink(record));
+    await interp.streamingRun("REDIRECT< <<'''AA", false);
+    await interp.streamingRun("REDIRECT< <<'''AA''' <<'''BBBB", false);
+    await expect(
+      interp.streamingRun("REDIRECT< <<'''AA''' <<'''BBBB'''", true),
+    ).rejects.toThrow(StringRedirectError);
+    expect(written(record)).toBe("AA");
+  });
+
+  test("an empty first string's sink gets none of the second string's text", async () => {
+    const record: any[] = [];
+    const interp = makeInterp(() => recordingSink(record));
+    await interp.streamingRun("REDIRECT< <<''''''", false);
+    await interp.streamingRun("REDIRECT< <<'''''' <<'''BB", false);
+    await expect(
+      interp.streamingRun("REDIRECT< <<'''''' <<'''BB'''", true),
+    ).rejects.toThrow(StringRedirectError);
+    expect(written(record)).toBe("");
+  });
+
+  test("an array mark between the strings does not change it", async () => {
+    const record: any[] = [];
+    const interp = makeInterp(() => recordingSink(record));
+    await interp.streamingRun("REDIRECT< <<'''AA''' [ <<'''BBBB", false);
+    await expect(
+      interp.streamingRun("REDIRECT< <<'''AA''' [ <<'''BBBB'''", true),
+    ).rejects.toThrow(StringRedirectError);
+    expect(written(record)).toBe("AA");
+  });
+});
