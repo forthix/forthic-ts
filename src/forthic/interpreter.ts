@@ -303,6 +303,9 @@ export class Interpreter {
   private previous_token: Token | null;
   private handleError?: HandleErrorFunction;
   private maxAttempts: number;
+  // Tokens that ran without an error. execute_with_recovery uses it to count
+  // failures in a row.
+  private tokens_run: number;
   private is_compiling: boolean;
   private is_memo_definition: boolean;
   private cur_definition: DefinitionWord | null;
@@ -339,6 +342,7 @@ export class Interpreter {
 
     this.tokenizer_stack = [];
     this.maxAttempts = 3;
+    this.tokens_run = 0;
     this.handleError = undefined;
 
     this.app_module = new Module("");
@@ -499,6 +503,7 @@ export class Interpreter {
         this.maxAttempts,
       );
     }
+    const tokens_before = this.tokens_run;
     try {
       await this.continue();
       return numAttempts;
@@ -507,7 +512,10 @@ export class Interpreter {
       // Never try to recover from the attempt-budget guard itself.
       if (e instanceof TooManyAttemptsError) throw e;
       await this.handleError(e, this);
-      return await this.execute_with_recovery(numAttempts);
+      // The budget counts failures in a row. If a token ran without an error
+      // since the last attempt began, this failure starts a new count.
+      const failures = this.tokens_run > tokens_before ? 1 : numAttempts;
+      return await this.execute_with_recovery(failures);
     }
   }
 
@@ -531,6 +539,7 @@ export class Interpreter {
       } else {
         await this.handle_token(token);
       }
+      this.tokens_run++;
     } while (token.type !== TokenType.EOS);
     return true; // Done executing
   }

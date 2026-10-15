@@ -45,7 +45,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
   read every word up to the next non-word token before it ran them. So after
   `1 NO-SUCH-WORD 2 3 +` or a `PEEK!` stop, the words after the failed one and
   the token after them were lost. Each word now runs as soon as it is read, so
-  recovery resumes with the next token.
+  recovery resumes with the next token. Two effects follow:
+  - The recovery budget (`set_max_attempts`, default 3) now counts failures in
+    a row. A token that runs without an error starts a new count, so a program
+    with many `PEEK!` stops separated by words runs to the end.
+  - A recovered error inside a nested run (a `MAP` body, `INTERPRET`) now
+    continues that body too, so its later words leave their values:
+    `[1 2] 'NO-SUCH-WORD 5' MAP 7` gives `[1, 2, [5, 5], 7]`.
 
 ### Added
 
