@@ -1248,16 +1248,15 @@ class MapWord {
       await interp.run("GROUPS-OF");
       const groups = interp.stack_pop();
 
-      // Clone and load up interpreters
-      const interp_runs = [];
-
+      // Build every duplicate before any group starts, so a failed build
+      // leaves no group running unobserved.
+      const new_interps: Interpreter[] = [];
       for (let i = 0; i < groups.length; i++) {
-        const group = groups[i];
-        const new_interp = await dup_interpreter_recompiled(interp);
-        const interp_run = this.map(new_interp, group);
-        interp_runs.push(interp_run);
+        new_interps.push(await dup_interpreter_recompiled(interp));
       }
-      const run_results = await Promise.all(interp_runs);
+      const run_results = await Promise.all(
+        groups.map((group: any, i: number) => this.map(new_interps[i], group)),
+      );
 
       // Gather results
       const is_array = items instanceof Array;
