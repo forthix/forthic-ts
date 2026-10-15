@@ -1,4 +1,4 @@
-import { Interpreter, dup_interpreter } from "../../interpreter.js";
+import { Interpreter, dup_interpreter_recompiled } from "../../interpreter.js";
 import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 import { Closure } from "../../closure.js";
 
@@ -1253,7 +1253,7 @@ class MapWord {
 
       for (let i = 0; i < groups.length; i++) {
         const group = groups[i];
-        const new_interp = dup_interpreter(interp);
+        const new_interp = await dup_interpreter_recompiled(interp);
         const interp_run = this.map(new_interp, group);
         interp_runs.push(interp_run);
       }

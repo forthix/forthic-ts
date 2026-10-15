@@ -1275,12 +1275,12 @@ interface InterpreterInternal {
  * imports against `cloned`, then re-attaches the source's own top-level words
  * (user definitions) and variables.
  *
- * Known limitation: a pre-existing user definition whose BODY calls a stateful
- * decorated word (VARIABLES/!/@/RUN/...) keeps its source-bound internal word
- * references (they were resolved at definition time). Code that re-defines such
- * words on the dup (e.g. re-running a bootstrap) is unaffected, since the fresh
- * definition resolves against the dup. Re-resolving copied definition bodies is
- * a deeper follow-up.
+ * The user definitions are shared by reference, and their bodies hold the
+ * SOURCE's word objects (bound when each definition was compiled). Core words
+ * such as DUP, SWAP, VARIABLES, !, @ and RUN push through their own module's
+ * interpreter, so a shared definition that calls one pushes onto the source's
+ * stack. dup_interpreter_recompiled compiles the definitions again on the dup;
+ * use it when the dup runs user words.
  */
 function rebuild_app_module(
   srcApp: Module,
@@ -1353,6 +1353,45 @@ export function dup_interpreter(interp: Interpreter): Interpreter {
 }
 
 /**
+ * Duplicate an interpreter, and compile its user definitions again on the
+ * duplicate, so that every body binds the duplicate's own words and variables.
+ * Each definition binds the same version of each word as in the source (the
+ * list from definition_sources, replayed in order). A memo that has a value in
+ * the source keeps that value, so it is not computed again.
+ *
+ * Definitions that have no source text stay shared, as in dup_interpreter.
+ */
+export async function dup_interpreter_recompiled(
+  interp: Interpreter,
+): Promise<Interpreter> {
+  const src_app = (interp as unknown as InterpreterInternal).app_module;
+  const shared = new Set<Word>(user_definitions(src_app));
+  const live = live_definitions(src_app);
+
+  const result = dup_interpreter(interp);
+  const app = (result as unknown as InterpreterInternal).app_module;
+  app.words = app.words.filter(
+    (w) =>
+      !shared.has(w) &&
+      !(
+        (w instanceof ModuleMemoBangWord ||
+          w instanceof ModuleMemoBangAtWord) &&
+        shared.has(w.memo_word)
+      ),
+  );
+
+  for (const w of live) {
+    await result.run(w.source);
+    if (w instanceof ModuleMemoWord && w.has_value) {
+      const memo = app.find_dictionary_word(w.name) as ModuleMemoWord;
+      memo.has_value = true;
+      memo.value = w.value;
+    }
+  }
+  return result;
+}
+
+/**
  * Serializable interpreter state for preserving variables, words, and stack
  * across interpreter instantiations (e.g., multiturn chat sessions).
  */
@@ -1381,11 +1420,21 @@ export interface InterpreterState {
  * memo. A memo (`@:`) contributes one source; its variants bind the memo.
  */
 function definition_sources(app: Module): string[] {
-  const definitions = app.words.filter(
+  return live_definitions(app).map((w) => w.source);
+}
+
+// Every user definition in the app module that has source text, in order.
+function user_definitions(app: Module): (DefinitionWord | ModuleMemoWord)[] {
+  return app.words.filter(
     (w): w is DefinitionWord | ModuleMemoWord =>
       (w instanceof DefinitionWord || w instanceof ModuleMemoWord) &&
       !!w.source,
   );
+}
+
+// The definitions whose sources definition_sources returns, in order.
+function live_definitions(app: Module): (DefinitionWord | ModuleMemoWord)[] {
+  const definitions = user_definitions(app);
   const is_definition = new Set<Word>(definitions);
 
   // The definition a word reaches: itself, or the memo of a `!`/`!@` variant.
@@ -1408,7 +1457,7 @@ function definition_sources(app: Module): string[] {
     pending.push(...body.words.map(definition_of));
   }
 
-  return definitions.filter((w) => kept.has(w)).map((w) => w.source);
+  return definitions.filter((w) => kept.has(w));
 }
 
 /**
