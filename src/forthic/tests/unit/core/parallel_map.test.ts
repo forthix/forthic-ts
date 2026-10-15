@@ -92,6 +92,15 @@ describe("parallel MAP with user words defined before it", () => {
 });
 
 describe("dup_interpreter", () => {
+  test("keeps a prefixed import and a user word that calls it", async () => {
+    const source = new StandardInterpreter([new HundredModule()]);
+    await source.run('[["hundred" "h"]] USE-MODULES : Y h.X 1 + ;');
+    const dup = dup_interpreter(source);
+    await dup.run("5 Y 5 h.X");
+    expect(dup.get_stack().get_items()).toEqual([101, 100]);
+  });
+
+
   test("keeps the literal handlers and the recovery budget", async () => {
     const source = new StandardInterpreter();
     source.register_literal_handler((s: string) => (s === "SEVEN" ? 7 : null));
