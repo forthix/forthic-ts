@@ -1147,7 +1147,21 @@ export class Interpreter {
       // string is a marked redirect string (`<<'''…`). The tokenizer flag, not
       // stack state, decides this. Only one open string can exist at the tail.
       // feed() opens the sink stream lazily on the first delta.
-      if (!eosFound && openStringContent && tokenizer.is_string_redirect()) {
+      //
+      // Wait while an earlier, completed marked string has not run yet (no word
+      // came after it, so the window above stopped before it). The router is
+      // still active for that string, and feed() writes by length only, so it
+      // would send this string's text into the earlier string's sink. Nothing is
+      // lost: the caller passes the whole content again with each chunk.
+      const pendingRedirect = tokens
+        .slice(newStop)
+        .some((t) => t.type === TokenType.STRING && t.is_string_redirect);
+      if (
+        !eosFound &&
+        openStringContent &&
+        tokenizer.is_string_redirect() &&
+        !pendingRedirect
+      ) {
         this.assertCanStringRedirect(openStringLocation);
         await this.stringRedirectRouter.feed(
           openStringContent,
