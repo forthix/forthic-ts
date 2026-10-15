@@ -26,6 +26,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
   body that bound a word live binds the same word on restore. One limit: a
   variable whose name reads as a literal (`["7"] VARIABLES`) also captures that
   literal in a body compiled before the variable was declared.
+- **Parallel `MAP` ran earlier user words against the parent interpreter.**
+  `{ .interps N } ~> MAP` runs each group on a duplicate interpreter, but the
+  duplicate shared the parent's user definitions, whose bodies hold the
+  parent's words. `DUP`, `SWAP`, `!` and other core words then pushed onto the
+  parent's stack, so `: DOUBLE DUP + ; [1 2 3 4] "DOUBLE" { .interps 2 } ~> MAP`
+  threw and left items on the parent's stack. Each group now compiles the user
+  definitions again on its duplicate, with the same bindings. A memo that
+  already has a value keeps it.
+
+### Added
+
+- **`dup_interpreter_recompiled(interp)`**, an async `dup_interpreter` that
+  compiles the user definitions again on the duplicate. Use it when the
+  duplicate runs user words. `dup_interpreter` is unchanged.
 
 ## [0.21.0] - 2026-09-27
 
