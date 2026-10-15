@@ -158,7 +158,9 @@ describe("export_state / import_state over short histories", () => {
         const expected = await outcome(live, probe);
         const actual = await outcome(restored, probe);
         if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-          unfaithful.push(`${JSON.stringify(turns)} ${probe}: live ${JSON.stringify(expected)}, restored ${JSON.stringify(actual)}`);
+          unfaithful.push(
+            `${JSON.stringify(turns)} ${probe}: live ${JSON.stringify(expected)}, restored ${JSON.stringify(actual)}`,
+          );
         }
       }
     }

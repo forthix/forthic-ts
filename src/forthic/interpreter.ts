@@ -6,6 +6,8 @@ import {
   PushValueWord,
   DefinitionWord,
   ModuleMemoWord,
+  ModuleMemoBangWord,
+  ModuleMemoBangAtWord,
 } from "./module.js";
 import { DotSymbol, PositionedString, CollectionMark } from "./tokenizer.js";
 import {
@@ -1361,6 +1363,54 @@ export interface InterpreterState {
 }
 
 /**
+ * The source of each user definition that the app module's live words need, in
+ * definition order. Replaying the list rebuilds the same bindings.
+ *
+ * A body binds its words when it is compiled (find_word runs while compiling,
+ * and find_dictionary_word scans backward), so a live word can hold an OLDER
+ * version of a word that was redefined later. add_word appends, so the module
+ * keeps every version. The list holds the latest version of each name, plus
+ * every older version that a kept body binds, transitively. Replaying those in
+ * their original order binds each body to the same version again: a kept body
+ * bound version V, so no version of that name came between V and the body.
+ * Versions that no live word uses are dropped, so a word redefined in each turn
+ * does not grow the snapshot.
+ *
+ * A memo (`@:`) contributes one source; its `!` and `!@` variants bind the memo.
+ */
+function definition_sources(app: Module): string[] {
+  const definitions = app.words.filter(
+    (w): w is DefinitionWord | ModuleMemoWord =>
+      (w instanceof DefinitionWord || w instanceof ModuleMemoWord) &&
+      !!w.source,
+  );
+  const is_definition = new Set<Word>(definitions);
+
+  const latest = new Map<string, Word>();
+  for (const w of definitions) latest.set(w.name, w);
+
+  const kept = new Set<Word>();
+  const pending = [...latest.values()];
+  while (pending.length > 0) {
+    const w = pending.pop()!;
+    if (kept.has(w)) continue;
+    kept.add(w);
+    const body = w instanceof ModuleMemoWord ? w.word : w;
+    if (!(body instanceof DefinitionWord)) continue;
+    for (const used of body.words) {
+      const target =
+        used instanceof ModuleMemoBangWord ||
+        used instanceof ModuleMemoBangAtWord
+          ? used.memo_word
+          : used;
+      if (is_definition.has(target) && !kept.has(target)) pending.push(target);
+    }
+  }
+
+  return definitions.filter((w) => kept.has(w)).map((w) => w.source);
+}
+
+/**
  * Export the app module state and stack from an interpreter as a serializable object.
  * The caller is responsible for persisting the returned state.
  */
@@ -1380,30 +1430,7 @@ export function export_state(interp: Interpreter): InterpreterState {
     );
   }
 
-  // Collect source text from user-defined words. A name can appear more than once
-  // when a word is redefined in a later turn: add_word appends, so appModule.words
-  // holds every version. Keep the LAST source per name to match the live word that
-  // find_dictionary_word resolves (it scans backward) — otherwise a snapshot/restore
-  // silently reverts a redefinition to its original body. Bang-variant memo words
-  // are skipped by the instanceof guards, so each name contributes one definition.
-  //
-  // delete-then-set moves a redefined name to the END, so import_state replays in
-  // last-definition order. Body words resolve at define time (find_word throws on an
-  // unknown word while compiling), so a redefinition that references a helper defined
-  // after the word's original definition must replay after that helper; leaving the
-  // name at its first-definition slot would replay it too early and throw
-  // UnknownWordError on restore.
-  const latest_source_by_name = new Map<string, string>();
-  for (const word of appModule.words) {
-    if (
-      (word instanceof DefinitionWord || word instanceof ModuleMemoWord) &&
-      word.source
-    ) {
-      latest_source_by_name.delete(word.name);
-      latest_source_by_name.set(word.name, word.source);
-    }
-  }
-  const word_definitions: string[] = Array.from(latest_source_by_name.values());
+  const word_definitions = definition_sources(appModule);
 
   return { stack, variables, word_definitions };
 }
@@ -1417,14 +1444,22 @@ export async function import_state(
   state: InterpreterState,
 ): Promise<void> {
   const internal = interp as unknown as InterpreterInternal;
+  const appModule = internal.app_module;
 
-  // 1. Replay word definitions (this may also create variables via VARIABLES word)
+  // 1. Declare every variable first. Replay compiles each body, and a body that
+  // names a module variable binds it at compile time. Module.find_word checks
+  // the dictionary before variables, so a body that bound a word live binds the
+  // same word here.
+  for (const name of Object.keys(state.variables)) {
+    appModule.add_variable(name, null);
+  }
+
+  // 2. Replay word definitions, in order
   for (const def of state.word_definitions) {
     await interp.run(def);
   }
 
-  // 2. Restore variable values (overwriting any defaults from definitions)
-  const appModule = internal.app_module;
+  // 3. Restore variable values
   for (const [name, serializedValue] of Object.entries(state.variables)) {
     const value = deserializeValue(serializedValue);
     if (appModule.variables[name]) {
@@ -1434,7 +1469,7 @@ export async function import_state(
     }
   }
 
-  // 3. Restore the stack
+  // 4. Restore the stack
   const stackItems = deserializeStack(state.stack);
   internal.stack.set_raw_items(stackItems);
 }
