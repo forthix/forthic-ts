@@ -52,6 +52,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
   - A recovered error inside a nested run (a `MAP` body, `INTERPRET`) now
     continues that body too, so its later words leave their values:
     `[1 2] 'NO-SUCH-WORD 5' MAP 7` gives `[1, 2, [5, 5], 7]`.
+- **A streamed marked string could write into the previous string's sink.**
+  With no word between two marked strings (`REDIRECT< <<'''AA''' <<'''BBBB'''`),
+  a chunk could open the second string before the first one had run, and
+  `streamingRun` fed the second string's text into the first string's sink.
+  Such a program is invalid and fails at the second string, but the live stream
+  showed the wrong text first. The tail feed now waits while an earlier marked
+  string has not run.
 
 ### Added
 
