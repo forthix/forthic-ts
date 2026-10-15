@@ -32,8 +32,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
   parent's words. `DUP`, `SWAP`, `!` and other core words then pushed onto the
   parent's stack, so `: DOUBLE DUP + ; [1 2 3 4] "DOUBLE" { .interps 2 } ~> MAP`
   threw and left items on the parent's stack. Each group now compiles the user
-  definitions again on its duplicate, with the same bindings. A memo that
-  already has a value keeps it.
+  definitions again on its duplicate, each at its own place in the
+  dictionary, so it binds the same words as in the parent. A memo that already
+  has a value keeps it.
+- **`dup_interpreter` changed which word a name found.** It put every import
+  first and dropped a user word whose name matched an imported word, so a user
+  word that shadowed an import was lost on the duplicate. The duplicate's
+  dictionary now keeps the source's order. It also keeps the literal handlers
+  (`register_literal_handler`) and the recovery budget (`set_max_attempts`).
 
 ### Added
 
