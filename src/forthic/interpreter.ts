@@ -527,7 +527,7 @@ export class Interpreter {
       this.previous_token = token;
       token = tokenizer.next_token();
       if (token.type === TokenType.WORD && !this.is_compiling) {
-        await this.executeBatchedWordTokens([token]);
+        await this.execute_word_token(token);
       } else {
         await this.handle_token(token);
       }
@@ -536,46 +536,37 @@ export class Interpreter {
   }
 
   /**
-   * Execute a sequence of word tokens with deferred word lookup.
-   * This resolves words at execution time (not parse time) to support
-   * dynamically defined words (e.g., words defined by LOAD).
-   *
-   * Words are looked up and executed ONE AT A TIME to ensure that
-   * words defined during execution (e.g., by LOAD) are available
-   * for subsequent words in the same batch.
+   * Look up and execute one word token. The lookup happens at execution time,
+   * so a word that an earlier word defined (e.g. by LOAD) is found.
    */
-  private async executeBatchedWordTokens(tokens: Token[]): Promise<void> {
-    // Look up and execute each word one at a time
-    // This ensures words defined during execution are available for later words
-    for (const token of tokens) {
-      const word = this.find_word(token.string, token.location);
-      word.set_location(token.location);
-      this.count_word(word);
-      try {
-        await word.execute(this);
-      } catch (e) {
-        // Don't wrap IntentionalStopError - it's a control-flow mechanism for debugging
-        if (e instanceof IntentionalStopError) {
-          throw e;
-        }
-        // Preserve subclass identity; fill in missing location/word from dispatch context.
-        if (e instanceof ForthicError) {
-          if (!e.location) e.location = token.location;
-          if (!e.word) e.word = word.name;
-          throw e;
-        }
-        // Wrap generic errors in WordExecutionError to add location context
-        if (e instanceof Error) {
-          throw new WordExecutionError(
-            e.message,
-            e,
-            word.name,
-            token.location,
-            word.get_location() || undefined,
-          );
-        }
+  private async execute_word_token(token: Token): Promise<void> {
+    const word = this.find_word(token.string, token.location);
+    word.set_location(token.location);
+    this.count_word(word);
+    try {
+      await word.execute(this);
+    } catch (e) {
+      // Don't wrap IntentionalStopError - it's a control-flow mechanism for debugging
+      if (e instanceof IntentionalStopError) {
         throw e;
       }
+      // Preserve subclass identity; fill in missing location/word from dispatch context.
+      if (e instanceof ForthicError) {
+        if (!e.location) e.location = token.location;
+        if (!e.word) e.word = word.name;
+        throw e;
+      }
+      // Wrap generic errors in WordExecutionError to add location context
+      if (e instanceof Error) {
+        throw new WordExecutionError(
+          e.message,
+          e,
+          word.name,
+          token.location,
+          word.get_location() || undefined,
+        );
+      }
+      throw e;
     }
   }
 
@@ -619,7 +610,7 @@ export class Interpreter {
   find_module(name: string): Module {
     const result = this.registered_modules[name];
     if (result === undefined) {
-      // Location is filled in by the executeBatchedWordTokens catch site,
+      // Location is filled in by the execute_word_token catch site,
       // which has the correct dispatching token in scope.
       throw new UnknownModuleError(this.get_top_input_string(), name);
     }
