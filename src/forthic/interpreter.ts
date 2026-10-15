@@ -519,38 +519,19 @@ export class Interpreter {
   }
 
   async run_with_tokenizer(tokenizer: Tokenizer): Promise<boolean> {
-    // Collect word tokens first for batching optimization
-    // We store tokens (not resolved Words) to defer word lookup until execution time.
-    // This allows dynamically defined words (e.g., from LOAD) to be found.
-    const wordTokens: Token[] = [];
+    // Run each token as soon as it is read. A recovered error resumes from the
+    // tokenizer's position (execute_with_recovery), so no token may be read
+    // ahead of the one that runs.
     let token: Token;
-
     do {
       this.previous_token = token;
       token = tokenizer.next_token();
-
-      // For word tokens, collect the token (defer word lookup until execution)
       if (token.type === TokenType.WORD && !this.is_compiling) {
-        wordTokens.push(token);
+        await this.executeBatchedWordTokens([token]);
       } else {
-        // For non-word tokens, execute any collected words first, then handle the token
-        if (wordTokens.length > 0) {
-          await this.executeBatchedWordTokens(wordTokens);
-          wordTokens.length = 0; // Clear the array
-        }
-
         await this.handle_token(token);
       }
-
-      if (token.type === TokenType.EOS) {
-        // Execute any remaining words
-        if (wordTokens.length > 0) {
-          await this.executeBatchedWordTokens(wordTokens);
-        }
-        break;
-      }
-      // eslint-disable-next-line no-constant-condition
-    } while (true);
+    } while (token.type !== TokenType.EOS);
     return true; // Done executing
   }
 
