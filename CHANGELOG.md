@@ -40,6 +40,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
   word that shadowed an import was lost on the duplicate. The duplicate's
   dictionary now keeps the source's order. It also keeps the literal handlers
   (`register_literal_handler`) and the recovery budget (`set_max_attempts`).
+- **Error recovery skipped the rest of a run of words.** With an error handler
+  (`set_error_handler`), `run()` resumes from the tokenizer's position, but it
+  read every word up to the next non-word token before it ran them. So after
+  `1 NO-SUCH-WORD 2 3 +` or a `PEEK!` stop, the words after the failed one and
+  the token after them were lost. Each word now runs as soon as it is read, so
+  recovery resumes with the next token.
 
 ### Added
 
