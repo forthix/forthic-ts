@@ -456,6 +456,11 @@ describe("Interpreter.streamingRun — marked strings with no word between them"
     return record.filter((x) => typeof x === "string").join("");
   }
 
+  // The only error these programs may raise: the second string has no sink.
+  function expectNoSink(e: unknown): void {
+    if (!(e instanceof StringRedirectError)) throw e;
+  }
+
   test("the first sink carries only its own string's text", async () => {
     const record: any[] = [];
     const interp = makeInterp(() => recordingSink(record));
@@ -488,6 +493,23 @@ describe("Interpreter.streamingRun — marked strings with no word between them"
     expect(written(record)).toBe("AA");
   });
 
+  test("a valid program with a word between the strings streams the second string live", async () => {
+    const records: any[][] = [];
+    const interp = makeInterp(() => {
+      const record: any[] = [];
+      records.push(record);
+      return recordingSink(record);
+    });
+    const program = "REDIRECT< <<'''AA''' DROP DROP REDIRECT< <<'''BBBB'''";
+    await interp.streamingRun(
+      program.slice(0, program.indexOf("BB") + 2),
+      false,
+    );
+    expect(records.map(written)).toEqual(["AA", "BB"]);
+    await interp.streamingRun(program, true);
+    expect(records.map(written)).toEqual(["AA", "BBBB"]);
+  });
+
   test("at every pair of chunk cuts, the first sink holds a prefix of its own string, then all of it", async () => {
     const separators = [" ", "  [ ", " # note\n ", " .x "];
     const misroutes: string[] = [];
@@ -507,12 +529,15 @@ describe("Interpreter.streamingRun — marked strings with no word between them"
                 if (ended) break;
                 await interp
                   .streamingRun(program.slice(0, cut), false)
-                  .catch(() => (ended = true));
+                  .catch((e) => {
+                    expectNoSink(e);
+                    ended = true;
+                  });
                 if (!a.startsWith(written(record)))
                   wrong ||= `after cut ${cut}: ${JSON.stringify(written(record))}`;
               }
               if (!ended) {
-                await interp.streamingRun(program, true).catch(() => {});
+                await interp.streamingRun(program, true).catch(expectNoSink);
                 if (written(record) !== a)
                   wrong ||= `at the end: ${JSON.stringify(written(record))}`;
               }
