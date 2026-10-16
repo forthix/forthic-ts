@@ -163,9 +163,7 @@ describe("String escape sequences (PR 7.5)", () => {
 
     test("a decoded quote in the outer literal can close the inner one", async () => {
       // As in any language: the outer level hands RUN a real quote.
-      await expect(
-        interp.run(String.raw`"'it\u0027s'" RUN`),
-      ).rejects.toThrow();
+      await expect(interp.run(String.raw`"'it\u0027s'" RUN`)).rejects.toThrow();
     });
 
     test("a code string from MAP decodes escapes in each item", async () => {

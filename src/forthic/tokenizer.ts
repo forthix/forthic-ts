@@ -325,9 +325,30 @@ export class Tokenizer {
     return { text: String.fromCharCode(unit, low), length: 12 };
   }
 
+  // Gathers the escape whose backslash is at input_pos. An unrecognized escape
+  // leaves both characters literal, so regex patterns like '\d+' and Windows
+  // paths like 'C:\Users' keep working. Returns false, and gathers nothing,
+  // when the input ends before the escape is decided: the caller stops, so an
+  // open string never holds text that more input can change.
+  private gather_escape(): boolean {
+    const escape = this.read_escape(this.input_pos);
+    if (escape === PENDING) return false;
+    if (escape) {
+      this.advance_position(escape.length);
+      this.token_string += escape.text;
+    } else {
+      this.advance_position(1);
+      this.token_string += "\\";
+    }
+    return true;
+  }
+
   // The value of `count` hex digits at `index`: null when a non-hex character
   // comes first, PENDING when the input ends first.
-  private read_hex(index: number, count: number): number | null | typeof PENDING {
+  private read_hex(
+    index: number,
+    count: number,
+  ): number | null | typeof PENDING {
     const s = this.input_string;
     for (let i = index; i < index + count; i++) {
       if (i >= s.length) return PENDING;
@@ -396,32 +417,26 @@ export class Tokenizer {
    * carry. This is what a redirect string streams into its sink. Empty when no
    * string is open.
    *
-   * For an *open* triple-quoted string, a trailing run of characters whose
-   * identity is not yet decided is held back, so a length-diffing consumer never
-   * receives a byte the finished string will not contain. Two kinds qualify:
+   * The value never holds text whose identity is not yet decided, so a
+   * length-diffing consumer never receives a byte the finished string will not
+   * contain. An escape that the input ends inside (`abc\`, a partial code point
+   * escape, a high surrogate) is never gathered: read_escape() reports it
+   * pending and the gather stops before it.
    *
-   *   - the delimiter char, which may yet begin the closing `'''`/`"""` (or be
-   *     greedy content) rather than being content outright;
-   *   - a backslash, which may yet begin an escape once the next chunk arrives.
-   *     `abc\` re-tokenizes as `abc` + a newline when `\n` completes, so
-   *     reporting the backslash would make the cumulative value shrink.
-   *
-   * One loop, not two passes: `\'` yields a real quote, so stripping a trailing
-   * quote can expose a backslash that must also be held. Held-back characters are
-   * not tracked or replayed — the caller re-feeds the full cumulative content each
-   * chunk, and `finish()` feeds the completed token string.
-   *
-   * Deliberately conservative: a trailing backslash that turns out to be settled
-   * (a resolved `\\`) is indistinguishable from a pending one, so both are held
-   * and the settled one is simply reported one chunk later.
+   * For an *open* triple-quoted string, a trailing run of the delimiter char is
+   * also held back: it may yet begin the closing `'''`/`"""` (or be greedy
+   * content) rather than being content outright. Deliberately conservative: a
+   * trailing quote that came from an escape (`\'`) is settled but looks the
+   * same, so it is held too and reported one chunk later. Held-back characters
+   * are not tracked or replayed — the caller re-feeds the full cumulative
+   * content each chunk, and `finish()` feeds the completed token string.
    */
   get_string_value(): string {
     if (this.open_triple_quote_delim === null) return this.token_string;
     let end = this.token_string.length;
     while (
       end > 0 &&
-      (this.token_string[end - 1] === this.open_triple_quote_delim ||
-        this.token_string[end - 1] === "\\")
+      this.token_string[end - 1] === this.open_triple_quote_delim
     ) {
       end--;
     }
@@ -672,18 +687,7 @@ export class Tokenizer {
       // content and can never close the literal. Unlike GATHER_STRING this loop
       // does not pre-advance, so input_pos still points at `char`.
       if (!raw && char === "\\") {
-        const escape = this.read_escape(this.input_pos);
-        // Undecided at the end of the input: stop before it, so an open
-        // string never holds text that more input can change.
-        if (escape === PENDING) break;
-        if (escape) {
-          this.advance_position(escape.length);
-          this.token_string += escape.text;
-          continue;
-        }
-        // Not a recognised escape: the backslash is ordinary content.
-        this.advance_position(1);
-        this.token_string += char;
+        if (!this.gather_escape()) break;
         continue;
       }
 
@@ -742,17 +746,7 @@ export class Tokenizer {
       const char = this.input_string[this.input_pos];
 
       if (!raw && char === "\\") {
-        const escape = this.read_escape(this.input_pos);
-        if (escape === PENDING) break; // see the triple-quote loop
-        if (escape) {
-          this.advance_position(escape.length);
-          this.token_string += escape.text;
-          continue;
-        }
-        // Unrecognized escape: leave both characters literal so regex
-        // patterns like '\d+' and Windows paths like 'C:\Users' keep working.
-        this.advance_position(1);
-        this.token_string += char;
+        if (!this.gather_escape()) break;
         continue;
       }
 
