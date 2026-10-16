@@ -553,3 +553,60 @@ describe("Interpreter.streamingRun — marked strings with no word between them"
     expect(misroutes.slice(0, 5)).toEqual([]);
   });
 });
+
+// Sources use String.raw, so one backslash in the test is one backslash in the
+// Forthic program.
+describe("Interpreter.streamingRun — escapes stream as their decoded text", () => {
+  function written(record: any[]): string {
+    return record.filter((x) => typeof x === "string").join("");
+  }
+
+  // The sink cannot take text back, so after every cut the text written so far
+  // must be a prefix of the finished string, and at the end it must equal it.
+  async function streamAtEveryCut(program: string, expected: string) {
+    for (let cut = 1; cut < program.length; cut++) {
+      const record: any[] = [];
+      const interp = makeInterp(() => recordingSink(record));
+      for (let c = 1; c <= cut; c++) {
+        await interp.streamingRun(program.slice(0, c), false);
+        if (!expected.startsWith(written(record))) {
+          throw new Error(
+            `cut ${c}: wrote ${JSON.stringify(written(record))}, ` +
+              `not a prefix of ${JSON.stringify(expected)}`,
+          );
+        }
+      }
+      await interp.streamingRun(program, true);
+      expect(written(record)).toEqual(expected);
+      expectSinkThenString(interp, expected);
+    }
+  }
+
+  test("\\uXXXX, surrogate pairs and \\U in a triple-quoted marked string", async () => {
+    await streamAtEveryCut(
+      String.raw`REDIRECT< <<'''a\u2014b \uD83D\uDE00 \U0001F600 it\'s'''`,
+      "a—b \u{1F600} \u{1F600} it's",
+    );
+  });
+
+  test("lone surrogates and incomplete escapes stream as their text", async () => {
+    await streamAtEveryCut(
+      String.raw`REDIRECT< <<"""\uD83Dx \uDE00 \u20G \U0001F60 \\u0041"""`,
+      "\\uD83Dx \\uDE00 \\u20G \\U0001F60 \\u0041",
+    );
+  });
+
+  test(`a marked single-width string <<"…" streams`, async () => {
+    await streamAtEveryCut(
+      String.raw`REDIRECT< <<"it's \u2014 \"ok\" \uD83D\uDE00"`,
+      `it's — "ok" \u{1F600}`,
+    );
+  });
+
+  test(`a marked single-width string <<'…' streams`, async () => {
+    await streamAtEveryCut(
+      String.raw`REDIRECT< <<'it\'s \uD83D\u0041'`,
+      String.raw`it's \uD83DA`,
+    );
+  });
+});

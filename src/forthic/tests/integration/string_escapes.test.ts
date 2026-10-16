@@ -149,6 +149,31 @@ describe("String escape sequences (PR 7.5)", () => {
     });
   });
 
+  // Sources use String.raw, so one backslash in the test is one backslash in
+  // the Forthic program.
+  describe("Unicode escapes in code strings", () => {
+    test("each level decodes its own escapes", async () => {
+      // The outer literal decodes ' to a quote, so RUN sees '"'"'.
+      await interp.run(String.raw`'''"'"''' RUN`);
+      expect(interp.stack_pop()).toBe("'");
+      // \\u0027 reaches RUN as the text \u0027, and RUN decodes it.
+      await interp.run(String.raw`"'it\\u0027s'" RUN`);
+      expect(interp.stack_pop()).toBe("it's");
+    });
+
+    test("a decoded quote in the outer literal can close the inner one", async () => {
+      // As in any language: the outer level hands RUN a real quote.
+      await expect(
+        interp.run(String.raw`"'it\u0027s'" RUN`),
+      ).rejects.toThrow();
+    });
+
+    test("a code string from MAP decodes escapes in each item", async () => {
+      await interp.run(String.raw`["a" "b"] "DROP '\u2014'" MAP`);
+      expect(interp.stack_pop()).toEqual(["\u2014", "\u2014"]);
+    });
+  });
+
   describe("Caret quote char removed", () => {
     test("^ no longer starts a string — treated as part of a word", async () => {
       // With ^ removed from quote_chars, the bare ^ token becomes an

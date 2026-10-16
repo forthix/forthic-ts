@@ -841,3 +841,124 @@ describe("HTML entities are ordinary text", () => {
     expect(dup.location.start_pos).toBe(7);
   });
 });
+
+// Sources below use String.raw, so one backslash in the test is one backslash in
+// the Forthic program.
+describe("Unicode escapes (\\uXXXX, \\UXXXXXXXX)", () => {
+  const content = (input: string) => new Tokenizer(input).next_token().string;
+
+  test("\\uXXXX decodes in every literal that is not raw", () => {
+    for (const input of [
+      String.raw`'a\u2014b'`,
+      String.raw`"a\u2014b"`,
+      String.raw`'''a\u2014b'''`,
+      String.raw`"""a\u2014b"""`,
+      String.raw`<<'''a\u2014b'''`,
+      String.raw`<<"""a\u2014b"""`,
+    ]) {
+      expect(content(input)).toEqual("a\u2014b");
+    }
+  });
+
+  test("hex digits are case-insensitive", () => {
+    expect(content(String.raw`'\u00e9\u00E9'`)).toEqual("\u00e9\u00e9");
+  });
+
+  test("a surrogate pair decodes to one character", () => {
+    expect(content(String.raw`'\uD83D\uDE00'`)).toEqual("\u{1F600}");
+    expect(content(String.raw`'''\ud83d\ude00!'''`)).toEqual("\u{1F600}!");
+  });
+
+  test("a lone surrogate keeps its escape text", () => {
+    expect(content(String.raw`'\uD83D'`)).toEqual(String.raw`\uD83D`);
+    expect(content(String.raw`'\uD83Dx'`)).toEqual(String.raw`\uD83Dx`);
+    expect(content(String.raw`'\uDE00'`)).toEqual(String.raw`\uDE00`);
+    // A high surrogate before a BMP escape is lone; the BMP escape still decodes.
+    expect(content(String.raw`'\uD83D\u0041'`)).toEqual(String.raw`\uD83DA`);
+    // Two high surrogates: the first is lone, the second pairs with the low.
+    expect(content(String.raw`'\uD83D\uD83D\uDE00'`)).toEqual(
+      String.raw`\uD83D` + "\u{1F600}",
+    );
+  });
+
+  test("an incomplete \\u escape keeps its text", () => {
+    expect(content(String.raw`'\u20'`)).toEqual(String.raw`\u20`);
+    expect(content(String.raw`'\u20G1'`)).toEqual(String.raw`\u20G1`);
+    expect(content(String.raw`'\u'`)).toEqual(String.raw`\u`);
+  });
+
+  test("\\UXXXXXXXX decodes a code point", () => {
+    expect(content(String.raw`'\U0001F600'`)).toEqual("\u{1F600}");
+    expect(content(String.raw`"""\U00002014"""`)).toEqual("\u2014");
+  });
+
+  test("\\U keeps its text when it is not a valid code point", () => {
+    // Above U+10FFFF, in the surrogate range, or fewer than 8 hex digits.
+    expect(content(String.raw`'\U00110000'`)).toEqual(String.raw`\U00110000`);
+    expect(content(String.raw`'\U0000D83D'`)).toEqual(String.raw`\U0000D83D`);
+    expect(content(String.raw`'\U0001F60'`)).toEqual(String.raw`\U0001F60`);
+    expect(content(String.raw`'C:\Users'`)).toEqual(String.raw`C:\Users`);
+  });
+
+  test("\\u{…} is not an escape", () => {
+    expect(content(String.raw`'\u{1F600}'`)).toEqual(String.raw`\u{1F600}`);
+  });
+
+  test("raw literals do not decode", () => {
+    expect(content(String.raw`r'\u2014'`)).toEqual(String.raw`\u2014`);
+    expect(content(String.raw`r'''\U0001F600'''`)).toEqual(
+      String.raw`\U0001F600`,
+    );
+  });
+
+  test("an escaped backslash before u is text", () => {
+    expect(content(String.raw`'\\u2014'`)).toEqual(String.raw`\u2014`);
+  });
+
+  test("a decoded quote is content and never closes the literal", () => {
+    expect(content(String.raw`'it\u0027s'`)).toEqual("it's");
+    expect(content(String.raw`"say \u0022hi\u0022"`)).toEqual('say "hi"');
+    expect(content(String.raw`'''a\u0027\u0027\u0027b'''`)).toEqual("a'''b");
+  });
+});
+
+describe(`Marked single-width strings (<<'…', <<"…")`, () => {
+  const tokens = (input: string) => {
+    const tokenizer = new Tokenizer(input);
+    const out: any[] = [];
+    let token: any;
+    while ((token = tokenizer.next_token()) && token.type !== TokenType.EOS) {
+      out.push([token.type, token.string, token.is_string_redirect]);
+    }
+    return out;
+  };
+
+  test(`<<"…" and <<'…' tokenize as one marked STRING`, () => {
+    expect(tokens(`<<"streamed reply"`)).toEqual([
+      [TokenType.STRING, "streamed reply", true],
+    ]);
+    expect(tokens(`<<'streamed reply'`)).toEqual([
+      [TokenType.STRING, "streamed reply", true],
+    ]);
+  });
+
+  test("a marked single-width string decodes escapes", () => {
+    expect(tokens(String.raw`<<"it's \u2014 \"ok\""`)).toEqual([
+      [TokenType.STRING, `it's \u2014 "ok"`, true],
+    ]);
+    expect(tokens(String.raw`<<'it\'s'`)).toEqual([
+      [TokenType.STRING, "it's", true],
+    ]);
+  });
+
+  test("<< with a space before the quote is a word, then a string", () => {
+    expect(tokens(`<< "hello"`)).toEqual([
+      [TokenType.WORD, "<<", false],
+      [TokenType.STRING, "hello", false],
+    ]);
+  });
+
+  test("an unterminated marked single-width string throws", () => {
+    expect(() => tokens(`<<"hello`)).toThrow(UnterminatedStringError);
+  });
+});
