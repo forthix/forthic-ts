@@ -26,6 +26,45 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
   body that bound a word live binds the same word on restore. One limit: a
   variable whose name reads as a literal (`["7"] VARIABLES`) also captures that
   literal in a body compiled before the variable was declared.
+- **Parallel `MAP` ran earlier user words against the parent interpreter.**
+  `{ .interps N } ~> MAP` runs each group on a duplicate interpreter, but the
+  duplicate shared the parent's user definitions, whose bodies hold the
+  parent's words. `DUP`, `SWAP`, `!` and other core words then pushed onto the
+  parent's stack, so `: DOUBLE DUP + ; [1 2 3 4] "DOUBLE" { .interps 2 } ~> MAP`
+  threw and left items on the parent's stack. Each group now compiles the user
+  definitions again on its duplicate, each at its own place in the
+  dictionary, so it binds the same words as in the parent. A memo that already
+  has a value keeps it.
+- **`dup_interpreter` changed which word a name found.** It put every import
+  first and dropped a user word whose name matched an imported word, so a user
+  word that shadowed an import was lost on the duplicate. The duplicate's
+  dictionary now keeps the source's order. It also keeps the literal handlers
+  (`register_literal_handler`) and the recovery budget (`set_max_attempts`).
+- **Error recovery skipped the rest of a run of words.** With an error handler
+  (`set_error_handler`), `run()` resumes from the tokenizer's position, but it
+  read every word up to the next non-word token before it ran them. So after
+  `1 NO-SUCH-WORD 2 3 +` or a `PEEK!` stop, the words after the failed one and
+  the token after them were lost. Each word now runs as soon as it is read, so
+  recovery resumes with the next token. Two effects follow:
+  - The recovery budget (`set_max_attempts`, default 3) now counts failures in
+    a row. A token that runs without an error starts a new count, so a program
+    with many `PEEK!` stops separated by words runs to the end.
+  - A recovered error inside a nested run (a `MAP` body, `INTERPRET`) now
+    continues that body too, so its later words leave their values:
+    `[1 2] 'NO-SUCH-WORD 5' MAP 7` gives `[1, 2, [5, 5], 7]`.
+- **A streamed marked string could write into the previous string's sink.**
+  With no word between two marked strings (`REDIRECT< <<'''AA''' <<'''BBBB'''`),
+  a chunk could open the second string before the first one had run, and
+  `streamingRun` fed the second string's text into the first string's sink.
+  Such a program is invalid and fails at the second string, but the live stream
+  showed the wrong text first. The tail feed now waits while an earlier marked
+  string has not run.
+
+### Added
+
+- **`dup_interpreter_recompiled(interp)`**, an async `dup_interpreter` that
+  compiles the user definitions again on the duplicate. Use it when the
+  duplicate runs user words. `dup_interpreter` stays synchronous.
 
 ## [0.21.0] - 2026-09-27
 

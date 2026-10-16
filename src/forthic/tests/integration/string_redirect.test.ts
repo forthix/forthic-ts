@@ -446,3 +446,110 @@ describe("Interpreter.streamingRun — marked string redirect into a StringRedir
     ).rejects.toThrow(StringRedirectError);
   });
 });
+
+// Two marked strings with no word between them: a chunk can open the second
+// string before the first one has run. The second string's text must not reach
+// the first string's sink. (Each such program is invalid: the second string has
+// no sink, and run() throws there too.)
+describe("Interpreter.streamingRun — marked strings with no word between them", () => {
+  function written(record: any[]): string {
+    return record.filter((x) => typeof x === "string").join("");
+  }
+
+  // The only error these programs may raise: the second string has no sink.
+  function expectNoSink(e: unknown): void {
+    if (!(e instanceof StringRedirectError)) throw e;
+  }
+
+  test("the first sink carries only its own string's text", async () => {
+    const record: any[] = [];
+    const interp = makeInterp(() => recordingSink(record));
+    await interp.streamingRun("REDIRECT< <<'''AA", false);
+    await interp.streamingRun("REDIRECT< <<'''AA''' <<'''BBBB", false);
+    await expect(
+      interp.streamingRun("REDIRECT< <<'''AA''' <<'''BBBB'''", true),
+    ).rejects.toThrow(StringRedirectError);
+    expect(written(record)).toBe("AA");
+  });
+
+  test("an empty first string's sink gets none of the second string's text", async () => {
+    const record: any[] = [];
+    const interp = makeInterp(() => recordingSink(record));
+    await interp.streamingRun("REDIRECT< <<''''''", false);
+    await interp.streamingRun("REDIRECT< <<'''''' <<'''BB", false);
+    await expect(
+      interp.streamingRun("REDIRECT< <<'''''' <<'''BB'''", true),
+    ).rejects.toThrow(StringRedirectError);
+    expect(written(record)).toBe("");
+  });
+
+  test("an array mark between the strings does not change it", async () => {
+    const record: any[] = [];
+    const interp = makeInterp(() => recordingSink(record));
+    await interp.streamingRun("REDIRECT< <<'''AA''' [ <<'''BBBB", false);
+    await expect(
+      interp.streamingRun("REDIRECT< <<'''AA''' [ <<'''BBBB'''", true),
+    ).rejects.toThrow(StringRedirectError);
+    expect(written(record)).toBe("AA");
+  });
+
+  test("a valid program with a word between the strings streams the second string live", async () => {
+    const records: any[][] = [];
+    const interp = makeInterp(() => {
+      const record: any[] = [];
+      records.push(record);
+      return recordingSink(record);
+    });
+    const program = "REDIRECT< <<'''AA''' DROP DROP REDIRECT< <<'''BBBB'''";
+    await interp.streamingRun(
+      program.slice(0, program.indexOf("BB") + 2),
+      false,
+    );
+    expect(records.map(written)).toEqual(["AA", "BB"]);
+    await interp.streamingRun(program, true);
+    expect(records.map(written)).toEqual(["AA", "BBBB"]);
+  });
+
+  test("at every pair of chunk cuts, the first sink holds a prefix of its own string, then all of it", async () => {
+    const separators = [" ", "  [ ", " # note\n ", " .x "];
+    const misroutes: string[] = [];
+    for (const a of ["", "A", "AA"]) {
+      for (const b of ["B", "BBBB"]) {
+        for (const sep of separators) {
+          const program = `REDIRECT< <<'''${a}'''${sep}<<'''${b}'''`;
+          for (let i = 1; i < program.length; i++) {
+            for (let j = i; j < program.length; j++) {
+              const record: any[] = [];
+              const interp = makeInterp(() => recordingSink(record));
+              let wrong = "";
+              // A chunk that opens the second string after the first has run
+              // throws (no sink); the turn ends there, as it does for a host.
+              let ended = false;
+              for (const cut of [i, j]) {
+                if (ended) break;
+                await interp
+                  .streamingRun(program.slice(0, cut), false)
+                  .catch((e) => {
+                    expectNoSink(e);
+                    ended = true;
+                  });
+                if (!a.startsWith(written(record)))
+                  wrong ||= `after cut ${cut}: ${JSON.stringify(written(record))}`;
+              }
+              if (!ended) {
+                await interp.streamingRun(program, true).catch(expectNoSink);
+                if (written(record) !== a)
+                  wrong ||= `at the end: ${JSON.stringify(written(record))}`;
+              }
+              if (wrong)
+                misroutes.push(
+                  `${JSON.stringify(program)} cuts ${i},${j} ${wrong}`,
+                );
+            }
+          }
+        }
+      }
+    }
+    expect(misroutes.slice(0, 5)).toEqual([]);
+  });
+});
