@@ -922,6 +922,28 @@ describe("Unicode escapes (\\uXXXX, \\UXXXXXXXX)", () => {
   });
 });
 
+describe("String token positions after escapes", () => {
+  // end_pos is where the content ends in the source, not start_pos plus the
+  // decoded length: an escape is longer in the source than its text.
+  const span = (input: string) => {
+    const { start_pos, end_pos } = new Tokenizer(input).next_token().location;
+    return [start_pos, end_pos];
+  };
+
+  test("end_pos counts source characters", () => {
+    expect(span(String.raw`'\uD83D\uDE00' X`)).toEqual([1, 13]);
+    expect(span(String.raw`'''a\u2014b''' X`)).toEqual([3, 11]);
+    expect(span(String.raw`'a\nb' X`)).toEqual([1, 5]);
+    expect(span(String.raw`<<"x\u0041" X`)).toEqual([3, 10]);
+  });
+
+  test("end_pos is unchanged for strings without escapes", () => {
+    expect(span(`'abc' X`)).toEqual([1, 4]);
+    expect(span(`'''abc''' X`)).toEqual([3, 6]);
+    expect(span(String.raw`r'\u2014' X`)).toEqual([2, 8]);
+  });
+});
+
 describe(`Marked single-width strings (<<'…', <<"…")`, () => {
   const tokens = (input: string) => {
     const tokenizer = new Tokenizer(input);
