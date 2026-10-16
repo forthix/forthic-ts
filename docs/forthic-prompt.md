@@ -14,7 +14,7 @@ Top of stack is rightmost. Forthic is postfix: arguments precede the word.
 - `"""…"""` — embedded Forthic code
 - `""` — empty string (`''''` is not empty)
 
-Every non-raw form interprets `\n \t \r \0 \\ \" \'`. Other backslash pairs
+Every non-raw form interprets `\n \t \r \0 \\ \" \' \uXXXX \UXXXXXXXX`. Other backslash pairs
 remain literal, so `'''\d+\w*'''` preserves the regex while `'''a\nb'''`
 contains a newline.
 
@@ -36,6 +36,15 @@ run so it remains content:
 Escapes are processed before delimiter detection, so an escaped quote cannot
 close the string. An unescaped delimiter still does: `'''today'''s plan'''`
 ends after `today`.
+
+#### Unicode escapes
+
+`\uXXXX` and `\UXXXXXXXX` give the character with that code point:
+`'caf\u00e9'` → `'café'`. Write a character above U+FFFF as one `\U` escape
+or as a surrogate pair: `'\uD83D\uDE00'` → `'\U0001F600'`. An escape that is
+not a valid code point stays as written. A decoded character is plain content:
+`\u002E` is a `.` that a regex reads as any character, and `\u0022` is a bare
+quote in JSON text. Use a raw string for regex and JSON.
 
 #### Raw strings
 
