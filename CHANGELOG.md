@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking: string literals decode `\uXXXX` and `\UXXXXXXXX`.** Every
+  literal that is not raw decodes them, at every width and in marked strings.
+  A high and a low surrogate escape (`\uD83D\uDE00`) join into one
+  character. An escape that is not a whole, valid code point keeps its text, as
+  every unknown escape does: a lone surrogate, a `\U` value above U+10FFFF, or
+  too few hex digits (`\u20`). `\u{…}` and `\xHH` are not escapes. A
+  decoded quote is content, so `'it\u0027s'` is `it's`. In a code string, each
+  level decodes its own escapes: write `\\u0027` to pass the escape to `RUN`.
+  A program that needs the text `\u2014` writes `\\u2014` or a raw literal,
+  `r'\u2014'`. `streamingRun` holds back an escape until it is decided, so a
+  redirect sink never receives text that the finished string does not contain.
+- **Breaking: `<<` glued to any quote opens a marked string.** `<<'…'` and
+  `<<"…"` are marked strings, as `<<'''…'''` and `<<"""…"""` are, with the
+  same escapes. Before, each tokenized as words. `<<` with a space before the
+  quote is still a word.
+
 ### Fixed
 
 - **`import_state` could not restore some snapshots that `export_state` wrote.**

@@ -37,6 +37,13 @@ Escapes are processed before delimiter detection, so an escaped quote cannot
 close the string. An unescaped delimiter still does: `'''today'''s plan'''`
 ends after `today`.
 
+#### Unicode escapes
+
+`\uXXXX` and `\UXXXXXXXX` give the character with that code point:
+`'caf\u00e9'` → `'café'`. Write a character above U+FFFF as one `\U` escape
+or as a surrogate pair: `'\uD83D\uDE00'` → `'\U0001F600'`. An escape that is
+not a valid code point stays as written.
+
 #### Raw strings
 
 Prefix any form with `r` to disable escape processing: `r'…'`, `r"…"`,
