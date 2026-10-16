@@ -229,6 +229,7 @@ export class Tokenizer {
     // again, so the flag stays true exactly when is_string_redirect() is read.
     this.string_redirect_open = false;
     this.open_triple_quote_delim = null;
+    this.token_end_pos = 0;
     const token = this.transition_from_START();
     // Stamp the post-token cursor while it is still fresh. In the non-streaming
     // path this equals the live `input_pos` a handler would read immediately
@@ -402,7 +403,10 @@ export class Tokenizer {
       line: this.token_line,
       column: this.token_column,
       start_pos: this.token_start_pos,
-      end_pos: this.token_start_pos + this.token_string.length,
+      // A closed string sets token_end_pos where its content ends: an escape
+      // is longer in the source than its text. Other tokens are as written.
+      end_pos:
+        this.token_end_pos || this.token_start_pos + this.token_string.length,
     });
   }
 
@@ -707,6 +711,7 @@ export class Tokenizer {
         }
 
         // Normal behavior: close at first triple quote
+        this.token_end_pos = this.input_pos + this.reference_location.start_pos;
         this.advance_position(3);
         this.open_triple_quote_delim = null; // string closed: nothing to hold back
         return new Token(
@@ -750,17 +755,18 @@ export class Tokenizer {
         continue;
       }
 
-      this.advance_position(1);
       if (char === string_delimiter) {
+        this.token_end_pos = this.input_pos + this.reference_location.start_pos;
+        this.advance_position(1);
         return new Token(
           TokenType.STRING,
           this.token_string,
           this.get_token_location(),
           is_string_redirect,
         );
-      } else {
-        this.token_string += char;
       }
+      this.advance_position(1);
+      this.token_string += char;
     }
 
     if (this.streaming) {
