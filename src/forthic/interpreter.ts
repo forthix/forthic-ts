@@ -303,6 +303,9 @@ export class Interpreter {
   private previous_token: Token | null;
   private handleError?: HandleErrorFunction;
   private maxAttempts: number;
+  // Tokens that ran without an error. execute_with_recovery uses it to count
+  // failures in a row.
+  private tokens_run: number;
   private is_compiling: boolean;
   private is_memo_definition: boolean;
   private cur_definition: DefinitionWord | null;
@@ -339,6 +342,7 @@ export class Interpreter {
 
     this.tokenizer_stack = [];
     this.maxAttempts = 3;
+    this.tokens_run = 0;
     this.handleError = undefined;
 
     this.app_module = new Module("");
@@ -499,6 +503,7 @@ export class Interpreter {
         this.maxAttempts,
       );
     }
+    const tokens_before = this.tokens_run;
     try {
       await this.continue();
       return numAttempts;
@@ -507,7 +512,10 @@ export class Interpreter {
       // Never try to recover from the attempt-budget guard itself.
       if (e instanceof TooManyAttemptsError) throw e;
       await this.handleError(e, this);
-      return await this.execute_with_recovery(numAttempts);
+      // The budget counts failures in a row. If a token ran without an error
+      // since the last attempt began, this failure starts a new count.
+      const failures = this.tokens_run > tokens_before ? 1 : numAttempts;
+      return await this.execute_with_recovery(failures);
     }
   }
 
@@ -519,82 +527,55 @@ export class Interpreter {
   }
 
   async run_with_tokenizer(tokenizer: Tokenizer): Promise<boolean> {
-    // Collect word tokens first for batching optimization
-    // We store tokens (not resolved Words) to defer word lookup until execution time.
-    // This allows dynamically defined words (e.g., from LOAD) to be found.
-    const wordTokens: Token[] = [];
+    // Run each token as soon as it is read. A recovered error resumes from the
+    // tokenizer's position (execute_with_recovery), so no token may be read
+    // ahead of the one that runs.
     let token: Token;
-
     do {
       this.previous_token = token;
       token = tokenizer.next_token();
-
-      // For word tokens, collect the token (defer word lookup until execution)
       if (token.type === TokenType.WORD && !this.is_compiling) {
-        wordTokens.push(token);
+        await this.execute_word_token(token);
       } else {
-        // For non-word tokens, execute any collected words first, then handle the token
-        if (wordTokens.length > 0) {
-          await this.executeBatchedWordTokens(wordTokens);
-          wordTokens.length = 0; // Clear the array
-        }
-
         await this.handle_token(token);
       }
-
-      if (token.type === TokenType.EOS) {
-        // Execute any remaining words
-        if (wordTokens.length > 0) {
-          await this.executeBatchedWordTokens(wordTokens);
-        }
-        break;
-      }
-      // eslint-disable-next-line no-constant-condition
-    } while (true);
+      this.tokens_run++;
+    } while (token.type !== TokenType.EOS);
     return true; // Done executing
   }
 
   /**
-   * Execute a sequence of word tokens with deferred word lookup.
-   * This resolves words at execution time (not parse time) to support
-   * dynamically defined words (e.g., words defined by LOAD).
-   *
-   * Words are looked up and executed ONE AT A TIME to ensure that
-   * words defined during execution (e.g., by LOAD) are available
-   * for subsequent words in the same batch.
+   * Look up and execute one word token. The lookup happens at execution time,
+   * so a word that an earlier word defined (e.g. by LOAD) is found.
    */
-  private async executeBatchedWordTokens(tokens: Token[]): Promise<void> {
-    // Look up and execute each word one at a time
-    // This ensures words defined during execution are available for later words
-    for (const token of tokens) {
-      const word = this.find_word(token.string, token.location);
-      word.set_location(token.location);
-      this.count_word(word);
-      try {
-        await word.execute(this);
-      } catch (e) {
-        // Don't wrap IntentionalStopError - it's a control-flow mechanism for debugging
-        if (e instanceof IntentionalStopError) {
-          throw e;
-        }
-        // Preserve subclass identity; fill in missing location/word from dispatch context.
-        if (e instanceof ForthicError) {
-          if (!e.location) e.location = token.location;
-          if (!e.word) e.word = word.name;
-          throw e;
-        }
-        // Wrap generic errors in WordExecutionError to add location context
-        if (e instanceof Error) {
-          throw new WordExecutionError(
-            e.message,
-            e,
-            word.name,
-            token.location,
-            word.get_location() || undefined,
-          );
-        }
+  private async execute_word_token(token: Token): Promise<void> {
+    const word = this.find_word(token.string, token.location);
+    word.set_location(token.location);
+    this.count_word(word);
+    try {
+      await word.execute(this);
+    } catch (e) {
+      // Don't wrap IntentionalStopError - it's a control-flow mechanism for debugging
+      if (e instanceof IntentionalStopError) {
         throw e;
       }
+      // Preserve subclass identity; fill in missing location/word from dispatch context.
+      if (e instanceof ForthicError) {
+        if (!e.location) e.location = token.location;
+        if (!e.word) e.word = word.name;
+        throw e;
+      }
+      // Wrap generic errors in WordExecutionError to add location context
+      if (e instanceof Error) {
+        throw new WordExecutionError(
+          e.message,
+          e,
+          word.name,
+          token.location,
+          word.get_location() || undefined,
+        );
+      }
+      throw e;
     }
   }
 
@@ -638,7 +619,7 @@ export class Interpreter {
   find_module(name: string): Module {
     const result = this.registered_modules[name];
     if (result === undefined) {
-      // Location is filled in by the executeBatchedWordTokens catch site,
+      // Location is filled in by the execute_word_token catch site,
       // which has the correct dispatching token in scope.
       throw new UnknownModuleError(this.get_top_input_string(), name);
     }
