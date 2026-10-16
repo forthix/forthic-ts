@@ -8,6 +8,7 @@ import {
   ModuleMemoWord,
   ModuleMemoBangWord,
   ModuleMemoBangAtWord,
+  ExecuteWord,
 } from "./module.js";
 import { DotSymbol, PositionedString, CollectionMark } from "./tokenizer.js";
 import {
@@ -1267,45 +1268,62 @@ interface InterpreterInternal {
   stack: Stack;
   registered_modules: { [key: string]: Module };
   handleError?: HandleErrorFunction;
+  literal_handlers: LiteralHandler[];
+  maxAttempts: number;
 }
 
 /**
  * Rebuild a target app_module so that its imported words are bound to the
- * TARGET-bound module clones, not the source. Replays the source app_module's
- * imports against `cloned`, then re-attaches the source's own top-level words
- * (user definitions) and variables.
+ * TARGET-bound module clones, not the source. The dictionary keeps the source's
+ * order, so a later word shadows an earlier one of the same name exactly as in
+ * the source: each imported word is replaced by its clone's word (a prefixed
+ * import's ExecuteWord targets the clone's word), and every other word (user
+ * definitions) stays at its position. Variables are copied.
  *
- * Known limitation: a pre-existing user definition whose BODY calls a stateful
- * decorated word (VARIABLES/!/@/RUN/...) keeps its source-bound internal word
- * references (they were resolved at definition time). Code that re-defines such
- * words on the dup (e.g. re-running a bootstrap) is unaffected, since the fresh
- * definition resolves against the dup. Re-resolving copied definition bodies is
- * a deeper follow-up.
+ * The user definitions are shared by reference, and their bodies hold the
+ * SOURCE's word objects (bound when each definition was compiled). Core words
+ * such as DUP, SWAP, VARIABLES, !, @ and RUN push through their own module's
+ * interpreter, so a shared definition that calls one pushes onto the source's
+ * stack. dup_interpreter_recompiled compiles the definitions again on the dup;
+ * use it when the dup runs user words.
  */
 function rebuild_app_module(
   srcApp: Module,
+  srcModules: { [name: string]: Module },
   cloned: { [name: string]: Module },
   interp: Interpreter,
 ): Module {
   const app = new Module(srcApp.name);
 
-  // Replay imports against the target-bound clones so app_module.words resolve
-  // to clone-bound (target-bound) words.
-  Object.entries(srcApp.module_prefixes).forEach(([module_name, prefixes]) => {
-    const target_mod = cloned[module_name];
+  // An import adds the registered module's own Word objects (Module.dup slices
+  // them), so each one maps to the clone's word of the same name.
+  const clone_of = new Map<Word, Word>();
+  Object.entries(srcModules).forEach(([name, src_mod]) => {
+    const target_mod = cloned[name];
     if (!target_mod) return;
-    prefixes.forEach((prefix) => {
-      app.import_module(prefix, target_mod, interp);
+    src_mod.words.forEach((w) => {
+      const target_word = target_mod.find_dictionary_word(w.name);
+      if (target_word) clone_of.set(w, target_word);
     });
   });
 
-  // Re-attach the app_module's own top-level words (user definitions) — those
-  // whose names weren't contributed by the import replay. Appended last so they
-  // shadow imports (find_dictionary_word scans backwards). Definition words are
-  // safe to share by reference (they execute against the passed interp).
-  const imported = new Set(app.words.map((w) => w.name));
   srcApp.words.forEach((w) => {
-    if (!imported.has(w.name)) app.words.push(w);
+    const target_word = clone_of.get(w);
+    if (target_word) {
+      app.words.push(target_word);
+    } else if (w instanceof ExecuteWord && clone_of.has(w.target_word)) {
+      app.words.push(new ExecuteWord(w.name, clone_of.get(w.target_word)!));
+    } else {
+      app.words.push(w);
+    }
+  });
+
+  Object.entries(srcApp.module_prefixes).forEach(([module_name, prefixes]) => {
+    const target_mod = cloned[module_name];
+    if (!target_mod) return;
+    prefixes.forEach((prefix) =>
+      app.register_module(module_name, prefix, target_mod.dup()),
+    );
   });
 
   Object.keys(srcApp.variables).forEach(
@@ -1336,6 +1354,7 @@ export function dup_interpreter(interp: Interpreter): Interpreter {
   // clones rather than the source-bound originals.
   target.app_module = rebuild_app_module(
     source.app_module,
+    source.registered_modules,
     cloned,
     result_interp,
   );
@@ -1348,8 +1367,59 @@ export function dup_interpreter(interp: Interpreter): Interpreter {
   if (source.handleError) {
     target.handleError = source.handleError;
   }
+  target.literal_handlers = [...source.literal_handlers];
+  target.maxAttempts = source.maxAttempts;
 
   return result_interp;
+}
+
+/**
+ * Duplicate an interpreter, and compile its user definitions again on the
+ * duplicate, so that every body binds the duplicate's own words and variables.
+ * Each definition compiles at its own position in the dictionary, so it binds
+ * the same version of each word as in the source; definitions that no live
+ * word uses (see definition_sources) are left out. A memo that has a value in
+ * the source keeps that value, so it is not computed again.
+ *
+ * Definitions that have no source text stay shared, as in dup_interpreter.
+ */
+export async function dup_interpreter_recompiled(
+  interp: Interpreter,
+): Promise<Interpreter> {
+  const src_app = (interp as unknown as InterpreterInternal).app_module;
+  const shared = new Set<Word>(user_definitions(src_app));
+
+  const is_live = new Set<Word>(live_definitions(src_app));
+
+  const result = dup_interpreter(interp);
+  const app = (result as unknown as InterpreterInternal).app_module;
+  const words = app.words;
+  app.words = [];
+
+  // Walk the dictionary in order. Each live definition compiles at its own
+  // position, so it binds what was before it, as in the source. A compiled memo
+  // adds its own `!` and `!@` words, so the shared ones are dropped.
+  for (const w of words) {
+    if (
+      (w instanceof ModuleMemoBangWord || w instanceof ModuleMemoBangAtWord) &&
+      shared.has(w.memo_word)
+    ) {
+      continue;
+    }
+    if (!shared.has(w)) {
+      app.words.push(w);
+      continue;
+    }
+    if (!is_live.has(w)) continue;
+    const def = w as DefinitionWord | ModuleMemoWord;
+    await result.run(def.source);
+    if (def instanceof ModuleMemoWord && def.has_value) {
+      const memo = app.find_dictionary_word(def.name) as ModuleMemoWord;
+      memo.has_value = true;
+      memo.value = def.value;
+    }
+  }
+  return result;
 }
 
 /**
@@ -1381,11 +1451,21 @@ export interface InterpreterState {
  * memo. A memo (`@:`) contributes one source; its variants bind the memo.
  */
 function definition_sources(app: Module): string[] {
-  const definitions = app.words.filter(
+  return live_definitions(app).map((w) => w.source);
+}
+
+// Every user definition in the app module that has source text, in order.
+function user_definitions(app: Module): (DefinitionWord | ModuleMemoWord)[] {
+  return app.words.filter(
     (w): w is DefinitionWord | ModuleMemoWord =>
       (w instanceof DefinitionWord || w instanceof ModuleMemoWord) &&
       !!w.source,
   );
+}
+
+// The definitions whose sources definition_sources returns, in order.
+function live_definitions(app: Module): (DefinitionWord | ModuleMemoWord)[] {
+  const definitions = user_definitions(app);
   const is_definition = new Set<Word>(definitions);
 
   // The definition a word reaches: itself, or the memo of a `!`/`!@` variant.
@@ -1408,7 +1488,7 @@ function definition_sources(app: Module): string[] {
     pending.push(...body.words.map(definition_of));
   }
 
-  return definitions.filter((w) => kept.has(w)).map((w) => w.source);
+  return definitions.filter((w) => kept.has(w));
 }
 
 /**
