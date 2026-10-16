@@ -4,6 +4,29 @@ All notable changes to `@forthix/forthic` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is pre-1.0: while `0.x`, **breaking changes ship in minor releases**. Releases before 0.16.0 are recorded in the git history rather than here.
 
+## [Unreleased]
+
+### Fixed
+
+- **`import_state` could not restore some snapshots that `export_state` wrote.**
+  A body binds its words when it is compiled, so a live word can hold an older
+  version of a word that was redefined later. `export_state` kept only the
+  latest source of each name, so restore threw `UnknownWordError` (for example
+  `: A 1 ; : B A ;` then `: A B 1 + ;`) or silently bound a different word (a
+  user word that shadowed a stdlib word, then was redefined). The snapshot now
+  holds the latest version of each name plus every older version that a kept
+  body binds, in definition order, so replay rebuilds the same bindings.
+  Versions that no live word uses are dropped, so a word redefined in each turn
+  does not grow the snapshot. Snapshots written by earlier releases import as
+  before.
+- **A definition that named a module variable could not be restored.**
+  `import_state` replayed definitions before it declared variables, so
+  `["x"] VARIABLES : B x @ ;` threw `Unknown word: x` on restore. Variables are
+  now declared first; the dictionary is still searched before variables, so a
+  body that bound a word live binds the same word on restore. One limit: a
+  variable whose name reads as a literal (`["7"] VARIABLES`) also captures that
+  literal in a body compiled before the variable was declared.
+
 ## [0.21.0] - 2026-09-27
 
 **Breaking: the tokenizer no longer decodes `&lt;` and `&gt;`.** Source is
