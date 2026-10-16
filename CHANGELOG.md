@@ -19,6 +19,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Thi
   A program that needs the text `\u2014` writes `\\u2014` or a raw literal,
   `r'\u2014'`. `streamingRun` holds back an escape until it is decided, so a
   redirect sink never receives text that the finished string does not contain.
+  A decoded character is plain content: `\u002E` in a regex is a `.`
+  that matches any character, and `\u0022` in JSON text is a bare quote.
+  Use a raw literal for regex and JSON, as for `\n`.
 - **Breaking: `<<` glued to any quote opens a marked string.** `<<'…'` and
   `<<"…"` are marked strings, as `<<'''…'''` and `<<"""…"""` are, with the
   same escapes. Before, each tokenized as words. `<<` with a space before the
