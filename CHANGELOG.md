@@ -4,7 +4,13 @@ All notable changes to `@forthix/forthic` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is pre-1.0: while `0.x`, **breaking changes ship in minor releases**. Releases before 0.16.0 are recorded in the git history rather than here.
 
-## [Unreleased]
+## [0.22.0] - 2026-10-19
+
+**Breaking: string literals decode `\uXXXX` and `\UXXXXXXXX`, and `<<`
+glued to any quote opens a marked string.** Also in this release:
+`export_state` / `import_state` restore every binding, parallel `MAP` runs
+user words on its own interpreter, and error recovery resumes after the
+failed word.
 
 ### Changed
 
