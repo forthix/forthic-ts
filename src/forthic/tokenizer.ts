@@ -143,6 +143,11 @@ export class CollectionMark {
  * Deliberately a whitelist: anything else after a backslash (`\d`, `\w`, `\U`)
  * stays as the literal pair, which is what keeps regex patterns and
  * Windows-style paths writable without doubling every backslash.
+ *
+ * Two code point escapes join the map (see Tokenizer.read_escape): `\uXXXX`,
+ * where a high and a low surrogate escape join into one character, and
+ * `\UXXXXXXXX`. One that is not a whole, valid code point (`\u20`, a lone
+ * surrogate, `\U00110000`) keeps its text, as any other unknown escape does.
  */
 const ESCAPE_MAP: Record<string, string> = {
   n: "\n",
@@ -153,6 +158,17 @@ const ESCAPE_MAP: Record<string, string> = {
   '"': '"',
   "'": "'",
 };
+
+/** A decided escape: its text and how many input characters it spans. */
+interface Escape {
+  text: string;
+  length: number;
+}
+
+/** The input ends before the escape is decided: more input can change it. */
+const PENDING = "pending";
+
+const HEX_DIGIT = /[0-9a-fA-F]/;
 
 export class Tokenizer {
   reference_location: CodeLocation;
@@ -213,6 +229,7 @@ export class Tokenizer {
     // again, so the flag stays true exactly when is_string_redirect() is read.
     this.string_redirect_open = false;
     this.open_triple_quote_delim = null;
+    this.token_end_pos = 0;
     const token = this.transition_from_START();
     // Stamp the post-token cursor while it is still fresh. In the non-streaming
     // path this equals the live `input_pos` a handler would read immediately
@@ -260,13 +277,85 @@ export class Tokenizer {
     );
   }
 
-  // A marked redirect string opens with `<<` glued to a triple quote: `<<'''…`
-  // or `<<"""…`. `index` points at the second `<` (the first was already
-  // consumed by transition_from_START). The rule is intentionally narrow so the
-  // `<` comparison word and words like `<REC!` are never affected.
+  // A marked redirect string opens with `<<` glued to a quote: `<<'…`, `<<"…`,
+  // `<<'''…` or `<<"""…`. `index` points at the second `<` (the first was
+  // already consumed by transition_from_START). The rule is intentionally narrow
+  // so the `<` comparison word and words like `<REC!` are never affected.
   is_string_redirect_start(index: number): boolean {
     if (this.input_string[index] !== "<") return false;
-    return this.is_triple_quote(index + 1, this.input_string[index + 1]);
+    return this.is_quote(this.input_string[index + 1]);
+  }
+
+  /**
+   * Reads the escape whose backslash is at `index`. Returns its text and
+   * length, null when the backslash is ordinary content, or PENDING when the
+   * input ends before the escape is decided (`\`, `\u20`, or a high surrogate
+   * that a low surrogate escape can still follow).
+   */
+  read_escape(index: number): Escape | null | typeof PENDING {
+    const s = this.input_string;
+    if (index + 1 >= s.length) return PENDING;
+    const kind = s[index + 1];
+    if (Object.prototype.hasOwnProperty.call(ESCAPE_MAP, kind)) {
+      return { text: ESCAPE_MAP[kind], length: 2 };
+    }
+    if (kind === "U") {
+      const value = this.read_hex(index + 2, 8);
+      if (typeof value !== "number") return value;
+      if (value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff)) return null;
+      return { text: String.fromCodePoint(value), length: 10 };
+    }
+    if (kind !== "u") return null;
+
+    const unit = this.read_hex(index + 2, 4);
+    if (typeof unit !== "number") return unit;
+    if (unit >= 0xdc00 && unit <= 0xdfff) return null; // lone low surrogate
+    if (unit < 0xd800 || unit > 0xdbff) {
+      return { text: String.fromCharCode(unit), length: 6 };
+    }
+
+    // A high surrogate joins only with a low surrogate escape right after it.
+    const next = index + 6;
+    if (next >= s.length) return PENDING;
+    if (s[next] !== "\\") return null;
+    if (next + 1 >= s.length) return PENDING;
+    if (s[next + 1] !== "u") return null;
+    const low = this.read_hex(next + 2, 4);
+    if (typeof low !== "number") return low;
+    if (low < 0xdc00 || low > 0xdfff) return null;
+    return { text: String.fromCharCode(unit, low), length: 12 };
+  }
+
+  // Gathers the escape whose backslash is at input_pos. An unrecognized escape
+  // leaves both characters literal, so regex patterns like '\d+' and Windows
+  // paths like 'C:\Users' keep working. Returns false, and gathers nothing,
+  // when the input ends before the escape is decided: the caller stops, so an
+  // open string never holds text that more input can change.
+  private gather_escape(): boolean {
+    const escape = this.read_escape(this.input_pos);
+    if (escape === PENDING) return false;
+    if (escape) {
+      this.advance_position(escape.length);
+      this.token_string += escape.text;
+    } else {
+      this.advance_position(1);
+      this.token_string += "\\";
+    }
+    return true;
+  }
+
+  // The value of `count` hex digits at `index`: null when a non-hex character
+  // comes first, PENDING when the input ends first.
+  private read_hex(
+    index: number,
+    count: number,
+  ): number | null | typeof PENDING {
+    const s = this.input_string;
+    for (let i = index; i < index + count; i++) {
+      if (i >= s.length) return PENDING;
+      if (!HEX_DIGIT.test(s[i])) return null;
+    }
+    return parseInt(s.slice(index, index + count), 16);
   }
 
   // A raw string literal opens with `r` glued to a quote: `r'…`, `r"…`, `r'''…`
@@ -314,7 +403,10 @@ export class Tokenizer {
       line: this.token_line,
       column: this.token_column,
       start_pos: this.token_start_pos,
-      end_pos: this.token_start_pos + this.token_string.length,
+      // A closed string sets token_end_pos where its content ends: an escape
+      // is longer in the source than its text. Other tokens are as written.
+      end_pos:
+        this.token_end_pos || this.token_start_pos + this.token_string.length,
     });
   }
 
@@ -329,32 +421,26 @@ export class Tokenizer {
    * carry. This is what a redirect string streams into its sink. Empty when no
    * string is open.
    *
-   * For an *open* triple-quoted string, a trailing run of characters whose
-   * identity is not yet decided is held back, so a length-diffing consumer never
-   * receives a byte the finished string will not contain. Two kinds qualify:
+   * The value never holds text whose identity is not yet decided, so a
+   * length-diffing consumer never receives a byte the finished string will not
+   * contain. An escape that the input ends inside (`abc\`, a partial code point
+   * escape, a high surrogate) is never gathered: read_escape() reports it
+   * pending and the gather stops before it.
    *
-   *   - the delimiter char, which may yet begin the closing `'''`/`"""` (or be
-   *     greedy content) rather than being content outright;
-   *   - a backslash, which may yet begin an escape once the next chunk arrives.
-   *     `abc\` re-tokenizes as `abc` + a newline when `\n` completes, so
-   *     reporting the backslash would make the cumulative value shrink.
-   *
-   * One loop, not two passes: `\'` yields a real quote, so stripping a trailing
-   * quote can expose a backslash that must also be held. Held-back characters are
-   * not tracked or replayed — the caller re-feeds the full cumulative content each
-   * chunk, and `finish()` feeds the completed token string.
-   *
-   * Deliberately conservative: a trailing backslash that turns out to be settled
-   * (a resolved `\\`) is indistinguishable from a pending one, so both are held
-   * and the settled one is simply reported one chunk later.
+   * For an *open* triple-quoted string, a trailing run of the delimiter char is
+   * also held back: it may yet begin the closing `'''`/`"""` (or be greedy
+   * content) rather than being content outright. Deliberately conservative: a
+   * trailing quote that came from an escape (`\'`) is settled but looks the
+   * same, so it is held too and reported one chunk later. Held-back characters
+   * are not tracked or replayed — the caller re-feeds the full cumulative
+   * content each chunk, and `finish()` feeds the completed token string.
    */
   get_string_value(): string {
     if (this.open_triple_quote_delim === null) return this.token_string;
     let end = this.token_string.length;
     while (
       end > 0 &&
-      (this.token_string[end - 1] === this.open_triple_quote_delim ||
-        this.token_string[end - 1] === "\\")
+      this.token_string[end - 1] === this.open_triple_quote_delim
     ) {
       end--;
     }
@@ -409,18 +495,23 @@ export class Tokenizer {
         char === "<" &&
         this.is_string_redirect_start(this.input_pos)
       ) {
-        // Marked redirect string `<<'''…` / `<<"""…`. The first `<` is `char`;
-        // skip the second `<` plus the three opening quotes, then gather with
-        // the same escape processing every triple-quoted literal gets. There is
-        // no `<<r'''` form, so a redirect literal is always escape-processing;
-        // content that must carry a literal backslash has to double it.
+        // Marked redirect string `<<'…`, `<<"…`, `<<'''…` or `<<"""…`. The
+        // first `<` is `char`; skip the second `<` plus the opening quotes, then
+        // gather with the same escape processing every literal of that width
+        // gets. There is no `<<r'''` form, so a redirect literal is always
+        // escape-processing; content that must carry a literal backslash has to
+        // double it.
         const quote = this.input_string[this.input_pos + 1];
-        this.advance_position(4);
-        return this.transition_from_GATHER_TRIPLE_QUOTE_STRING(
-          quote,
-          true,
-          false,
-        );
+        if (this.is_triple_quote(this.input_pos + 1, quote)) {
+          this.advance_position(4);
+          return this.transition_from_GATHER_TRIPLE_QUOTE_STRING(
+            quote,
+            true,
+            false,
+          );
+        }
+        this.advance_position(2);
+        return this.transition_from_GATHER_STRING(quote, false, true);
       } else if (char === "r" && this.is_raw_string_start(this.input_pos)) {
         // Raw string `r'…'` / `r"…"` / `r'''…'''` / `r"""…"""`. The `r` is
         // `char`, so input_pos already sits on the opening quote; skip the
@@ -599,20 +690,8 @@ export class Tokenizer {
       // Escapes resolve before delimiter detection, so an escaped quote is
       // content and can never close the literal. Unlike GATHER_STRING this loop
       // does not pre-advance, so input_pos still points at `char`.
-      if (
-        !raw &&
-        char === "\\" &&
-        this.input_pos + 1 < this.input_string.length
-      ) {
-        const next_char = this.input_string[this.input_pos + 1];
-        if (Object.prototype.hasOwnProperty.call(ESCAPE_MAP, next_char)) {
-          this.advance_position(2);
-          this.token_string += ESCAPE_MAP[next_char];
-          continue;
-        }
-        // Not a recognised escape: the backslash is ordinary content.
-        this.advance_position(1);
-        this.token_string += char;
+      if (!raw && char === "\\") {
+        if (!this.gather_escape()) break;
         continue;
       }
 
@@ -632,6 +711,7 @@ export class Tokenizer {
         }
 
         // Normal behavior: close at first triple quote
+        this.token_end_pos = this.input_pos + this.reference_location.start_pos;
         this.advance_position(3);
         this.open_triple_quote_delim = null; // string closed: nothing to hold back
         return new Token(
@@ -655,36 +735,38 @@ export class Tokenizer {
     );
   }
 
-  transition_from_GATHER_STRING(delim: string, raw: boolean = false): Token {
+  transition_from_GATHER_STRING(
+    delim: string,
+    raw: boolean = false,
+    is_string_redirect: boolean = false,
+  ): Token {
     this.note_start_token();
     const string_delimiter = delim;
+    // See transition_from_GATHER_TRIPLE_QUOTE_STRING. A single-width string
+    // closes at its first unescaped delimiter, so it has no delimiter to hold
+    // back; get_string_value() reports its content as is.
+    this.string_redirect_open = is_string_redirect;
 
     while (this.input_pos < this.input_string.length) {
       const char = this.input_string[this.input_pos];
-      this.advance_position(1);
 
-      if (!raw && char === "\\" && this.input_pos < this.input_string.length) {
-        const next_char = this.input_string[this.input_pos];
-        if (Object.prototype.hasOwnProperty.call(ESCAPE_MAP, next_char)) {
-          this.advance_position(1);
-          this.token_string += ESCAPE_MAP[next_char];
-          continue;
-        }
-        // Unrecognized escape: leave both characters literal so regex
-        // patterns like '\d+' and Windows paths like 'C:\Users' keep working.
-        this.token_string += char;
+      if (!raw && char === "\\") {
+        if (!this.gather_escape()) break;
         continue;
       }
 
       if (char === string_delimiter) {
+        this.token_end_pos = this.input_pos + this.reference_location.start_pos;
+        this.advance_position(1);
         return new Token(
           TokenType.STRING,
           this.token_string,
           this.get_token_location(),
+          is_string_redirect,
         );
-      } else {
-        this.token_string += char;
       }
+      this.advance_position(1);
+      this.token_string += char;
     }
 
     if (this.streaming) {
