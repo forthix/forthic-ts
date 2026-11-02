@@ -444,6 +444,124 @@ test("JQ! rejects negative indexes and field-into-array", async () => {
   await expect(interp.run(`[ 1 2 ] 5 'field' JQ!`)).rejects.toThrow(/cannot set field/);
 });
 
+describe("JQ@ field read on a list", () => {
+  async function jq(container: unknown, path: unknown): Promise<unknown> {
+    interp.stack_push(container);
+    interp.stack_push(path);
+    await interp.run("JQ@");
+    return interp.stack_pop();
+  }
+
+  test("throws, naming the list and both fixes", async () => {
+    await expect(jq([{ u: 1 }, { u: 2 }], ".u")).rejects.toThrow(
+      "JQ@ '.u': the value is a list of 2 items, so it has no field 'u'. " +
+        "Read it from every item with '.[].u', or from one with '.[0].u'.",
+    );
+  });
+
+  test("names where a nested list sits in the path", async () => {
+    await expect(jq({ data: { items: [{ number: 8483 }] } }, ".data.items.number")).rejects.toThrow(
+      "JQ@ '.data.items.number': '.data.items' is a list of 1 item, so it has no field 'number'. " +
+        "Read it from every item with '.data.items[].number', or from one with '.data.items[0].number'.",
+    );
+  });
+
+  test("names a list reached through []", async () => {
+    await expect(jq({ a: [{ b: [{ c: 1 }] }] }, ".a[].b.c")).rejects.toThrow(
+      "JQ@ '.a[].b.c': an item at '.a[].b' is a list of 1 item, so it has no field 'c'. " +
+        "Read it from every item with '.a[].b[].c', or from one with '.a[].b[0].c'.",
+    );
+    await expect(jq([[{ n: 1 }, { n: 2 }], [{ n: 3 }]], ".[].n")).rejects.toThrow(
+      "an item at '.[]' is a list of 2 items, so it has no field 'n'. " +
+        "Read it from every item with '.[][].n', or from one with '.[][0].n'.",
+    );
+  });
+
+  test("throws for a path array and an empty list", async () => {
+    await expect(jq({ rows: [{ u: 1 }] }, ["rows", "u"])).rejects.toThrow(
+      "JQ@ '.rows.u': '.rows' is a list of 1 item, so it has no field 'u'. " +
+        "Read it from every item with '.rows[].u', or from one with '.rows[0].u'.",
+    );
+    await expect(jq([], ".u")).rejects.toThrow("the value is a list of 0 items");
+  });
+
+  // Each Forthic literal an error suggests (after "with" or "use"), run as
+  // source in front of JQ@ on the same container.
+  async function run_suggestions(container: unknown, path: unknown): Promise<unknown[]> {
+    const message = await jq(container, path).then(
+      () => "",
+      (e: Error) => e.message,
+    );
+    const shown = [...message.matchAll(/(?:with|use) ('(?:[^'\\]|\\.)*')/g)].map((m) => m[1]);
+    expect(shown.length).toBeGreaterThan(0);
+    const results: unknown[] = [];
+    for (const literal of shown) {
+      interp.stack_push(container);
+      await interp.run(`${literal} JQ@`);
+      results.push(interp.stack_pop());
+    }
+    return results;
+  }
+
+  test("the suggested paths are Forthic literals that read back", async () => {
+    await expect(jq({ "a.b": [{ x: 5 }] }, ["a.b", "x"])).rejects.toThrow(
+      `'.["a.b"]' is a list of 1 item, so it has no field 'x'. ` +
+        `Read it from every item with '.["a.b"][].x', or from one with '.["a.b"][0].x'.`,
+    );
+    // Quotes and backslashes in a key are escaped for the tokenizer
+    await expect(jq({ "a.b'c": [{ x: 5 }] }, ["a.b'c", "x"])).rejects.toThrow(
+      `Read it from every item with '.["a.b\\'c"][].x', or from one with '.["a.b\\'c"][0].x'.`,
+    );
+    const keys = ["a.b", "a'b", "a.b'c", 'a"b', 'a.b"c', "a\\nb", "a\\b", "a\\u0041", "a b", "a]b", "a[b", ""];
+    for (const key of keys) {
+      expect(await run_suggestions({ [key]: [{ x: 5 }, { x: 6 }] }, [key, "x"])).toEqual([[5, 6], 5]);
+      expect(await run_suggestions({ [key]: [5, 6] }, [key, "1"])).toEqual([6]);
+    }
+  });
+
+  test("a key with '.' and both quotes gets a suggestion that fails loudly", async () => {
+    // The path grammar has no escapes, so no string path can name this key
+    const key = `a.b'"c`;
+    interp.stack_push({ [key]: [{ x: 5 }] });
+    await expect(interp.run(`'.["a.b\\'"c"][].x' JQ@`)).rejects.toThrow("expected ']' after quoted key");
+    await expect(jq({ [key]: [{ x: 5 }] }, [key, "x"])).rejects.toThrow(
+      `Read it from every item with '.["a.b\\'"c"][].x'`,
+    );
+    expect(await jq({ [key]: [{ x: 5 }] }, [key, 0, "x"])).toBe(5);
+  });
+
+  test("'.length' throws and points at LENGTH", async () => {
+    await expect(jq([1, 2, 3], ".length")).rejects.toThrow(
+      "JQ@ '.length': the value is a list of 3 items, so it has no field 'length'. " +
+        "Read it from every item with '.[].length', or from one with '.[0].length'. To count its items, use LENGTH.",
+    );
+  });
+
+  test("a digit string used as a key points at the index", async () => {
+    await expect(jq({ a: [1, 2] }, ["a", "0"])).rejects.toThrow(
+      "JQ@ '.a.0': '.a' is a list of 2 items, so it has no field '0'. " +
+        "To index it, use '.a[0]': an index is a number, not a string.",
+    );
+    await expect(jq({ a: [1, 2] }, '.a["1"]')).rejects.toThrow("To index it, use '.a[1]'");
+    expect(await jq({ a: [1, 2] }, ["a", 1])).toBe(2);
+  });
+
+  test("every other read is unchanged", async () => {
+    const list = [{ u: 1 }, { u: 2 }];
+    expect(await jq(list, ".[].u")).toEqual([1, 2]);
+    expect(await jq(list, ".[0].u")).toBe(1);
+    expect(await jq(list, ".[-1].u")).toBe(2);
+    expect(await jq(list, ".[9].u")).toBeNull(); // out-of-range index
+    expect(await jq([null, { u: 1 }], ".[].u")).toEqual([null, 1]);
+    expect(await jq({ a: {} }, ".a.missing")).toBeNull(); // missing key
+    expect(await jq({ a: null }, ".a.b")).toBeNull();
+    expect(await jq({ x: 1, y: 2 }, ".[1]")).toBe(2); // positional index on a record
+    expect(await jq(5, ".[]")).toEqual([]);
+    expect(await jq("abc", ".length")).toBe(3); // field read on a primitive
+    expect(await jq({ a: [{ b: [1, 2] }, { b: [3] }] }, ".a[].b[]")).toEqual([1, 2, 3]);
+  });
+});
+
 test("OMIT stringifies drop keys so numeric keys match", async () => {
   await interp.run(`[ [ '1' 'x' ] [ 'b' 2 ] ] REC [ 1 ] OMIT`);
   expect(Object.keys(interp.stack_pop())).toEqual(["b"]);
