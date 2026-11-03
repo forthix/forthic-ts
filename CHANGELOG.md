@@ -4,7 +4,9 @@ All notable changes to `@forthix/forthic` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is pre-1.0: while `0.x`, **breaking changes ship in minor releases**. Releases before 0.16.0 are recorded in the git history rather than here.
 
-## [Unreleased]
+## [0.23.0] - 2026-11-03
+
+**Breaking: `JQ@` throws when a path reads a field from a list.**
 
 ### Changed
 
