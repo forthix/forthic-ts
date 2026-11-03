@@ -304,7 +304,7 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
 ### Path access (jq-style)
 
-- **JQ@** `( container:any path:any -- value:any )` — Get value at jq-style path (e.g., .users[].name). Returns null on miss; [] iterates and flattens. Path arrays accepted for dynamic keys.
+- **JQ@** `( container:any path:any -- value:any )` — Get value at jq-style path (e.g., .users[].name). Returns null on miss; [] iterates and flattens. Reading a field from a list is an error: use [].field for every item or [0].field for the first. Path arrays accepted for dynamic keys.
 - **JQ!** `( container:any value:any path:any -- container:any )` — Set value at jq-style path. Auto-creates missing intermediates (record for field, array for index). [] iteration not supported.
 - **JQ-DEL (use "[].field" JQ@ to map a field over an array of records)** _(declared in category but not found in module)_
 

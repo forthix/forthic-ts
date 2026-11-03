@@ -313,7 +313,7 @@ ALWAYS generate code in this structure:
 - `HAS-KEY?` `( rec:any key:any -- bool:boolean )` — Returns true if rec has the given key (own property). Distinct from REC@ NULL == — handles intentional null values correctly.
 - `JQ-DEL` `( container:any path:any -- container:any )` — Delete value at jq-style path. No-op if path doesn't exist. [] iteration not supported.
 - `JQ!` `( container:any value:any path:any -- container:any )` — Set value at jq-style path. Auto-creates missing intermediates (record for field, array for index). [] iteration not supported.
-- `JQ@` `( container:any path:any -- value:any )` — Get value at jq-style path (e.g., .users[].name). Returns null on miss; [] iterates and flattens. Path arrays accepted for dynamic keys.
+- `JQ@` `( container:any path:any -- value:any )` — Get value at jq-style path (e.g., .users[].name). Returns null on miss; [] iterates and flattens. Reading a field from a list is an error: use [].field for every item or [0].field for the first. Path arrays accepted for dynamic keys.
 - `KEYS` `( container:any -- keys:any[] )` — Get keys from record or indices from array
 - `MERGE` `( rec1:any rec2:any -- merged:any )` — Shallow merge two records. Keys present in rec2 override rec1.
 - `OMIT` `( rec:any keys:any[] -- rec:any )` — Return a new record without the listed keys.

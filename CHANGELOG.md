@@ -4,6 +4,28 @@ All notable changes to `@forthix/forthic` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is pre-1.0: while `0.x`, **breaking changes ship in minor releases**. Releases before 0.16.0 are recorded in the git history rather than here.
 
+## [Unreleased]
+
+### Changed
+
+- **Breaking: `JQ@` throws when a path reads a field from a list.**
+  `[ { .u 1 } ] '.u' JQ@` returned `null`. jq errors here
+  (`Cannot index array with "u"`), and the null hid the list: a caller saw
+  `null`, `[null]` or a count of 1 and blamed the field or the predicate. The
+  error names where the list sits in the path and its length, and gives the
+  paths that read the field from every item or from the first:
+  `JQ@ '.u': the value is a list of 1 item, so it has no field 'u'. Read it
+  from every item with '.[].u', or from one with '.[0].u'.` The rule is the
+  same for a path array: `[ 'rows' 'u' ] JQ@` throws when `rows` is a list. A
+  missing key, an out-of-range index, `[]`, a positional index on a record and
+  a field read on a string or number all return what they did. Two reads that
+  went through JavaScript array properties now throw as well: `'.length' JQ@`
+  on a list (use `LENGTH`), and a digit string used as a key on a list
+  (`'.a.0' JQ@`, `'.a["0"]' JQ@` or `[ 'a' '0' ] JQ@`; use `.a[0]` or the
+  number `0`).
+  forthic-rs returns `null` for a field read on a list and needs the same
+  change.
+
 ## [0.22.0] - 2026-10-19
 
 **Breaking: string literals decode `\uXXXX` and `\UXXXXXXXX`, and `<<`

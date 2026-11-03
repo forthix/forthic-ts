@@ -72,7 +72,7 @@ Set value at jq-style path. Auto-creates missing intermediates (record for field
 
 **Stack Effect:** `( container:any path:any -- value:any )`
 
-Get value at jq-style path (e.g., .users[].name). Returns null on miss; [] iterates and flattens. Path arrays accepted for dynamic keys.
+Get value at jq-style path (e.g., .users[].name). Returns null on miss; [] iterates and flattens. Reading a field from a list is an error: use [].field for every item or [0].field for the first. Path arrays accepted for dynamic keys.
 
 ---
 

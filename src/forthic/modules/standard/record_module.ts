@@ -230,11 +230,12 @@ Record (object/dictionary) manipulation operations for working with key-value da
     return segments;
   }
 
-  private static jq_get(container: any, segments: PathSegment[]): any {
-    if (segments.length === 0) return container ?? null;
+  // `at` is the index of the segment to apply next.
+  private static jq_get(container: any, segments: PathSegment[], at: number): any {
+    if (at === segments.length) return container ?? null;
     if (container == null) return null;
 
-    const [first, ...rest] = segments;
+    const first = segments[at];
 
     if (first.kind === "iterate") {
       let items: any[];
@@ -249,13 +250,14 @@ Record (object/dictionary) manipulation operations for working with key-value da
         return [];
       }
 
-      const rest_iterates = rest.some((s) => s.kind === "iterate");
+      const is_last = at + 1 === segments.length;
+      const rest_iterates = segments.slice(at + 1).some((s) => s.kind === "iterate");
       const result: any[] = [];
       for (const item of items) {
-        if (rest.length === 0) {
+        if (is_last) {
           result.push(item);
         } else {
-          const r = RecordModule.jq_get(item, rest);
+          const r = RecordModule.jq_get(item, segments, at + 1);
           if (rest_iterates && Array.isArray(r)) {
             result.push(...r);
           } else {
@@ -267,24 +269,91 @@ Record (object/dictionary) manipulation operations for working with key-value da
     }
 
     if (first.kind === "field") {
+      // jq errors here (`Cannot index array with "u"`). A null would hide a
+      // list where the caller expected a record, and reading the field would
+      // leak JS array properties such as `length`. forthic-rs returns null
+      // here today and must follow (cross-runtime contract).
+      if (Array.isArray(container)) {
+        throw RecordModule.field_on_list_error(segments, at, container.length);
+      }
+      // Primitives keep their JS behavior: `'abc' '.length' JQ@` is 3.
       const next = container[first.name];
-      return RecordModule.jq_get(next, rest);
+      return RecordModule.jq_get(next, segments, at + 1);
     }
 
     // index
     if (Array.isArray(container)) {
       const n = first.n < 0 ? container.length + first.n : first.n;
       if (n < 0 || n >= container.length) return null;
-      return RecordModule.jq_get(container[n], rest);
+      return RecordModule.jq_get(container[n], segments, at + 1);
     }
     if (typeof container === "object") {
       // Raw key order (no sort) — see the iterate branch above
       const keys = Object.keys(container);
       const n = first.n < 0 ? keys.length + first.n : first.n;
       if (n < 0 || n >= keys.length) return null;
-      return RecordModule.jq_get(container[keys[n]], rest);
+      return RecordModule.jq_get(container[keys[n]], segments, at + 1);
     }
     return null;
+  }
+
+  // Names where the list sits in the path and how long it is, and gives the
+  // path that reads the field from every item or from the first. JQ@ adds the
+  // whole path in front.
+  private static field_on_list_error(segments: PathSegment[], at: number, length: number): Error {
+    const field = segments[at] as { kind: "field"; name: string };
+    const prefix = segments.slice(0, at);
+    const list_path = RecordModule.show_jq_path(prefix);
+    const where =
+      prefix.length === 0
+        ? "the value"
+        : prefix.some((s) => s.kind === "iterate")
+          ? `an item at ${list_path}`
+          : list_path;
+    const items = `${length} ${length === 1 ? "item" : "items"}`;
+    const head = `${where} is a list of ${items}, so it has no field '${field.name}'.`;
+
+    // A digit string ("0" from a path array, or .a["0"]) meant an index.
+    if (/^-?\d+$/.test(field.name)) {
+      const n = parseInt(field.name, 10);
+      const indexed = RecordModule.show_jq_path([...prefix, { kind: "index", n }, ...segments.slice(at + 1)]);
+      return new Error(`${head} To index it, use ${indexed}: an index is a number, not a string.`);
+    }
+
+    const tail = segments.slice(at);
+    const every = RecordModule.show_jq_path([...prefix, { kind: "iterate" }, ...tail]);
+    const one = RecordModule.show_jq_path([...prefix, { kind: "index", n: 0 }, ...tail]);
+    // '.length' read the JS array length before this was an error.
+    const count = field.name === "length" ? " To count its items, use LENGTH." : "";
+    return new Error(`${head} Read it from every item with ${every}, or from one with ${one}.${count}`);
+  }
+
+  // Render segments as a string path that parse_jq_path reads back the same.
+  // The path grammar has no escapes, so a key that needs quoting (empty, or
+  // holding '.' or '[') and holds both quote characters cannot be written:
+  // only a path array makes one, and its suggestion fails to parse, loudly.
+  private static render_jq_path(segments: PathSegment[]): string {
+    if (segments.length === 0) return ".";
+    let path = "";
+    for (const s of segments) {
+      if (s.kind === "iterate") path += "[]";
+      else if (s.kind === "index") path += `[${s.n}]`;
+      else if (s.name !== "" && !/[.[]/.test(s.name)) path += `.${s.name}`;
+      else if (s.name.includes('"') && !s.name.includes("'")) path += `['${s.name}']`;
+      else path += `["${s.name}"]`;
+    }
+    return path.startsWith("[") ? `.${path}` : path;
+  }
+
+  // A path as an error shows it: the Forthic literal to paste in front of JQ@.
+  private static show_jq_path(segments: PathSegment[]): string {
+    return RecordModule.forthic_string(RecordModule.render_jq_path(segments));
+  }
+
+  // `s` as a single-quoted Forthic literal: the tokenizer decodes \\ and \',
+  // and escaping every backslash keeps \n or A in a key as text.
+  private static forthic_string(s: string): string {
+    return `'${s.replace(/[\\']/g, "\\$&")}'`;
   }
 
   private static seg_key(seg: PathSegment): string | number {
@@ -365,12 +434,18 @@ Record (object/dictionary) manipulation operations for working with key-value da
 
   @ForthicWord(
     "( container:any path:any -- value:any )",
-    "Get value at jq-style path (e.g., .users[].name). Returns null on miss; [] iterates and flattens. Path arrays accepted for dynamic keys.",
+    "Get value at jq-style path (e.g., .users[].name). Returns null on miss; [] iterates and flattens. Reading a field from a list is an error: use [].field for every item or [0].field for the first. Path arrays accepted for dynamic keys.",
     "JQ@",
   )
   async JQ_at(container: any, path: any) {
     const segments = RecordModule.parse_jq_path(path);
-    return RecordModule.jq_get(container, segments);
+    try {
+      return RecordModule.jq_get(container, segments, 0);
+    } catch (e) {
+      // jq_get throws only for a field read on a list; name the whole path here.
+      const shown = typeof path === "string" ? RecordModule.forthic_string(path) : RecordModule.show_jq_path(segments);
+      throw new Error(`JQ@ ${shown}: ${(e as Error).message}`);
+    }
   }
 
   @ForthicWord(
