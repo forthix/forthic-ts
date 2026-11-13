@@ -18,6 +18,32 @@ function stringifyValue(item: any): string {
   return item.toString();
 }
 
+function isRecord(item: any): boolean {
+  return typeof item === "object" && item !== null && !Array.isArray(item) && !isTemporal(item);
+}
+
+const COMBINE_HINT = "To make one text from strings and lists, write [ .a @ .b @ ] FLATTEN sep JOIN.";
+
+/**
+ * The agent that hit this most often had built a string with `a b CONCAT`,
+ * meaning to append two lists, so the string case names CONCAT as the cause.
+ */
+function describeJoinInput(value: any): string {
+  if (typeof value === "string") {
+    return (
+      `a string (${value.length} chars). CONCAT makes one string from one list, ` +
+      `so its result cannot go to JOIN. ${COMBINE_HINT}`
+    );
+  }
+  if (isRecord(value)) return "a record. Get a list first, for example with VALUES or JQ@.";
+  return `a ${typeof value}.`;
+}
+
+function describeJoinItem(index: number, item: any): string {
+  if (Array.isArray(item)) return `item ${index} is a list. ${COMBINE_HINT}`;
+  return `item ${index} is a record. Make each item a string first, for example "'''.title''' JQ@" MAP or ">STR" MAP.`;
+}
+
 export class StringModule extends DecoratedModule {
   static {
     registerModuleDoc(StringModule, `
@@ -90,9 +116,19 @@ must come from a trusted source, not untrusted input.
     return string.split(sep);
   }
 
-  @ForthicWord("( strings:string[] sep:string -- result:string )", "Join strings with separator")
-  async JOIN(strings: string[], sep: string) {
-    if (!strings) strings = [];
+  @ForthicWord(
+    "( strings:string[] sep:string -- result:string )",
+    "Join strings with separator (null gives ''). To make one text from strings and lists, write [ .a @ .b @ ] FLATTEN sep JOIN.",
+  )
+  async JOIN(strings: any, sep: string) {
+    if (strings === null || strings === undefined) return "";
+    if (!Array.isArray(strings)) {
+      throw new Error(`JOIN requires a list of strings; got ${describeJoinInput(strings)}`);
+    }
+    const badIndex = strings.findIndex((s) => Array.isArray(s) || isRecord(s));
+    if (badIndex >= 0) {
+      throw new Error(`JOIN requires a list of strings; ${describeJoinItem(badIndex, strings[badIndex])}`);
+    }
     return strings.join(sep);
   }
 
