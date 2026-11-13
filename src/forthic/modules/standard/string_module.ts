@@ -18,6 +18,25 @@ function stringifyValue(item: any): string {
   return item.toString();
 }
 
+/**
+ * Only `{ ... }` and `REC` records: their prototype is Object.prototype or
+ * null. A Duration, a Date or a host object is not a record, and JOIN keeps
+ * converting it to text with toString().
+ */
+function isPlainRecord(item: any): boolean {
+  if (typeof item !== "object" || item === null) return false;
+  const proto = Object.getPrototypeOf(item);
+  return proto === Object.prototype || proto === null;
+}
+
+function describeJoinValue(value: any): string {
+  if (typeof value === "string") return `a string (${value.length} chars)`;
+  if (Array.isArray(value)) return "a list";
+  if (isPlainRecord(value)) return "a record";
+  if (typeof value === "object") return "an object";
+  return `a ${typeof value}`;
+}
+
 export class StringModule extends DecoratedModule {
   static {
     registerModuleDoc(StringModule, `
@@ -90,9 +109,20 @@ must come from a trusted source, not untrusted input.
     return string.split(sep);
   }
 
-  @ForthicWord("( strings:string[] sep:string -- result:string )", "Join strings with separator")
-  async JOIN(strings: string[], sep: string) {
-    if (!strings) strings = [];
+  @ForthicWord(
+    "( strings:string[] sep:string -- result:string )",
+    "Join strings with separator (null gives ''). To make one text from strings and lists, write [ .a @ .b @ ] FLATTEN sep JOIN.",
+  )
+  async JOIN(strings: any, sep: string) {
+    if (!strings) return "";
+    if (!Array.isArray(strings)) {
+      throw new Error(`JOIN requires a list of strings; got: ${describeJoinValue(strings)}`);
+    }
+    const badIndex = strings.findIndex((s) => Array.isArray(s) || isPlainRecord(s));
+    if (badIndex >= 0) {
+      const item = describeJoinValue(strings[badIndex]);
+      throw new Error(`JOIN requires a list of strings; got: a list whose item ${badIndex} is ${item}`);
+    }
     return strings.join(sep);
   }
 
@@ -278,7 +308,7 @@ must come from a trusted source, not untrusted input.
 
   @ForthicWord(
     "( lines:string[] -- str:string )",
-    "Join an array of lines with newlines. Equivalent to /N JOIN.",
+    "Join an array of lines with newlines.",
     "UNLINES",
   )
   async UNLINES(lines: any) {

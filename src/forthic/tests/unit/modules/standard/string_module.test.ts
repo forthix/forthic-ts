@@ -66,6 +66,72 @@ describe("StringModule", () => {
     expect(interp.stack_pop()).toBe("a,b,c");
   });
 
+  test("JOIN of NULL is an empty string", async () => {
+    await interp.run("NULL ',' JOIN");
+    expect(interp.stack_pop()).toBe("");
+  });
+
+  test("JOIN of an empty string, 0 or FALSE is an empty string", async () => {
+    await interp.run("'' ',' JOIN  0 ',' JOIN  FALSE ',' JOIN");
+    expect(interp.get_stack().get_items()).toEqual(["", "", ""]);
+  });
+
+  test("JOIN stringifies number, boolean and NULL items", async () => {
+    await interp.run("[ 1 TRUE NULL 'x' ] ',' JOIN");
+    expect(interp.stack_pop()).toBe("1,true,,x");
+  });
+
+  test("JOIN of a string says what JOIN expects and what it got", async () => {
+    await expect(interp.run("'fix login' /N JOIN")).rejects.toThrow(
+      /^JOIN requires a list of strings; got: a string \(9 chars\)$/,
+    );
+  });
+
+  test("JOIN of a CONCAT result gets the string error", async () => {
+    await interp.run("[ 'fix login' ] .first ! [ 'add search' ] .second !");
+    await expect(interp.run(".first @ .second @ CONCAT /N JOIN")).rejects.toThrow(
+      /^JOIN requires a list of strings; got: a string \(10 chars\)$/,
+    );
+  });
+
+  test("JOIN of a record says it got a record", async () => {
+    await expect(interp.run("{ .title 'fix login' } ',' JOIN")).rejects.toThrow(
+      /^JOIN requires a list of strings; got: a record$/,
+    );
+  });
+
+  test("JOIN of a number says it got a number", async () => {
+    await expect(interp.run("42 ',' JOIN")).rejects.toThrow(/^JOIN requires a list of strings; got: a number$/);
+  });
+
+  test("JOIN of a list with a list item names the item", async () => {
+    await expect(interp.run("[ 'fix login' [ 'add search' ] ] /N JOIN")).rejects.toThrow(
+      /^JOIN requires a list of strings; got: a list whose item 1 is a list$/,
+    );
+  });
+
+  test("JOIN of a list with a record item names the item", async () => {
+    await expect(interp.run("[ 'fix login' { .title 'add search' } ] /N JOIN")).rejects.toThrow(
+      /^JOIN requires a list of strings; got: a list whose item 1 is a record$/,
+    );
+  });
+
+  test("JOIN of an object that is not a record says it got an object", async () => {
+    interp.stack_push(Temporal.Duration.from({ days: 3 }));
+    await expect(interp.run("' ' JOIN")).rejects.toThrow(/^JOIN requires a list of strings; got: an object$/);
+  });
+
+  test("JOIN converts Duration and Date items to text, as before", async () => {
+    interp.stack_push([Temporal.Duration.from({ days: 3 }), new Date(Date.UTC(2026, 10, 13)), "left"]);
+    await interp.run("' ' JOIN");
+    expect(interp.stack_pop()).toBe(`P3D ${new Date(Date.UTC(2026, 10, 13)).toString()} left`);
+  });
+
+  test("JOIN of a list with a date item keeps the ISO form", async () => {
+    await interp.run("[ 2026-11-13 'release' ] ' ' JOIN");
+    expect(interp.stack_pop()).toBe("2026-11-13 release");
+  });
+
   test("/N", async () => {
     await interp.run("/N");
     expect(interp.stack_pop()).toBe("\n");

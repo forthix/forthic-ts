@@ -362,10 +362,10 @@ String manipulation and processing operations with regex and URL encoding suppor
 ### Split/Join
 
 - **SPLIT** `( string:string sep:string -- items:any[] )` — Split string by separator
-- **JOIN** `( strings:string[] sep:string -- result:string )` — Join strings with separator
+- **JOIN** `( strings:string[] sep:string -- result:string )` — Join strings with separator (null gives ''). To make one text from strings and lists, write [ .a @ .b @ ] FLATTEN sep JOIN.
 - **CONCAT** `( strings:string[] -- result:string )` — Concatenate an array of strings into one string. For two strings: write [s1 s2] CONCAT. For arrays of arrays, use FLATTEN.
 - **LINES** `( str:string -- lines:string[] )` — Split string on newline. Equivalent to /N SPLIT.
-- **UNLINES** `( lines:string[] -- str:string )` — Join an array of lines with newlines. Equivalent to /N JOIN.
+- **UNLINES** `( lines:string[] -- str:string )` — Join an array of lines with newlines.
 
 ### Pattern
 
