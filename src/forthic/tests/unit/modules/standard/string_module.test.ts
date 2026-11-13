@@ -116,6 +116,11 @@ describe("StringModule", () => {
     );
   });
 
+  test("JOIN of an object that is not a record says it got an object", async () => {
+    interp.stack_push(Temporal.Duration.from({ days: 3 }));
+    await expect(interp.run("' ' JOIN")).rejects.toThrow(/^JOIN requires a list of strings; got: an object$/);
+  });
+
   test("JOIN converts Duration and Date items to text, as before", async () => {
     interp.stack_push([Temporal.Duration.from({ days: 3 }), new Date(Date.UTC(2026, 10, 13)), "left"]);
     await interp.run("' ' JOIN");
