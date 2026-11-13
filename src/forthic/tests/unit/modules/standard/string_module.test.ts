@@ -71,23 +71,26 @@ describe("StringModule", () => {
     expect(interp.stack_pop()).toBe("");
   });
 
+  test("JOIN of an empty string, 0 or FALSE is an empty string", async () => {
+    await interp.run("'' ',' JOIN  0 ',' JOIN  FALSE ',' JOIN");
+    expect(interp.get_stack().get_items()).toEqual(["", "", ""]);
+  });
+
   test("JOIN stringifies number, boolean and NULL items", async () => {
     await interp.run("[ 1 TRUE NULL 'x' ] ',' JOIN");
     expect(interp.stack_pop()).toBe("1,true,,x");
   });
 
-  test("JOIN of a string names the type, its length, and how to combine lists", async () => {
+  test("JOIN of a string says what JOIN expects and what it got", async () => {
     await expect(interp.run("'fix login' /N JOIN")).rejects.toThrow(
-      "JOIN requires a list of strings; got a string (9 chars). CONCAT makes one string from one list, " +
-        "so its result cannot go to JOIN. To make one text from strings and lists, write " +
-        "[ .a @ .b @ ] FLATTEN sep JOIN.",
+      /^JOIN requires a list of strings; got a string \(9 chars\)\.$/,
     );
   });
 
   test("JOIN of a CONCAT result gets the string error", async () => {
     await interp.run("[ 'fix login' ] .first ! [ 'add search' ] .second !");
     await expect(interp.run(".first @ .second @ CONCAT /N JOIN")).rejects.toThrow(
-      /got a string \(10 chars\)\. CONCAT makes one string/,
+      /^JOIN requires a list of strings; got a string \(10 chars\)\.$/,
     );
   });
 
