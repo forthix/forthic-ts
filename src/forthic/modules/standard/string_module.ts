@@ -33,6 +33,7 @@ function describeJoinValue(value: any): string {
   if (typeof value === "string") return `a string (${value.length} chars)`;
   if (Array.isArray(value)) return "a list";
   if (isPlainRecord(value)) return "a record";
+  if (typeof value === "object") return "an object";
   return `a ${typeof value}`;
 }
 
