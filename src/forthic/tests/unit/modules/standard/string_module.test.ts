@@ -66,6 +66,60 @@ describe("StringModule", () => {
     expect(interp.stack_pop()).toBe("a,b,c");
   });
 
+  test("JOIN of NULL is an empty string", async () => {
+    await interp.run("NULL ',' JOIN");
+    expect(interp.stack_pop()).toBe("");
+  });
+
+  test("JOIN stringifies number, boolean and NULL items", async () => {
+    await interp.run("[ 1 TRUE NULL 'x' ] ',' JOIN");
+    expect(interp.stack_pop()).toBe("1,true,,x");
+  });
+
+  test("JOIN of a string names the type, its length, and how to combine lists", async () => {
+    await expect(interp.run("'fix login' /N JOIN")).rejects.toThrow(
+      "JOIN requires a list of strings; got a string (9 chars). CONCAT makes one string from one list, " +
+        "so its result cannot go to JOIN. To make one text from strings and lists, write " +
+        "[ .a @ .b @ ] FLATTEN sep JOIN.",
+    );
+  });
+
+  test("JOIN of a CONCAT result gets the string error", async () => {
+    await interp.run("[ 'fix login' ] .first ! [ 'add search' ] .second !");
+    await expect(interp.run(".first @ .second @ CONCAT /N JOIN")).rejects.toThrow(
+      /got a string \(10 chars\)\. CONCAT makes one string/,
+    );
+  });
+
+  test("JOIN of a record suggests getting a list first", async () => {
+    await expect(interp.run("{ .title 'fix login' } ',' JOIN")).rejects.toThrow(
+      "JOIN requires a list of strings; got a record. Get a list first, for example with VALUES or JQ@.",
+    );
+  });
+
+  test("JOIN of a number names the type", async () => {
+    await expect(interp.run("42 ',' JOIN")).rejects.toThrow("JOIN requires a list of strings; got a number.");
+  });
+
+  test("JOIN of a list with a list item suggests FLATTEN", async () => {
+    await expect(interp.run("[ 'fix login' [ 'add search' ] ] /N JOIN")).rejects.toThrow(
+      "JOIN requires a list of strings; item 1 is a list. To make one text from strings and lists, write " +
+        "[ .a @ .b @ ] FLATTEN sep JOIN.",
+    );
+  });
+
+  test("JOIN of a list with a record item suggests mapping each item to a string", async () => {
+    await expect(interp.run("[ 'fix login' { .title 'add search' } ] /N JOIN")).rejects.toThrow(
+      "JOIN requires a list of strings; item 1 is a record. Make each item a string first, " +
+        "for example \"'''.title''' JQ@\" MAP or \">STR\" MAP.",
+    );
+  });
+
+  test("JOIN of a list with a date item keeps the ISO form", async () => {
+    await interp.run("[ 2026-11-13 'release' ] ' ' JOIN");
+    expect(interp.stack_pop()).toBe("2026-11-13 release");
+  });
+
   test("/N", async () => {
     await interp.run("/N");
     expect(interp.stack_pop()).toBe("\n");
