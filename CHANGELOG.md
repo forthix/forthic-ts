@@ -4,23 +4,35 @@ All notable changes to `@forthix/forthic` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is pre-1.0: while `0.x`, **breaking changes ship in minor releases**. Releases before 0.16.0 are recorded in the git history rather than here.
 
-## [Unreleased]
+## [0.24.0] - 2026-11-13
+
+**Breaking: `JOIN` throws for a list item that is a list or a record.**
+
+### Changed
+
+- **Breaking: `JOIN` throws for a list item that is a list or a record.**
+  `[ [ 'a' 'b' ] 'c' ] ' ' JOIN` gave `"a,b c"`: the inner list was
+  comma-joined whatever the separator was. A record item became
+  `[object Object]`, or `Cannot convert object to primitive value` for a
+  record with a null prototype. Both now throw, with the item's index:
+  `JOIN requires a list of strings; got: a list whose item 1 is a list`. To
+  make one text from strings and lists, write `[ .a @ .b @ ] FLATTEN sep JOIN`.
+  Only a plain record counts as a record: a Duration, a `Date` or a host
+  object joins as text, as before.
 
 ### Fixed
 
-- **`JOIN` says what it expects when a value is not a list of strings.**
-  A string gave the JavaScript error `TypeError: strings.join is not a
-  function`, which names no word and no type. An agent that had built the
-  string with `.a @ .b @ CONCAT` (to append two lists) tried `JOIN` five
-  times with it. Now: `JOIN requires a list of strings; got a string (6823
-  chars).` A record and a number get the same start, with a hint for a
-  record. A list item that is a list or a record also throws, with its index
-  and a hint: before, a list item was comma-joined into the text whatever the
-  separator was, and a record item became `[object Object]` or `Cannot
-  convert object to primitive value`. `NULL`, `''`, `0` and `FALSE` still
+- **`JOIN` says what it expects when its value is not a list.** A string
+  gave the JavaScript error `TypeError: strings.join is not a function`,
+  which names no word and no type. An agent that had built the string with
+  `.a @ .b @ CONCAT` (to append two lists) tried `JOIN` five times with it.
+  Now: `JOIN requires a list of strings; got: a string (6823 chars)`. A
+  record, a number or an object gets the same start (`got: a record`,
+  `got: a number`, `got: an object`). `NULL`, `''`, `0` and `FALSE` still
   give `""`, and number, boolean, `NULL` and date items keep their behavior.
-  The `UNLINES` description no longer says that it is the same as `/N JOIN`.
-  forthic-rs needs the same change.
+- The `UNLINES` description no longer says that it is the same as `/N JOIN`.
+
+forthic-rs needs the same `JOIN` change.
 
 ## [0.23.0] - 2026-11-03
 
