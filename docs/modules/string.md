@@ -240,7 +240,7 @@ Strip suffix from end of str if present (otherwise return str unchanged).
 
 **Stack Effect:** `( lines:string[] -- str:string )`
 
-Join an array of lines with newlines. Equivalent to /N JOIN.
+Join an array of lines with newlines.
 
 ---
 

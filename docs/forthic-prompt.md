@@ -352,6 +352,6 @@ ALWAYS generate code in this structure:
 - `SUBSTR` `( str:string start:number end:number -- substring:string )` — Substring of str from start (inclusive) to end (exclusive), by character index. Indices clamp like String.slice (negatives count from the end).
 - `TRIM-PREFIX` `( str:string prefix:string -- result:string )` — Strip prefix from start of str if present (otherwise return str unchanged).
 - `TRIM-SUFFIX` `( str:string suffix:string -- result:string )` — Strip suffix from end of str if present (otherwise return str unchanged).
-- `UNLINES` `( lines:string[] -- str:string )` — Join an array of lines with newlines. Equivalent to /N JOIN.
+- `UNLINES` `( lines:string[] -- str:string )` — Join an array of lines with newlines.
 - `UPPERCASE` `( string:string -- result:string )` — Convert string to uppercase
 

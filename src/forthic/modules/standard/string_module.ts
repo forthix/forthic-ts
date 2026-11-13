@@ -24,17 +24,8 @@ function isRecord(item: any): boolean {
 
 const COMBINE_HINT = "To make one text from strings and lists, write [ .a @ .b @ ] FLATTEN sep JOIN.";
 
-/**
- * The agent that hit this most often had built a string with `a b CONCAT`,
- * meaning to append two lists, so the string case names CONCAT as the cause.
- */
 function describeJoinInput(value: any): string {
-  if (typeof value === "string") {
-    return (
-      `a string (${value.length} chars). CONCAT makes one string from one list, ` +
-      `so its result cannot go to JOIN. ${COMBINE_HINT}`
-    );
-  }
+  if (typeof value === "string") return `a string (${value.length} chars).`;
   if (isRecord(value)) return "a record. Get a list first, for example with VALUES or JQ@.";
   return `a ${typeof value}.`;
 }
@@ -121,7 +112,7 @@ must come from a trusted source, not untrusted input.
     "Join strings with separator (null gives ''). To make one text from strings and lists, write [ .a @ .b @ ] FLATTEN sep JOIN.",
   )
   async JOIN(strings: any, sep: string) {
-    if (strings === null || strings === undefined) return "";
+    if (!strings) return "";
     if (!Array.isArray(strings)) {
       throw new Error(`JOIN requires a list of strings; got ${describeJoinInput(strings)}`);
     }
@@ -314,7 +305,7 @@ must come from a trusted source, not untrusted input.
 
   @ForthicWord(
     "( lines:string[] -- str:string )",
-    "Join an array of lines with newlines. Equivalent to /N JOIN.",
+    "Join an array of lines with newlines.",
     "UNLINES",
   )
   async UNLINES(lines: any) {
