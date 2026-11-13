@@ -83,39 +83,43 @@ describe("StringModule", () => {
 
   test("JOIN of a string says what JOIN expects and what it got", async () => {
     await expect(interp.run("'fix login' /N JOIN")).rejects.toThrow(
-      /^JOIN requires a list of strings; got a string \(9 chars\)\.$/,
+      /^JOIN requires a list of strings; got: a string \(9 chars\)$/,
     );
   });
 
   test("JOIN of a CONCAT result gets the string error", async () => {
     await interp.run("[ 'fix login' ] .first ! [ 'add search' ] .second !");
     await expect(interp.run(".first @ .second @ CONCAT /N JOIN")).rejects.toThrow(
-      /^JOIN requires a list of strings; got a string \(10 chars\)\.$/,
+      /^JOIN requires a list of strings; got: a string \(10 chars\)$/,
     );
   });
 
-  test("JOIN of a record suggests getting a list first", async () => {
+  test("JOIN of a record says it got a record", async () => {
     await expect(interp.run("{ .title 'fix login' } ',' JOIN")).rejects.toThrow(
-      "JOIN requires a list of strings; got a record. Get a list first, for example with VALUES or JQ@.",
+      /^JOIN requires a list of strings; got: a record$/,
     );
   });
 
-  test("JOIN of a number names the type", async () => {
-    await expect(interp.run("42 ',' JOIN")).rejects.toThrow("JOIN requires a list of strings; got a number.");
+  test("JOIN of a number says it got a number", async () => {
+    await expect(interp.run("42 ',' JOIN")).rejects.toThrow(/^JOIN requires a list of strings; got: a number$/);
   });
 
-  test("JOIN of a list with a list item suggests FLATTEN", async () => {
+  test("JOIN of a list with a list item names the item", async () => {
     await expect(interp.run("[ 'fix login' [ 'add search' ] ] /N JOIN")).rejects.toThrow(
-      "JOIN requires a list of strings; item 1 is a list. To make one text from strings and lists, write " +
-        "[ .a @ .b @ ] FLATTEN sep JOIN.",
+      /^JOIN requires a list of strings; got: a list whose item 1 is a list$/,
     );
   });
 
-  test("JOIN of a list with a record item suggests mapping each item to a string", async () => {
+  test("JOIN of a list with a record item names the item", async () => {
     await expect(interp.run("[ 'fix login' { .title 'add search' } ] /N JOIN")).rejects.toThrow(
-      "JOIN requires a list of strings; item 1 is a record. Make each item a string first, " +
-        "for example \"'''.title''' JQ@\" MAP or \">STR\" MAP.",
+      /^JOIN requires a list of strings; got: a list whose item 1 is a record$/,
     );
+  });
+
+  test("JOIN converts Duration and Date items to text, as before", async () => {
+    interp.stack_push([Temporal.Duration.from({ days: 3 }), new Date(Date.UTC(2026, 10, 13)), "left"]);
+    await interp.run("' ' JOIN");
+    expect(interp.stack_pop()).toBe(`P3D ${new Date(Date.UTC(2026, 10, 13)).toString()} left`);
   });
 
   test("JOIN of a list with a date item keeps the ISO form", async () => {
