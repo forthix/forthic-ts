@@ -87,6 +87,8 @@ delimiter, use a wider raw form, such as `r'''don't'''`.
   - `[ [1 2] [3 4] ] FLATTEN` → `[1 2 3 4]`
   - (`CONCAT` would stringify them: `'''1,23,4'''`)
 - `JOIN` joins strings with a separator: `[ '''a''' '''b''' ] /N JOIN` → string with newline between
+  - To make one text from strings and lists of strings, put them in one list, then `FLATTEN` and `JOIN`: `[ .intro @ .lines @ ] FLATTEN /N JOIN`
+  - `JOIN` needs a list: it throws for a string, a record, or a list with a list or record item
 - `/N` pushes a newline character; `/T` pushes a tab
 - ALWAYS use the array form for `CONCAT` — never use binary `CONCAT` with two bare values
 - `IF` selects between values: `bool then-val else-val IF`
@@ -333,7 +335,7 @@ ALWAYS generate code in this structure:
 - `ENDS-WITH?` `( str:string suffix:string -- bool:boolean )` — Returns true if str ends with suffix.
 - `GREP` `( strings:string[] pattern:string -- matches:string[] )` — Keep only strings matching the regex pattern (bash grep).
 - `GREP-V` `( strings:string[] pattern:string -- non_matches:string[] )` — Keep only strings NOT matching the regex pattern (bash grep -v).
-- `JOIN` `( strings:string[] sep:string -- result:string )` — Join strings with separator
+- `JOIN` `( strings:string[] sep:string -- result:string )` — Join strings with separator (null gives ''). To make one text from strings and lists, write [ .a @ .b @ ] FLATTEN sep JOIN.
 - `LINES` `( str:string -- lines:string[] )` — Split string on newline. Equivalent to /N SPLIT.
 - `LOWERCASE` `( string:string -- result:string )` — Convert string to lowercase
 - `RE-MATCH` `( string:string pattern:string -- match:any )` — Match string against regex pattern

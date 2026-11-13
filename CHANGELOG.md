@@ -4,6 +4,25 @@ All notable changes to `@forthix/forthic` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is pre-1.0: while `0.x`, **breaking changes ship in minor releases**. Releases before 0.16.0 are recorded in the git history rather than here.
 
+## [Unreleased]
+
+### Fixed
+
+- **`JOIN` gives a guiding error for a value that is not a list of strings.**
+  A string gave the JavaScript error `TypeError: strings.join is not a
+  function`, which names no word and no next step. An agent that had built
+  the string with `.a @ .b @ CONCAT` (to append two lists) tried `JOIN` five
+  times with it. The error now names the type and the next step:
+  `JOIN requires a list of strings; got a string (6823 chars). CONCAT makes
+  one string from one list, so its result cannot go to JOIN. To make one text
+  from strings and lists, write [ .a @ .b @ ] FLATTEN sep JOIN.` A record and
+  a number get the same start, with a hint for a record. A list item that is
+  a list or a record also throws, with its index: before, a list item was
+  comma-joined into the text and a record item became `[object Object]` or
+  `Cannot convert object to primitive value`. `NULL` still gives `""`, and
+  number, boolean, `NULL` and date items keep their behavior.
+  forthic-rs needs the same change.
+
 ## [0.23.0] - 2026-11-03
 
 **Breaking: `JQ@` throws when a path reads a field from a list.**

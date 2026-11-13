@@ -104,7 +104,7 @@ Keep only strings NOT matching the regex pattern (bash grep -v).
 
 **Stack Effect:** `( strings:string[] sep:string -- result:string )`
 
-Join strings with separator
+Join strings with separator (null gives ''). To make one text from strings and lists, write [ .a @ .b @ ] FLATTEN sep JOIN.
 
 ---
 
