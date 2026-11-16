@@ -397,7 +397,7 @@ describe("CONCAT (array-only)", () => {
   });
 
   test("rejects two strings on stack", async () => {
-    await expect(interp.run("'hello' 'world' CONCAT")).rejects.toThrow(/array of strings/);
+    await expect(interp.run("'hello' 'world' CONCAT")).rejects.toThrow(/^CONCAT requires a list of strings; got: a string/);
   });
 });
 

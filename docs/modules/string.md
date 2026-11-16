@@ -64,7 +64,7 @@ Keep only ASCII characters (< 256)
 
 **Stack Effect:** `( strings:string[] -- result:string )`
 
-Concatenate an array of strings into one string. For two strings: write [s1 s2] CONCAT. For arrays of arrays, use FLATTEN.
+Concatenate an array of strings into one string. Throws for a list or record item. For two strings: write [s1 s2] CONCAT. For arrays of arrays, use FLATTEN.
 
 ---
 

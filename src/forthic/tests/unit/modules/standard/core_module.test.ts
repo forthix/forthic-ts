@@ -1,4 +1,4 @@
-import { StandardInterpreter } from "../../../../interpreter";
+import { StandardInterpreter, import_state } from "../../../../interpreter";
 import {
   InvalidVariableNameError,
   UnknownVariableError,
@@ -126,6 +126,179 @@ test("Auto-create variables validation", async () => {
   expect(async () => {
     await interp.run('"value" "__invalid3" !@');
   }).rejects.toThrow();
+});
+
+// ========================================
+// A reversed ! or !@: the value and the name swapped
+// ========================================
+
+async function expectMessage(code: string, message: string) {
+  let caught: any = null;
+  try {
+    await interp.run(code);
+  } catch (e) {
+    caught = e;
+  }
+  expect(caught).toBeInstanceOf(InvalidVariableNameError);
+  expect(caught.message).toBe(message);
+}
+
+test("! refuses a name with spaces and gives the line in the right order", async () => {
+  await expectMessage(
+    ".anchor_old '''Routed to someone.''' !",
+    "! needs a variable name on top; got a string with spaces (18 chars). " +
+      "! takes the value first, then the name: '''…''' .anchor_old !",
+  );
+  expect(interp_any.app_module.variables["Routed to someone."]).toBeUndefined();
+});
+
+test("! refuses a multi-line name", async () => {
+  const html = "<p>\n  Routed to someone.\n</p>";
+  await expectMessage(
+    `.anchor_old '''${html}''' !`,
+    `! needs a variable name on top; got a multi-line string (${html.length} chars). ` +
+      "! takes the value first, then the name: '''…''' .anchor_old !",
+  );
+  expect(interp_any.app_module.variables[html]).toBeUndefined();
+});
+
+test("!@ refuses a name with spaces and names itself in the fix", async () => {
+  await expectMessage(
+    ".x '''a b''' !@",
+    "!@ needs a variable name on top; got a string with spaces (3 chars). " +
+      "!@ takes the value first, then the name: '''…''' .x !@",
+  );
+});
+
+test("! refuses an empty name", async () => {
+  await expectMessage(
+    ".result '' !",
+    "! needs a variable name on top; got an empty string. ! takes the value first, then the name: '''…''' .result !",
+  );
+  expect(interp_any.app_module.variables[""]).toBeUndefined();
+});
+
+test("! refuses a name over 64 chars, and takes one of 64", async () => {
+  const long = "a".repeat(65);
+  await expectMessage(
+    `.link '${long}' !`,
+    "! needs a variable name on top; got a string of 65 chars. ! takes the value first, then the name: '''…''' .link !",
+  );
+  const max = "b".repeat(64);
+  await interp.run(`5 '${max}' !`);
+  expect(interp_any.app_module.variables[max].get_value()).toBe(5);
+});
+
+test("! refuses a number, NULL or boolean as the name and shows it as the value", async () => {
+  await expectMessage(
+    ".count 5 !",
+    "! needs a variable name on top; got a number. ! takes the value first, then the name: 5 .count !",
+  );
+  await expectMessage(
+    ".x NULL !",
+    "! needs a variable name on top; got NULL. ! takes the value first, then the name: NULL .x !",
+  );
+  await expectMessage(
+    ".flag TRUE !@",
+    "!@ needs a variable name on top; got a boolean. !@ takes the value first, then the name: TRUE .flag !@",
+  );
+});
+
+test("! refuses a list or a record as the name", async () => {
+  await expectMessage(
+    ".r [ 1 2 ] !",
+    "! needs a variable name on top; got a list. ! takes the value first, then the name: [ … ] .r !",
+  );
+  await expectMessage(
+    ".r { .a 1 } !",
+    "! needs a variable name on top; got a record. ! takes the value first, then the name: { … } .r !",
+  );
+});
+
+/** The corrected line a refusal suggests, run in a fresh interpreter. */
+async function runFixLine(code: string) {
+  const caught = await interp.run(code).catch((e) => e);
+  const fix = caught.message.split("then the name: ")[1];
+  const fresh = new StandardInterpreter([new CoreModule()], "America/Los_Angeles");
+  await fresh.run(fix);
+  return (fresh as any).app_module.variables;
+}
+
+test("the fix line for a very small or large number runs", async () => {
+  await expectMessage(
+    ".x 0.0000001 !",
+    "! needs a variable name on top; got a number. ! takes the value first, then the name: 1.0e-7 .x !",
+  );
+  expect((await runFixLine(".x 0.0000001 !"))["x"].get_value()).toBe(0.0000001);
+  expect((await runFixLine(".y 1.0e+21 !@"))["y"].get_value()).toBe(1e21);
+  expect((await runFixLine(".count 5 !"))["count"].get_value()).toBe(5);
+});
+
+test("the fix says .name when the meant name is reserved", async () => {
+  await expectMessage(
+    ".foo__bar 5 !",
+    "! needs a variable name on top; got a number. ! takes the value first, then the name: 5 .name !",
+  );
+  await expectMessage(
+    ".__x 5 !@",
+    "!@ needs a variable name on top; got a number. !@ takes the value first, then the name: 5 .name !@",
+  );
+});
+
+test("the fix says .name when the value is not a name", async () => {
+  await expectMessage(
+    "'''Hello there''' '''Routed to someone.''' !",
+    "! needs a variable name on top; got a string with spaces (18 chars). " +
+      "! takes the value first, then the name: '''…''' .name !",
+  );
+});
+
+test("! and !@ in the right order still store any value", async () => {
+  await interp.run("'''Routed to someone.''' .anchor_old !  5 .count !  NULL .none !  [ 1 2 ] .list !");
+  await interp.run("'''a b''' .x !@  'my-var' .dashed-name !");
+  expect(interp.stack_pop()).toBe("a b");
+  await interp.run(".anchor_old @ .count @ .none @ .list @ .x @ .dashed-name @");
+  expect(interp.get_stack().get_items()).toEqual(["Routed to someone.", 5, null, [1, 2], "a b", "my-var"]);
+});
+
+test("a __ name keeps its error", async () => {
+  await expectMessage("5 .__x !", "Invalid variable name: __x");
+});
+
+test("an existing variable is reassigned whatever its name", async () => {
+  // A snapshot taken before ! refused such names still restores and works.
+  await import_state(interp, {
+    stack: [],
+    variables: { "a b": { type: "string", value: "anchor_old" } },
+    word_definitions: [],
+  });
+  await interp.run("'a b' @");
+  expect(interp.stack_pop()).toBe("anchor_old");
+  await interp.run("2 'a b' !  3 'a b' !@");
+  expect(interp.stack_pop()).toBe(3);
+  expect(interp_any.app_module.variables["a b"].get_value()).toBe(3);
+
+  await interp.run("['c d'] VARIABLES  4 'c d' !");
+  expect(interp_any.app_module.variables["c d"].get_value()).toBe(4);
+});
+
+test("a definition reassigns an existing variable but can't create a bad name", async () => {
+  await interp.run("['a b'] VARIABLES");
+  await interp.run(": SET-AB   7 'a b' ! ;  SET-AB");
+  expect(interp_any.app_module.variables["a b"].get_value()).toBe(7);
+
+  await interp.run(": SET-CD   .anchor_old 'c d' ! ;");
+  let caught: any = null;
+  try {
+    await interp.run("SET-CD");
+  } catch (e) {
+    caught = e;
+  }
+  expect(caught).toBeInstanceOf(WordExecutionError);
+  expect(caught.getRootError()).toBeInstanceOf(InvalidVariableNameError);
+  expect(caught.getRootError().message).toMatch(
+    /^! needs a variable name on top; got a string with spaces \(3 chars\)\./,
+  );
 });
 
 // ========================================

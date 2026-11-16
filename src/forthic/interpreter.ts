@@ -109,6 +109,16 @@ class EndRecordWord extends Word {
     }
     items.reverse();
 
+    // A null key is rarely written on purpose (`{ NULL 1 }`). The likely cause
+    // is a word inside the braces that took the key's dot symbol as its input
+    // and left null in its place — in MAP, a word that meant to read the item
+    // below the `{`. Report that before the count check, which would otherwise
+    // blame whatever value now sits last.
+    const badKeyAt = items.findIndex((item, i) => i % 2 === 0 && !(item instanceof DotSymbol));
+    if (badKeyAt >= 0 && (items[badKeyAt] === null || items[badKeyAt] === undefined)) {
+      throw new RecordKeyError(interp.get_top_input_string(), null);
+    }
+
     // Every key takes a value. A record literal is strictly alternating
     // key/value, so an odd number of items means a key was left dangling.
     //
