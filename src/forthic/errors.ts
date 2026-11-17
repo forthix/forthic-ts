@@ -241,7 +241,11 @@ export class RecordKeyError extends ForthicError {
     cause?: Error,
   ) {
     const rendered = typeof key === "string" ? `"${key}"` : String(key);
-    const note = `Record keys must be dot symbols; got ${rendered}. Write { .key value }, not { ${rendered} value }`;
+    const note =
+      key === null || key === undefined
+        ? "Record key is null: a word inside the { } took the key as its input and left null in its place. " +
+          `Inside MAP the item sits below the {, so store it first: """.it ! { .key .it @ '''.key''' JQ@ }""" MAP`
+        : `Record keys must be dot symbols; got ${rendered}. Write { .key value }, not { ${rendered} value }`;
     super(forthic, note, location, cause);
     this.name = "RecordKeyError";
     this.key = key;
@@ -255,13 +259,15 @@ export class RecordKeyError extends ForthicError {
 export class InvalidVariableNameError extends ForthicError {
   private varname: string;
 
+  /** `detail` replaces the default note, for a name refused for a reason it explains. */
   constructor(
     forthic: string,
     varname: string,
     location?: CodeLocationData,
     cause?: Error,
+    detail?: string,
   ) {
-    const note = `Invalid variable name: ${varname}`;
+    const note = detail ?? `Invalid variable name: ${varname}`;
     super(forthic, note, location, cause);
     this.varname = varname;
     this.name = "InvalidVariableNameError";

@@ -471,8 +471,10 @@ delimiter, use a wider raw form, such as \`r'''don't'''\`.
   - \`[ '''a''' '''b''' '''c''' ] CONCAT\` → \`'''abc'''\`
 - \`FLATTEN\` — NOT \`CONCAT\` — merges arrays of arrays:
   - \`[ [1 2] [3 4] ] FLATTEN\` → \`[1 2 3 4]\`
-  - (\`CONCAT\` would stringify them: \`'''1,23,4'''\`)
+  - (\`CONCAT\` throws for a list or record item)
 - \`JOIN\` joins strings with a separator: \`[ '''a''' '''b''' ] /N JOIN\` → string with newline between
+  - To make one text from strings and lists of strings, put them in one list, then \`FLATTEN\` and \`JOIN\`: \`[ .intro @ .lines @ ] FLATTEN /N JOIN\`
+  - \`JOIN\` needs a list: it throws for a string, a record, or a list with a list or record item
 - \`/N\` pushes a newline character; \`/T\` pushes a tab
 - ALWAYS use the array form for \`CONCAT\` — never use binary \`CONCAT\` with two bare values
 - \`IF\` selects between values: \`bool then-val else-val IF\`
@@ -492,7 +494,8 @@ Define named words to decompose tasks into steps:
 
 Variables store and recall values within word definitions:
 
-- \`.name !\` (store)
+- \`.name !\` (store — the value comes first, then the name: \`'''text''' .note !\`;
+  a new name can't be empty, have spaces, or be over 64 characters)
 - \`.name @\` (recall — ALWAYS store before recalling; \`@\` on a name that was
   never stored or declared is an error, not a null)
 - \`.name !@\` (store and recall — keeps value on stack)

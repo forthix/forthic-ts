@@ -1,5 +1,6 @@
 import { DecoratedModule, ForthicWord, registerModuleDoc } from "../../decorators/word.js";
 import { isTemporal } from "../../../common/temporal_utils.js";
+import { isPlainRecord } from "../../../common/type_utils.js";
 
 /**
  * >STR stringification. null -> ""; records render as insertion-ordered
@@ -18,21 +19,42 @@ function stringifyValue(item: any): string {
   return item.toString();
 }
 
+const MAX_KEYS_SHOWN = 10;
+const MAX_KEY_LENGTH = 32;
+const MAX_KEYS_WIDTH = 160;
+const PLAIN_KEY = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+
 /**
- * Only `{ ... }` and `REC` records: their prototype is Object.prototype or
- * null. A Duration, a Date or a host object is not a record, and JOIN keeps
- * converting it to text with toString().
+ * A record by its keys, for an error. Keys come from tool replies, so only
+ * short plain keys are printed, within a fixed width, and the rest are
+ * counted: a huge or marked-up key must not push the fix out of the message
+ * or put markup in it.
  */
-function isPlainRecord(item: any): boolean {
-  if (typeof item !== "object" || item === null) return false;
-  const proto = Object.getPrototypeOf(item);
-  return proto === Object.prototype || proto === null;
+function describeRecord(record: object): string {
+  const keys = Object.keys(record);
+  if (keys.length === 0) return "an empty record";
+  const shown: string[] = [];
+  let width = 0;
+  for (const key of keys) {
+    if (shown.length === MAX_KEYS_SHOWN) break;
+    if (key.length > MAX_KEY_LENGTH || !PLAIN_KEY.test(key)) continue;
+    const added = (shown.length > 0 ? 2 : 0) + key.length;
+    if (width + added > MAX_KEYS_WIDTH) break;
+    shown.push(key);
+    width += added;
+  }
+  const noun = keys.length === 1 ? "key" : "keys";
+  if (shown.length === 0) return `a record with ${keys.length} ${noun}`;
+  const rest = keys.length - shown.length;
+  return `a record with ${noun} ${shown.join(", ")}${rest > 0 ? ` and ${rest} more` : ""}`;
 }
 
-function describeJoinValue(value: any): string {
+/** What a word was given instead of what it needs, in a bounded phrase. */
+function describeValue(value: any): string {
+  if (value === null || value === undefined) return "NULL";
   if (typeof value === "string") return `a string (${value.length} chars)`;
-  if (Array.isArray(value)) return "a list";
-  if (isPlainRecord(value)) return "a record";
+  if (Array.isArray(value)) return `a list of ${value.length} ${value.length === 1 ? "item" : "items"}`;
+  if (isPlainRecord(value)) return describeRecord(value);
   if (typeof value === "object") return "an object";
   return `a ${typeof value}`;
 }
@@ -71,12 +93,18 @@ must come from a trusted source, not untrusted input.
 
   @ForthicWord(
     "( strings:string[] -- result:string )",
-    "Concatenate an array of strings into one string. For two strings: write [s1 s2] CONCAT. For arrays of arrays, use FLATTEN.",
+    "Concatenate an array of strings into one string. Throws for a list or record item. For two strings: write [s1 s2] CONCAT. For arrays of arrays, use FLATTEN.",
     "CONCAT",
   )
-  async CONCAT(strings: any[]) {
+  async CONCAT(strings: any) {
     if (!Array.isArray(strings)) {
-      throw new Error("CONCAT requires an array of strings. Wrap two strings as [s1 s2] CONCAT.");
+      const hint = typeof strings === "string" ? ". Wrap two strings as [s1 s2] CONCAT." : "";
+      throw new Error(`CONCAT requires a list of strings; got: ${describeValue(strings)}${hint}`);
+    }
+    const badIndex = strings.findIndex((s) => Array.isArray(s) || isPlainRecord(s));
+    if (badIndex >= 0) {
+      const item = describeValue(strings[badIndex]);
+      throw new Error(`CONCAT requires a list of strings; got: a list whose item ${badIndex} is ${item}`);
     }
     return strings.map((s) => (s === null || s === undefined ? "" : String(s))).join("");
   }
@@ -89,7 +117,7 @@ must come from a trusted source, not untrusted input.
   async STR_LENGTH(str: any) {
     if (str === null || str === undefined) return 0;
     if (typeof str !== "string") {
-      throw new Error("STR-LENGTH requires a string. For arrays/records, use LENGTH.");
+      throw new Error(`STR-LENGTH requires a string (use LENGTH for lists and records); got: ${describeValue(str)}`);
     }
     return str.length;
   }
@@ -116,11 +144,11 @@ must come from a trusted source, not untrusted input.
   async JOIN(strings: any, sep: string) {
     if (!strings) return "";
     if (!Array.isArray(strings)) {
-      throw new Error(`JOIN requires a list of strings; got: ${describeJoinValue(strings)}`);
+      throw new Error(`JOIN requires a list of strings; got: ${describeValue(strings)}`);
     }
     const badIndex = strings.findIndex((s) => Array.isArray(s) || isPlainRecord(s));
     if (badIndex >= 0) {
-      const item = describeJoinValue(strings[badIndex]);
+      const item = describeValue(strings[badIndex]);
       throw new Error(`JOIN requires a list of strings; got: a list whose item ${badIndex} is ${item}`);
     }
     return strings.join(sep);

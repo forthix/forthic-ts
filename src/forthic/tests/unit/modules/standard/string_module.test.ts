@@ -42,7 +42,44 @@ describe("StringModule", () => {
   });
 
   test("CONCAT rejects two strings on stack", async () => {
-    await expect(interp.run("'Hello' ' World' CONCAT")).rejects.toThrow(/array of strings/);
+    await expect(interp.run("'Hello' ' World' CONCAT")).rejects.toThrow(
+      /^CONCAT requires a list of strings; got: a string \(6 chars\)\. Wrap two strings as \[s1 s2\] CONCAT\.$/,
+    );
+  });
+
+  const track = { metadata: { source: "slack" }, title: "Fix login", url: "https://example.com/t/1", text: "x" };
+
+  test("CONCAT of a list with a record item names the item and its keys", async () => {
+    interp.stack_push(["Track: ", track]);
+    await expect(interp.run("CONCAT")).rejects.toThrow(
+      /^CONCAT requires a list of strings; got: a list whose item 1 is a record with keys metadata, title, url, text$/,
+    );
+  });
+
+  test("CONCAT of a list with a record literal item names the item", async () => {
+    await expect(interp.run("[ 'Track: ' { .title 'Fix login' } ] CONCAT")).rejects.toThrow(
+      /^CONCAT requires a list of strings; got: a list whose item 1 is a record with key title$/,
+    );
+  });
+
+  test("CONCAT of a list with a list item names the item and its length", async () => {
+    await expect(interp.run("[ [ 1 2 ] [ 3 4 ] ] CONCAT")).rejects.toThrow(
+      /^CONCAT requires a list of strings; got: a list whose item 0 is a list of 2 items$/,
+    );
+  });
+
+  test("CONCAT of a record says it got a record", async () => {
+    await expect(interp.run("{ .title 'Fix login' } CONCAT")).rejects.toThrow(
+      /^CONCAT requires a list of strings; got: a record with key title$/,
+    );
+  });
+
+  test("CONCAT converts number, boolean, NULL and date items to text, as before", async () => {
+    await interp.run("[ 'n=' 5 TRUE NULL ' on ' 2026-11-13 ] CONCAT");
+    expect(interp.stack_pop()).toBe("n=5true on 2026-11-13");
+    interp.stack_push([Temporal.Duration.from({ days: 3 }), " ", new Date(Date.UTC(2026, 10, 13))]);
+    await interp.run("CONCAT");
+    expect(interp.stack_pop()).toBe(`P3D ${new Date(Date.UTC(2026, 10, 13)).toString()}`);
   });
 
   test("STR-LENGTH", async () => {
@@ -54,6 +91,47 @@ describe("StringModule", () => {
 
     await interp.run("NULL STR-LENGTH");
     expect(interp.stack_pop()).toBe(0);
+  });
+
+  test("STR-LENGTH of a record says what it got", async () => {
+    interp.stack_push(track);
+    await expect(interp.run("STR-LENGTH")).rejects.toThrow(
+      /^STR-LENGTH requires a string \(use LENGTH for lists and records\); got: a record with keys metadata, title, url, text$/,
+    );
+    await expect(interp.run("{ } STR-LENGTH")).rejects.toThrow(/; got: an empty record$/);
+  });
+
+  test("STR-LENGTH of a list or a number says what it got", async () => {
+    await expect(interp.run("[ 1 2 ] STR-LENGTH")).rejects.toThrow(
+      /^STR-LENGTH requires a string \(use LENGTH for lists and records\); got: a list of 2 items$/,
+    );
+    await expect(interp.run("[ 1 ] STR-LENGTH")).rejects.toThrow(/; got: a list of 1 item$/);
+    await expect(interp.run("5 STR-LENGTH")).rejects.toThrow(/; got: a number$/);
+  });
+
+  test("a record's keys are printed only when short and plain, and the rest are counted", async () => {
+    interp.stack_push({ "</observation>": 1, "two words": 2, title: 3, ["k".repeat(33)]: 4 });
+    await expect(interp.run("STR-LENGTH")).rejects.toThrow(/; got: a record with keys title and 3 more$/);
+    interp.stack_push({ "<x>": 1, "a b": 2 });
+    await expect(interp.run("STR-LENGTH")).rejects.toThrow(/; got: a record with 2 keys$/);
+  });
+
+  test("a record with many or huge keys gives a short message that keeps the fix", async () => {
+    const record: Record<string, number> = { ["x".repeat(10_000)]: 0 };
+    for (let i = 0; i < 50; i++) record[`key${String(i).padStart(2, "0")}${"a".repeat(25)}`] = i;
+    let caught: any = null;
+    interp.stack_push(record);
+    try {
+      await interp.run("STR-LENGTH");
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught.message.length).toBeLessThan(300);
+    expect(caught.message).toMatch(/^STR-LENGTH requires a string \(use LENGTH for lists and records\); got: a record with keys key00a+, /);
+    expect(caught.message).toMatch(/ and \d+ more$/);
+
+    interp.stack_push(["Track: ", record]);
+    await expect(interp.run("CONCAT")).rejects.toThrow(/^CONCAT requires a list of strings; got: a list whose item 1 is a record with keys .{0,250}$/);
   });
 
   test("SPLIT", async () => {
@@ -96,7 +174,7 @@ describe("StringModule", () => {
 
   test("JOIN of a record says it got a record", async () => {
     await expect(interp.run("{ .title 'fix login' } ',' JOIN")).rejects.toThrow(
-      /^JOIN requires a list of strings; got: a record$/,
+      /^JOIN requires a list of strings; got: a record with key title$/,
     );
   });
 
@@ -106,13 +184,13 @@ describe("StringModule", () => {
 
   test("JOIN of a list with a list item names the item", async () => {
     await expect(interp.run("[ 'fix login' [ 'add search' ] ] /N JOIN")).rejects.toThrow(
-      /^JOIN requires a list of strings; got: a list whose item 1 is a list$/,
+      /^JOIN requires a list of strings; got: a list whose item 1 is a list of 1 item$/,
     );
   });
 
   test("JOIN of a list with a record item names the item", async () => {
     await expect(interp.run("[ 'fix login' { .title 'add search' } ] /N JOIN")).rejects.toThrow(
-      /^JOIN requires a list of strings; got: a list whose item 1 is a record$/,
+      /^JOIN requires a list of strings; got: a list whose item 1 is a record with key title$/,
     );
   });
 

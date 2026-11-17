@@ -107,6 +107,16 @@ export function getForthicType(value: any, path: string = ''): ForthicType {
 }
 
 /**
+ * Only `{ ... }` and `REC` records: their prototype is Object.prototype or
+ * null. A Duration, a Date or a host object is not a record.
+ */
+export function isPlainRecord(value: any): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
  * Format a record key as a path segment.
  * Valid JS identifiers become `.key`; everything else becomes `["key"]` (JSON-escaped)
  * so the path is unambiguous and copy-pasteable.

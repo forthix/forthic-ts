@@ -5,6 +5,65 @@ import { DecoratedModule, ForthicWord, ForthicDirectWord, registerModuleDoc } fr
 import { WordOptions } from "../../word_options.js";
 import { Closure, new_local_frame } from "../../closure.js";
 import { to_literal, code_to_quotation, quotation_to_code, gensym, interpolate_code } from "../../code.js";
+import { isPlainRecord } from "../../../common/type_utils.js";
+
+/**
+ * The longest name `!` and `!@` create. A longer one is almost always text
+ * that went in the name slot because the value and the name were swapped.
+ */
+const MAX_VARIABLE_NAME_LENGTH = 64;
+
+/** A name that `.name` can write. */
+const DOT_NAME = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+
+/**
+ * Why `name` can't be a new variable, or null when it can. A bad name is
+ * usually the value, written after the name it was meant for, so it is
+ * described by kind and length, never echoed.
+ */
+function describe_bad_name(name: any): string | null {
+  if (typeof name === "string") {
+    if (name === "") return "an empty string";
+    if (/[\r\n]/.test(name)) return `a multi-line string (${name.length} chars)`;
+    if (/\s/.test(name)) return `a string with spaces (${name.length} chars)`;
+    if (name.length > MAX_VARIABLE_NAME_LENGTH) return `a string of ${name.length} chars`;
+    return null;
+  }
+  if (name === null || name === undefined) return "NULL";
+  if (typeof name === "number") return "a number";
+  if (typeof name === "boolean") return "a boolean";
+  if (Array.isArray(name)) return "a list";
+  if (isPlainRecord(name)) return "a record";
+  return "an object";
+}
+
+/** How the fix line shows the value that was in the name slot. */
+function value_shape(value: any): string {
+  if (value === null || value === undefined) return "NULL";
+  if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
+  if (typeof value === "number" && Number.isFinite(value)) return to_literal(value);
+  if (Array.isArray(value)) return "[ … ]";
+  if (isPlainRecord(value)) return "{ … }";
+  return "'''…'''";
+}
+
+/**
+ * The note for a name `word` can't use. The value below it is the name the
+ * author meant when it is a name `!` accepts, so the fix line uses it.
+ */
+function swapped_order_note(word: string, value: any, target: any, got: string): string {
+  const meant =
+    typeof value === "string" &&
+    DOT_NAME.test(value) &&
+    value.length <= MAX_VARIABLE_NAME_LENGTH &&
+    !value.match(/__.*/)
+      ? value
+      : "name";
+  return (
+    `${word} needs a variable name on top; got ${got}. ` +
+    `${word} takes the value first, then the name: ${value_shape(target)} .${meant} ${word}`
+  );
+}
 
 export class CoreModule extends DecoratedModule {
   static {
@@ -61,23 +120,43 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: { .optio
     super("core");
   }
 
-  private static get_or_create_variable(interp: Interpreter, name: string): Variable {
-    // Validate variable name - no __ prefix allowed
-    if (name.match(/__.*/)) {
-      throw new InvalidVariableNameError(interp.get_top_input_string(), name, interp.get_string_location());
+  /**
+   * The variable `!` or `!@` writes. An existing variable is written whatever
+   * its name, so a snapshot restored from before names were checked still
+   * works. A new one needs a name that can be a variable.
+   */
+  private static variable_to_set(interp: Interpreter, word: string, value: any, target: any): Variable {
+    if (typeof target?.set_value === "function") return target;
+
+    if (typeof target === "string") {
+      // Validate variable name - no __ prefix allowed
+      if (target.match(/__.*/)) {
+        throw new InvalidVariableNameError(interp.get_top_input_string(), target, interp.get_string_location());
+      }
+      // An existing module variable (e.g. declared via VARIABLES) always wins —
+      // words can still write intentional module/shared state by name.
+      const existing = interp.find_module_variable(target) ?? interp.cur_local_frame()?.[target];
+      if (existing) return existing;
     }
 
-    // An existing module variable (e.g. declared via VARIABLES) always wins —
-    // words can still write intentional module/shared state by name.
-    const moduleVar = interp.find_module_variable(name);
-    if (moduleVar) return moduleVar;
+    const got = describe_bad_name(target);
+    if (got !== null) {
+      throw new InvalidVariableNameError(
+        interp.get_top_input_string(),
+        typeof target === "string" ? target : "",
+        interp.get_string_location(),
+        undefined,
+        swapped_order_note(word, value, target, got),
+      );
+    }
 
+    const name: string = target;
     // Inside a user-defined word with no matching module variable: the name is
-    // a word-local. Create/reuse it in the current local frame so it can't
+    // a word-local. Create it in the current local frame so it can't
     // clobber the variables of the words this one calls (or its caller).
     const frame = interp.cur_local_frame();
     if (frame) {
-      if (!frame[name]) frame[name] = new Variable(name);
+      frame[name] = new Variable(name);
       return frame[name];
     }
 
@@ -141,15 +220,12 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: { .optio
     });
   }
 
-  @ForthicWord("( value:any variable:any -- )", "Sets variable value (auto-creates if string name)")
+  @ForthicWord(
+    "( value:any variable:any -- )",
+    "Sets variable value: the value first, then the name (value .name !). Auto-creates a string name; a new name can't be empty, have spaces or be over 64 chars.",
+  )
   async ["!"](value: any, variable: any) {
-    let var_obj: Variable;
-    if (typeof variable === "string") {
-      var_obj = CoreModule.get_or_create_variable(this.interp, variable);
-    } else {
-      var_obj = variable;
-    }
-    var_obj.set_value(value);
+    CoreModule.variable_to_set(this.interp, "!", value, variable).set_value(value);
   }
 
   @ForthicWord(
@@ -166,14 +242,12 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: { .optio
     return var_obj.get_value();
   }
 
-  @ForthicWord("( value:any variable:any -- value:any )", "Sets variable and returns value")
+  @ForthicWord(
+    "( value:any variable:any -- value:any )",
+    "Sets variable and returns value: the value first, then the name (value .name !@).",
+  )
   async ["!@"](value: any, variable: any) {
-    let var_obj: Variable;
-    if (typeof variable === "string") {
-      var_obj = CoreModule.get_or_create_variable(this.interp, variable);
-    } else {
-      var_obj = variable;
-    }
+    const var_obj = CoreModule.variable_to_set(this.interp, "!@", value, variable);
     var_obj.set_value(value);
     return var_obj.get_value();
   }

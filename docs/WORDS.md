@@ -1,6 +1,6 @@
 # Forthic — Standard Words
 
-Generated: 2026-09-27T18:27:31.484Z
+Generated: 2026-11-16T18:42:26.329Z
 
 **8 modules · 175 surface words**
 
@@ -129,9 +129,9 @@ Essential interpreter operations for stack manipulation, variables, control flow
 ### Variables
 
 - **VARIABLES** `( varnames:string[] -- )` — Creates variables in current module
-- **!** `( value:any variable:any -- )` — Sets variable value (auto-creates if string name)
+- **!** `( value:any variable:any -- )` — Sets variable value: the value first, then the name (value .name !). Auto-creates a string name; a new name can't be empty, have spaces or be over 64 chars.
 - **@** `( variable:any -- value:any )` — Gets variable value (throws UnknownVariableError if string name is undeclared)
-- **!@** `( value:any variable:any -- value:any )` — Sets variable and returns value
+- **!@** `( value:any variable:any -- value:any )` — Sets variable and returns value: the value first, then the name (value .name !@).
 
 ### Module
 
@@ -363,7 +363,7 @@ String manipulation and processing operations with regex and URL encoding suppor
 
 - **SPLIT** `( string:string sep:string -- items:any[] )` — Split string by separator
 - **JOIN** `( strings:string[] sep:string -- result:string )` — Join strings with separator (null gives ''). To make one text from strings and lists, write [ .a @ .b @ ] FLATTEN sep JOIN.
-- **CONCAT** `( strings:string[] -- result:string )` — Concatenate an array of strings into one string. For two strings: write [s1 s2] CONCAT. For arrays of arrays, use FLATTEN.
+- **CONCAT** `( strings:string[] -- result:string )` — Concatenate an array of strings into one string. Throws for a list or record item. For two strings: write [s1 s2] CONCAT. For arrays of arrays, use FLATTEN.
 - **LINES** `( str:string -- lines:string[] )` — Split string on newline. Equivalent to /N SPLIT.
 - **UNLINES** `( lines:string[] -- str:string )` — Join an array of lines with newlines.
 

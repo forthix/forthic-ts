@@ -46,7 +46,7 @@ INTERPOLATE and PRINT support options via the ~> operator using syntax: { .optio
 
 **Stack Effect:** `( value:any variable:any -- )`
 
-Sets variable value (auto-creates if string name)
+Sets variable value: the value first, then the name (value .name !). Auto-creates a string name; a new name can't be empty, have spaces or be over 64 chars.
 
 ---
 
@@ -54,7 +54,7 @@ Sets variable value (auto-creates if string name)
 
 **Stack Effect:** `( value:any variable:any -- value:any )`
 
-Sets variable and returns value
+Sets variable and returns value: the value first, then the name (value .name !@).
 
 ---
 

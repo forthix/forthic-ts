@@ -4,6 +4,57 @@ All notable changes to `@forthix/forthic` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is pre-1.0: while `0.x`, **breaking changes ship in minor releases**. Releases before 0.16.0 are recorded in the git history rather than here.
 
+## [0.25.0] - 2026-11-16
+
+**Breaking: `CONCAT` throws for a list or record item, and `!` and `!@`
+refuse a new name that can't be a variable.**
+
+### Changed
+
+- **Breaking: `CONCAT` throws for a list or record item.**
+  `[ .track @ ] CONCAT` with a record returned `"[object Object]"` and no
+  error (a `{ }` literal record threw
+  `Cannot convert object to primitive value`), and
+  `[ [ 1 2 ] [ 3 4 ] ] CONCAT` returned `"1,23,4"`. Both now throw, with the
+  item's index, as `JOIN` does:
+  `CONCAT requires a list of strings; got: a list whose item 0 is a record with keys metadata, title, url, text`.
+  Number, boolean, `NULL` and date items still become text, and only a
+  plain record counts as a record.
+- **Breaking: `!` and `!@` refuse a new name that can't be a variable.**
+  `!` takes the value first, then the name. Written the other way round,
+  `.anchor_old '''Routed to someone.''' !` created a variable named by the
+  text, and nothing failed until a later `.anchor_old @`. A new name that is
+  empty, has whitespace or a newline, or is over 64 chars now throws
+  `InvalidVariableNameError`, and so does any name that is not a string:
+  `! needs a variable name on top; got a string with spaces (18 chars). ! takes the value first, then the name: '''…''' .anchor_old !`.
+  The bad name is described, not echoed. An existing variable is still
+  written whatever its name, so a state saved before this release restores
+  and works.
+
+### Fixed
+
+- **A reversed `!` with a number, `NULL`, list or record** threw the
+  JavaScript error `var_obj.set_value is not a function`. It now gets the
+  message above, with the value shown as itself: `5 .count !`.
+- **`STR-LENGTH` says what it got:**
+  `STR-LENGTH requires a string (use LENGTH for lists and records); got: a record with keys metadata, title, url, text`.
+  `CONCAT` given something that is not a list says what it got, and keeps
+  the "Wrap two strings" hint for a string.
+- **`JOIN`, `CONCAT` and `STR-LENGTH` describe a value the same way.** A
+  list gives its length (`a list of 2 items`). A record gives at most ten
+  keys within 160 chars, printing only short plain keys and counting the
+  rest, so a key from a tool reply can't make the message long or put markup
+  in it. `JOIN`'s messages gain these details.
+- **`}` reports a key that a word inside the braces took.** Inside `MAP` the
+  item sits below the `{`, so in `"""{ .ts '''.ts''' JQ@ }""" MAP` `JQ@`
+  took the key as its record. `}` said
+  `Record keys must be dot symbols; got null. Write { .key value }`, which is
+  what the author wrote, or blamed the last value when the count was odd.
+  Now:
+  `Record key is null: a word inside the { } took the key as its input and left null in its place. Inside MAP the item sits below the {, so store it first: """.it ! { .key .it @ '''.key''' JQ@ }""" MAP`.
+
+forthic-rs needs the same changes.
+
 ## [0.24.0] - 2026-11-13
 
 **Breaking: `JOIN` throws for a list item that is a list or a record.**

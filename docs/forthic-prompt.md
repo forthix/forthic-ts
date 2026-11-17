@@ -85,7 +85,7 @@ delimiter, use a wider raw form, such as `r'''don't'''`.
   - `[ '''a''' '''b''' '''c''' ] CONCAT` → `'''abc'''`
 - `FLATTEN` — NOT `CONCAT` — merges arrays of arrays:
   - `[ [1 2] [3 4] ] FLATTEN` → `[1 2 3 4]`
-  - (`CONCAT` would stringify them: `'''1,23,4'''`)
+  - (`CONCAT` throws for a list or record item)
 - `JOIN` joins strings with a separator: `[ '''a''' '''b''' ] /N JOIN` → string with newline between
   - To make one text from strings and lists of strings, put them in one list, then `FLATTEN` and `JOIN`: `[ .intro @ .lines @ ] FLATTEN /N JOIN`
   - `JOIN` needs a list: it throws for a string, a record, or a list with a list or record item
@@ -108,7 +108,8 @@ Define named words to decompose tasks into steps:
 
 Variables store and recall values within word definitions:
 
-- `.name !` (store)
+- `.name !` (store — the value comes first, then the name: `'''text''' .note !`;
+  a new name can't be empty, have spaces, or be over 64 characters)
 - `.name @` (recall — ALWAYS store before recalling; `@` on a name that was
   never stored or declared is an error, not a null)
 - `.name !@` (store and recall — keeps value on stack)
@@ -221,8 +222,8 @@ ALWAYS generate code in this structure:
 - `OR` `( a:boolean b:boolean -- result:boolean )` — Logical OR of two values. For arrays use ANY?.
 
 ### core
-- `!` `( value:any variable:any -- )` — Sets variable value (auto-creates if string name)
-- `!@` `( value:any variable:any -- value:any )` — Sets variable and returns value
+- `!` `( value:any variable:any -- )` — Sets variable value: the value first, then the name (value .name !). Auto-creates a string name; a new name can't be empty, have spaces or be over 64 chars.
+- `!@` `( value:any variable:any -- value:any )` — Sets variable and returns value: the value first, then the name (value .name !@).
 - `@` `( variable:any -- value:any )` — Gets variable value (throws UnknownVariableError if string name is undeclared)
 - `>CODE` `( quotation:any[] -- code:string )` — Write a quotation as Forthic code. Takes the items CODE> makes; any other item is a value, written with >LITERAL, so a quotation works as a template. A string item must be one word — write a string value as { .str value }. code CODE> >CODE CODE> equals code CODE>.
 - `>LITERAL` `( value:any -- code:string )` — Write a value as Forthic code that pushes it: value >LITERAL RUN gives the value back. Use it to put a value into generated code — never CONCAT or INTERPOLATE a value into code, because a quote in the value would change the code. Records with keys that are not valid dot symbols are written with REC. Closures, instants, and options have no literal.
@@ -330,7 +331,7 @@ ALWAYS generate code in this structure:
 - `/T` `( -- char:string )` — Tab character
 - `>STR` `( item:any -- string:string )` — Convert item to string. Records render as JSON; arrays comma-join their stringified elements.
 - `ASCII` `( string:string -- result:string )` — Keep only ASCII characters (< 256)
-- `CONCAT` `( strings:string[] -- result:string )` — Concatenate an array of strings into one string. For two strings: write [s1 s2] CONCAT. For arrays of arrays, use FLATTEN.
+- `CONCAT` `( strings:string[] -- result:string )` — Concatenate an array of strings into one string. Throws for a list or record item. For two strings: write [s1 s2] CONCAT. For arrays of arrays, use FLATTEN.
 - `CUT` `( strings:string[] sep:string field:number -- field_values:any[] )` — Split each string on sep and pick the field-th column (bash cut). Out-of-range yields null.
 - `ENDS-WITH?` `( str:string suffix:string -- bool:boolean )` — Returns true if str ends with suffix.
 - `GREP` `( strings:string[] pattern:string -- matches:string[] )` — Keep only strings matching the regex pattern (bash grep).

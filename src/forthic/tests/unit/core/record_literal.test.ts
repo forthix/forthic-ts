@@ -1,5 +1,6 @@
 import { StandardInterpreter } from "../../../interpreter";
 import { PositionedString } from "../../../tokenizer";
+import { RecordKeyError } from "../../../errors";
 
 /**
  * Record literals: `{ .key value }`.
@@ -148,4 +149,40 @@ test("a closing bracket with no open array is a clear error", async () => {
 test("well-formed nesting of both kinds still builds", async () => {
   const interp = await run(`{ .a [ 1 { .b 2 } ] }`);
   expect(interp.stack_pop()).toEqual({ a: [1, { b: 2 }] });
+});
+
+// Inside MAP the item sits below the `{`, so a word that reads the item
+// (JQ@, REC@) takes the key's dot symbol instead and leaves null where the
+// key was. The author wrote `{ .key value }`; the old error told them to.
+const CONSUMED_KEY =
+  "Record key is null: a word inside the { } took the key as its input and left null in its place. " +
+  `Inside MAP the item sits below the {, so store it first: """.it ! { .key .it @ '''.key''' JQ@ }""" MAP`;
+
+test("a key JQ@ took inside MAP is reported as consumed", async () => {
+  await expect(
+    run(`[ { .ts '1' .text 'a' } ] """{ .ts '''.ts''' JQ@ .text '''.text''' JQ@ }""" MAP`),
+  ).rejects.toThrow(CONSUMED_KEY);
+});
+
+test("a consumed key is reported even when it leaves an odd count", async () => {
+  await expect(run(`[ { .lineNumber 3 } ] """{ .line '''.lineNumber''' JQ@ }""" MAP`)).rejects.toThrow(
+    CONSUMED_KEY,
+  );
+  await expect(run(`[ { .ts '1' } ] """{ .ts '''.ts''' JQ@ .n 1 }""" MAP`)).rejects.toThrow(CONSUMED_KEY);
+});
+
+test("a consumed key after a good pair is a RecordKeyError", async () => {
+  const caught = await run(`{ .a 1 .line '''.x''' JQ@ }`).catch((e) => e);
+  expect(caught).toBeInstanceOf(RecordKeyError);
+  expect(caught.message).toBe(CONSUMED_KEY);
+});
+
+test("the form the message shows works in MAP", async () => {
+  const interp = await run(`[ { .key 'v' } ] """.it ! { .key .it @ '''.key''' JQ@ }""" MAP`);
+  expect(interp.stack_pop()).toEqual([{ key: "v" }]);
+});
+
+test("a NULL value is still a value", async () => {
+  const interp = await run(`{ .a NULL .b 1 }`);
+  expect(interp.stack_pop()).toEqual({ a: null, b: 1 });
 });
